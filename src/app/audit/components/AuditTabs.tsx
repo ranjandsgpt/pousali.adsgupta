@@ -5,6 +5,7 @@ import { BarChart3, Search, AlertTriangle, Package } from 'lucide-react';
 import SearchTermTable from '../tables/SearchTermTable';
 import BleederTable from '../tables/BleederTable';
 import AsinProfitabilityTable from '../tables/AsinProfitabilityTable';
+import AuditCharts from '../charts/AuditCharts';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -70,15 +71,7 @@ export default function AuditTabs() {
                 </p>
               </div>
             )}
-            {active === 'charts' && (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center">
-                <BarChart3 className="mx-auto mb-3 text-[var(--color-text-muted)]" size={40} />
-                <p className="text-[var(--color-text)] font-medium">Charts</p>
-                <p className="text-sm text-[var(--color-text-muted)] mt-1">
-                  Recharts placeholders: TACOS over time, spend by campaign, etc.
-                </p>
-              </div>
-            )}
+            {active === 'charts' && <AuditCharts />}
             {active === 'search-terms' && <SearchTermTable />}
             {active === 'bleeders' && <BleederTable />}
             {active === 'asin' && <AsinProfitabilityTable />}

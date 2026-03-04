@@ -1,42 +1,48 @@
 'use client';
 
-const PLACEHOLDER_AGENTS = [
+import { useEffect, useState } from 'react';
+import { Check } from 'lucide-react';
+
+/** Section 20: Agent Swarm Simulation – each agent shows [✓] Completed when done. */
+const AGENTS = [
+  'FileUploadAgent',
   'HeaderDiscoveryAgent',
   'CurrencyMappingAgent',
+  'SKUtoASINAgent',
+  'DuplicateDetectionAgent',
+  'NumericSanitizerAgent',
+  'AggregationAgent',
   'MathVerificationAgent',
-  'TACOSCalculatorAgent',
-  'BleedersDetectionAgent',
-  'ASINProfitabilityAgent',
-  'SearchTermsMapperAgent',
-  'DateRangeValidatorAgent',
-  'SpendAggregatorAgent',
-  'SalesAttributionAgent',
-  'ROASCalculatorAgent',
-  'CampaignStructureAgent',
-  'KeywordHarvestingAgent',
-  'PlacementAnalyzerAgent',
-  'ConversionTrackerAgent',
-  'NegativeKeywordAgent',
-  'BudgetPacingAgent',
-  'TargetingAuditAgent',
-  'ReportMergerAgent',
-  'SchemaValidatorAgent',
-  'NullHandlerAgent',
-  'DuplicateResolverAgent',
-  'CurrencyNormalizerAgent',
-  'TimeZoneAgent',
-  'MetricDerivationAgent',
-  'OneSheetBuilderAgent',
-  'ExportPrepAgent',
-  'ChartDataAgent',
-  'TableDataAgent',
-];
+  'ChartBuilderAgent',
+  'ExportAgent',
+] as const;
 
 interface AgentSwarmProps {
   isRunning: boolean;
 }
 
+const STAGGER_MS = 180;
+
 export default function AgentSwarm({ isRunning }: AgentSwarmProps) {
+  const [completedCount, setCompletedCount] = useState(0);
+
+  useEffect(() => {
+    if (!isRunning) {
+      setCompletedCount(AGENTS.length);
+      return;
+    }
+    setCompletedCount(0);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    AGENTS.forEach((_, i) => {
+      timers.push(
+        setTimeout(() => setCompletedCount((c) => Math.min(c + 1, AGENTS.length)), (i + 1) * STAGGER_MS)
+      );
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [isRunning]);
+
+  const allComplete = completedCount >= AGENTS.length;
+
   return (
     <section
       aria-labelledby="agent-swarm-heading"
@@ -53,26 +59,31 @@ export default function AgentSwarm({ isRunning }: AgentSwarmProps) {
         >
           Agent Swarm Running
         </h2>
-        {!isRunning && (
-          <span className="text-sm text-[var(--color-text-muted)]">Complete</span>
+        {allComplete && (
+          <span className="text-sm text-[var(--color-text-muted)]">All agents complete</span>
         )}
       </div>
-      <div className="p-4 max-h-[280px] overflow-y-auto">
-        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2" role="list">
-          {PLACEHOLDER_AGENTS.map((name, i) => (
-            <li
-              key={name}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 text-sm font-mono text-[var(--color-text-muted)]"
-            >
-              <span
-                className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                  isRunning ? 'bg-cyan-500/80' : 'bg-emerald-500/80'
+      <div className="p-4 max-h-[320px] overflow-y-auto">
+        <ul className="space-y-2" role="list">
+          {AGENTS.map((name, i) => {
+            const completed = i < completedCount;
+            return (
+              <li
+                key={name}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-mono transition-colors ${
+                  completed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/5 text-[var(--color-text-muted)]'
                 }`}
-                aria-hidden
-              />
-              {name}
-            </li>
-          ))}
+              >
+                {completed ? (
+                  <Check size={16} className="shrink-0 text-emerald-500" aria-hidden />
+                ) : (
+                  <span className="w-4 h-4 shrink-0 rounded-full border-2 border-current opacity-50" aria-hidden />
+                )}
+                <span>[{completed ? '✓' : ' '}] {name}</span>
+                {completed && <span className="text-xs ml-auto">Completed</span>}
+              </li>
+            );
+          })}
         </ul>
       </div>
     </section>

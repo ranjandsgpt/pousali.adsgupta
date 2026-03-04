@@ -7,6 +7,7 @@ import AgentSwarm from './components/AgentSwarm';
 import KPIGrid from './components/KPIGrid';
 import AuditTabs from './components/AuditTabs';
 import ExportBar from './components/ExportBar';
+import PrivacyNote from './components/PrivacyNote';
 import { AuditStoreProvider, useAuditStore } from './context/AuditStoreContext';
 import { parseReportsStreaming } from './utils/reportParser';
 
@@ -45,6 +46,7 @@ function AuditPageContent() {
           onUploadComplete={handleUploadComplete}
           disabled={step === 'processing'}
         />
+        <PrivacyNote />
 
         {(step === 'processing' || step === 'dashboard') && (
           <AgentSwarm isRunning={step === 'processing'} />

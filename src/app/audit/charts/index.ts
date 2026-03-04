@@ -1,5 +1,5 @@
 /**
- * Chart components (Recharts). Plug in when data pipeline is ready.
- * e.g. TACOS over time, Spend by campaign, ROAS distribution.
+ * Section 5: Data visualisations (Recharts).
  */
 export { default as PlaceholderChart } from './PlaceholderChart';
+export { default as AuditCharts } from './AuditCharts';
