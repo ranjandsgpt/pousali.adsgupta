@@ -13,7 +13,7 @@ export interface GenerateInsightsBody {
 }
 
 const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 function buildPrompt(payload: GenerateInsightsBody): string {
   const parts: string[] = [
@@ -69,43 +69,44 @@ export async function POST(request: NextRequest) {
   }
 
   const prompt = buildPrompt(body);
-  const url = `${GEMINI_URL}?key=${encodeURIComponent(apiKey)}`;
 
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 2048,
+    const response = await fetch(
+      `${GEMINI_URL}?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      }),
-    });
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }],
+            },
+          ],
+        }),
+      }
+    );
 
-    if (!res.ok) {
-      const err = await res.text();
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Gemini API Error:', response.status, errorText);
+
       return NextResponse.json(
-        { error: 'Gemini API error', details: err },
-        { status: res.status >= 500 ? 502 : 400 }
+        { error: 'Gemini API request failed', details: errorText },
+        { status: 500 }
       );
     }
 
-    type GeminiResponse = {
+    const data = (await response.json()) as {
       candidates?: {
         content?: {
           parts?: { text?: string }[];
         };
       }[];
     };
-    const data = (await res.json()) as GeminiResponse;
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    const text =
+      data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No insights generated';
 
     return NextResponse.json({ insight: text });
   } catch (e) {
