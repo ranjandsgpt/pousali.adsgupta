@@ -59,7 +59,10 @@ export default function UploadPanel({
       setIsDragging(false);
       if (disabled) return;
       const dropped = Array.from(e.dataTransfer.files).filter(
-        (f) => f.name.endsWith('.csv') || f.type === 'text/csv'
+        (f) =>
+          f.name.endsWith('.csv') ||
+          f.type === 'text/csv' ||
+          /\.(xlsx|xls)$/i.test(f.name)
       );
       addFiles(dropped);
     },
@@ -69,7 +72,10 @@ export default function UploadPanel({
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const selected = Array.from(e.target.files ?? []).filter(
-        (f) => f.name.endsWith('.csv') || f.type === 'text/csv'
+        (f) =>
+          f.name.endsWith('.csv') ||
+          f.type === 'text/csv' ||
+          /\.(xlsx|xls)$/i.test(f.name)
       );
       addFiles(selected);
       e.target.value = '';
@@ -114,12 +120,12 @@ export default function UploadPanel({
       >
         <input
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
           multiple
           onChange={handleFileInput}
           disabled={disabled}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-          aria-label="Select CSV report files (max 10 files, 50MB total)"
+          aria-label="Select CSV or Excel report files (max 10 files, 50MB total)"
         />
         <Upload
           className="mx-auto mb-4 text-[var(--color-text-muted)]"
@@ -130,7 +136,7 @@ export default function UploadPanel({
           Drag and drop Amazon CSV exports here
         </p>
         <p className="text-sm text-[var(--color-text-muted)]">
-          Business Report, Sponsored Products (SP), Sponsored Brands (SB), Sponsored Display (SD). Max 10 files, 50MB total.
+          Business Report, SP, SB, SD. CSV, XLSX, or XLS. Max 10 files, 50MB total.
         </p>
       </div>
       {files.length > 0 && (

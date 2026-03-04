@@ -14,8 +14,8 @@ export default function Header() {
             <ArrowLeft size={18} />
             Back
           </Link>
-          <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-text)] text-center flex-1">
-            Amazon Advertising Performance Audit
+          <h1 className="text-lg font-semibold text-[var(--color-text-muted)] text-center flex-1">
+            Audit
           </h1>
           <div className="w-16" aria-hidden />
         </div>

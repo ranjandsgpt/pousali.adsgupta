@@ -1,39 +1,179 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
 
+/** Section 24: Full dashboard replication – 11 KPI cards with value, trend, color. */
 export default function KPIGrid() {
   const { state } = useAuditStore();
-  const { store, globalTACOS, blendedROAS } = state;
+  const { store } = state;
   const symbol = store.currency ? formatCurrency(0, store.currency).replace('0.00', '') : '$';
 
-  const cards = [
+  const derived = useMemo(() => {
+    const totalAdClicks = Object.values(store.keywordMetrics).reduce((s, m) => s + m.clicks, 0);
+    const totalSessions = Object.values(store.asinMetrics).reduce((s, m) => s + m.sessions, 0);
+    const totalOrders = store.totalOrders ?? 0;
+    const buyBoxValues = Object.values(store.asinMetrics)
+      .map((m) => m.buyBoxPercent)
+      .filter((v): v is number => typeof v === 'number' && v >= 0);
+    const buyBoxPct =
+      buyBoxValues.length > 0
+        ? buyBoxValues.reduce((a, b) => a + b, 0) / buyBoxValues.length
+        : null;
+    const storeAcos =
+      store.totalAdSales > 0
+        ? (store.totalAdSpend / store.totalAdSales) * 100
+        : null;
+    return {
+      totalAdClicks,
+      totalSessions,
+      totalOrders,
+      buyBoxPct,
+      storeAcos,
+      conversionRate:
+        totalSessions > 0 && totalOrders > 0 ? (totalOrders / totalSessions) * 100 : null,
+      aov: totalOrders > 0 ? store.totalStoreSales / totalOrders : null,
+    };
+  }, [store]);
+
+  const trendLabel = '—';
+  const trendUp = true;
+
+  const cards: Array<{
+    id: string;
+    label: string;
+    value: string;
+    trend: string;
+    status: 'green' | 'red' | 'orange' | 'blue';
+  }> = [
     {
       id: 'sales',
       label: 'Total Store Sales',
-      value: store.totalStoreSales > 0 ? formatCurrency(store.totalStoreSales, store.currency) : '—',
-      sub: `Auto-detected currency (${symbol})`,
+      value:
+        store.totalStoreSales > 0
+          ? formatCurrency(store.totalStoreSales, store.currency)
+          : '—',
+      trend: trendLabel,
+      status: store.totalStoreSales > 0 ? 'green' : 'blue',
     },
     {
       id: 'spend',
       label: 'Total Ad Spend',
-      value: store.totalAdSpend > 0 ? formatCurrency(store.totalAdSpend, store.currency) : '—',
-      sub: '',
+      value:
+        store.totalAdSpend > 0 ? formatCurrency(store.totalAdSpend, store.currency) : '—',
+      trend: trendLabel,
+      status: store.totalAdSpend > 0 ? 'red' : 'blue',
     },
     {
-      id: 'tacos',
-      label: 'Global Store TACOS',
-      value: globalTACOS > 0 ? formatPercent(globalTACOS) : '—',
-      sub: '',
+      id: 'clicks',
+      label: 'Total Ad Clicks',
+      value: derived.totalAdClicks > 0 ? derived.totalAdClicks.toLocaleString() : '—',
+      trend: trendLabel,
+      status: derived.totalAdClicks > 0 ? 'blue' : 'blue',
+    },
+    {
+      id: 'orders',
+      label: 'Total Orders',
+      value:
+        derived.totalOrders > 0 ? derived.totalOrders.toLocaleString() : '—',
+      trend: trendLabel,
+      status: derived.totalOrders > 0 ? 'green' : 'blue',
+    },
+    {
+      id: 'sessions',
+      label: 'Sessions',
+      value: derived.totalSessions > 0 ? derived.totalSessions.toLocaleString() : '—',
+      trend: trendLabel,
+      status: derived.totalSessions > 0 ? 'blue' : 'blue',
+    },
+    {
+      id: 'cvr',
+      label: 'Conversion Rate',
+      value:
+        derived.conversionRate != null
+          ? formatPercent(derived.conversionRate)
+          : '—',
+      trend: trendLabel,
+      status:
+        derived.conversionRate != null
+          ? derived.conversionRate >= 10
+            ? 'green'
+            : derived.conversionRate >= 4
+              ? 'orange'
+              : 'red'
+          : 'blue',
+    },
+    {
+      id: 'aov',
+      label: 'AOV',
+      value:
+        derived.aov != null ? formatCurrency(derived.aov, store.currency) : '—',
+      trend: trendLabel,
+      status: derived.aov != null && derived.aov > 0 ? 'green' : 'blue',
+    },
+    {
+      id: 'buybox',
+      label: 'Buy Box %',
+      value:
+        derived.buyBoxPct != null
+          ? Math.round(derived.buyBoxPct).toString() + '%'
+          : '—',
+      trend: trendLabel,
+      status:
+        derived.buyBoxPct != null
+          ? derived.buyBoxPct >= 90
+            ? 'green'
+            : derived.buyBoxPct >= 70
+              ? 'orange'
+              : 'red'
+          : 'blue',
+    },
+    {
+      id: 'acos',
+      label: 'ACOS',
+      value:
+        derived.storeAcos != null ? formatPercent(derived.storeAcos) : '—',
+      trend: trendLabel,
+      status:
+        derived.storeAcos != null
+          ? derived.storeAcos <= 15
+            ? 'green'
+            : derived.storeAcos <= 30
+              ? 'orange'
+              : 'red'
+          : 'blue',
     },
     {
       id: 'roas',
-      label: 'Blended ROAS',
-      value: blendedROAS > 0 ? blendedROAS.toFixed(2) + '×' : '—',
-      sub: '',
+      label: 'ROAS',
+      value: state.blendedROAS > 0 ? state.blendedROAS.toFixed(2) + '×' : '—',
+      trend: trendLabel,
+      status:
+        state.blendedROAS >= 5 ? 'green' : state.blendedROAS >= 3 ? 'orange' : state.blendedROAS > 0 ? 'red' : 'blue',
+    },
+    {
+      id: 'tacos',
+      label: 'TACOS',
+      value: state.globalTACOS > 0 ? formatPercent(state.globalTACOS) : '—',
+      trend: trendLabel,
+      status:
+        state.globalTACOS > 0
+          ? state.globalTACOS <= 10
+            ? 'green'
+            : state.globalTACOS <= 20
+              ? 'orange'
+              : 'red'
+          : 'blue',
     },
   ];
+
+  const statusClass = {
+    green: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    red: 'bg-red-500/20 text-red-400 border-red-500/30',
+    orange: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    blue: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
+  };
 
   return (
     <section
@@ -43,21 +183,20 @@ export default function KPIGrid() {
       <h2 id="kpi-heading" className="sr-only">
         Key performance indicators
       </h2>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
         {cards.map((card) => (
           <div
             key={card.id}
-            className="rounded-xl border border-white/10 bg-white/5 p-4"
+            className={`rounded-xl border p-4 ${statusClass[card.status]}`}
           >
-            <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)] mb-1">
+            <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">
               {card.label}
             </p>
-            <p className="text-2xl font-bold text-[var(--color-text)] tabular-nums">
-              {card.value}
+            <p className="text-xl font-bold tabular-nums">{card.value}</p>
+            <p className="text-xs mt-1 opacity-75">
+              {card.trend !== '—' ? (trendUp ? '↑ ' : '↓ ') : ''}
+              {card.trend}
             </p>
-            {card.sub && (
-              <p className="text-xs text-[var(--color-text-muted)] mt-1">{card.sub}</p>
-            )}
           </div>
         ))}
       </div>

@@ -36,6 +36,7 @@ export interface MemoryStore {
   totalStoreSales: number;
   totalAdSpend: number;
   totalAdSales: number;
+  totalOrders: number;
   currency: DetectedCurrency;
   files: { name: string; rows: number; type: ReportType }[];
   currencySample: unknown[];
@@ -52,6 +53,7 @@ function createEmptyStore(): MemoryStore {
     totalStoreSales: 0,
     totalAdSpend: 0,
     totalAdSales: 0,
+    totalOrders: 0,
     currency: null,
     files: [],
     currencySample: [],
@@ -113,6 +115,8 @@ function parseBusinessFile(
 
         const sales = getNumeric(row, headerMap!.orderedProductSales) || getNumeric(row, headerMap!.sales);
         store.totalStoreSales += sales;
+        const orders = getNumeric(row, headerMap!.orders) || getNumeric(row, headerMap!.units);
+        if (orders > 0) store.totalOrders += orders;
 
         if (headerMap!.sku && headerMap!.asin) {
           const sku = String(row[headerMap!.sku] ?? '').trim();
@@ -180,9 +184,11 @@ function parseAdvertisingFile(
         const spend = getNumeric(row, headerMap!.spend);
         const sales = getNumeric(row, headerMap!.sales);
         const clicks = getNumeric(row, headerMap!.clicks);
+        const orders = getNumeric(row, headerMap!.orders) || getNumeric(row, headerMap!.units);
 
         store.totalAdSpend += spend;
         store.totalAdSales += sales;
+        if (orders > 0) store.totalOrders += orders;
         if (store.currencySample.length < 100) {
           if (row[headerMap!.spend] != null) store.currencySample.push(row[headerMap!.spend]);
           if (row[headerMap!.sales] != null) store.currencySample.push(row[headerMap!.sales]);

@@ -1,14 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { BarChart3, Search, AlertTriangle, Package } from 'lucide-react';
+import { BarChart3, Search, AlertTriangle, Package, Lightbulb } from 'lucide-react';
 import SearchTermTable from '../tables/SearchTermTable';
 import BleederTable from '../tables/BleederTable';
 import AsinProfitabilityTable from '../tables/AsinProfitabilityTable';
 import AuditCharts from '../charts/AuditCharts';
+import InventoryVelocityForecast from './InventoryVelocityForecast';
+import HaloEffectCalculator from './HaloEffectCalculator';
+import ProfitabilityScore from './ProfitabilityScore';
+import MasterInsightsEngine from './MasterInsightsEngine';
+import CampaignStructureAudit from './CampaignStructureAudit';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
+  { id: 'master', label: 'Master Analysis', icon: Lightbulb },
   { id: 'charts', label: 'Charts', icon: BarChart3 },
   { id: 'search-terms', label: 'Search Terms', icon: Search },
   { id: 'bleeders', label: 'Bleeders', icon: AlertTriangle },
@@ -63,12 +69,21 @@ export default function AuditTabs() {
             className={active !== id ? 'hidden' : ''}
           >
             {active === 'overview' && (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center">
-                <BarChart3 className="mx-auto mb-3 text-[var(--color-text-muted)]" size={40} />
-                <p className="text-[var(--color-text)] font-medium">Overview</p>
-                <p className="text-sm text-[var(--color-text-muted)] mt-1">
-                  Summary metrics and charts. Plug in dashboard content here.
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <InventoryVelocityForecast />
+                  <HaloEffectCalculator />
+                  <ProfitabilityScore />
+                </div>
+                <p className="text-sm text-[var(--color-text-muted)]">
+                  Sections 31–33: Inventory velocity, halo effect, profitability score. Use Charts and Master Analysis tabs for more.
                 </p>
+              </div>
+            )}
+            {active === 'master' && (
+              <div className="space-y-6">
+                <MasterInsightsEngine />
+                <CampaignStructureAudit />
               </div>
             )}
             {active === 'charts' && <AuditCharts />}

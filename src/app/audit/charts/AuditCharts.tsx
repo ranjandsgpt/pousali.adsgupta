@@ -8,15 +8,21 @@ import ACOSHeatmap from './ACOSHeatmap';
 import BudgetPacingGauges from './BudgetPacingGauges';
 import SpendByCampaignBar from './SpendByCampaignBar';
 import ROASByCampaignBar from './ROASByCampaignBar';
+import ParetoSpendChart from './ParetoSpendChart';
+import SpendVsConversionScatter from './SpendVsConversionScatter';
+import WastedSpendBarChart from './WastedSpendBarChart';
 
-/** Section 5: Dedicated tab with 10+ high-fidelity charts. */
+/** Section 5 & 34: Chart suite – Pareto, scatter, wasted bar, match type pie, ad type pie, trend, etc. */
 export default function AuditCharts() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-[var(--color-text-muted)]">
-        Data visualisations: match type spend, ad product sales, trend, organic vs ad, ACOS heatmap, budget pacing.
+        Pareto spend, spend vs ROAS, wasted spend bar, match type, ad type sales, trend, organic vs ad, ACOS, budget pacing.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <ParetoSpendChart />
+        <SpendVsConversionScatter />
+        <WastedSpendBarChart />
         <MatchTypeSpendPie />
         <AdProductSalesPie />
         <DailyTrendLine />
