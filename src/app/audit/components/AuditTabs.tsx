@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BarChart3, Search, AlertTriangle, Package, Lightbulb } from 'lucide-react';
+import { BarChart3, Search, AlertTriangle, Package, Lightbulb, Sparkles } from 'lucide-react';
 import SearchTermTable from '../tables/SearchTermTable';
 import BleederTable from '../tables/BleederTable';
 import AsinProfitabilityTable from '../tables/AsinProfitabilityTable';
@@ -11,10 +11,12 @@ import HaloEffectCalculator from './HaloEffectCalculator';
 import ProfitabilityScore from './ProfitabilityScore';
 import MasterInsightsEngine from './MasterInsightsEngine';
 import CampaignStructureAudit from './CampaignStructureAudit';
+import AdvancedInsightsPanel from './AdvancedInsightsPanel';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
   { id: 'master', label: 'Master Analysis', icon: Lightbulb },
+  { id: 'advanced', label: 'Advanced Insights', icon: Sparkles },
   { id: 'charts', label: 'Charts', icon: BarChart3 },
   { id: 'search-terms', label: 'Search Terms', icon: Search },
   { id: 'bleeders', label: 'Bleeders', icon: AlertTriangle },
@@ -86,6 +88,7 @@ export default function AuditTabs() {
                 <CampaignStructureAudit />
               </div>
             )}
+            {active === 'advanced' && <AdvancedInsightsPanel />}
             {active === 'charts' && <AuditCharts />}
             {active === 'search-terms' && <SearchTermTable />}
             {active === 'bleeders' && <BleederTable />}
