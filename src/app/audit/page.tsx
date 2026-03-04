@@ -7,50 +7,65 @@ import AgentSwarm from './components/AgentSwarm';
 import KPIGrid from './components/KPIGrid';
 import AuditTabs from './components/AuditTabs';
 import ExportBar from './components/ExportBar';
+import { AuditStoreProvider, useAuditStore } from './context/AuditStoreContext';
+import { parseReportsStreaming } from './utils/reportParser';
 
 export type AuditStep = 'upload' | 'processing' | 'dashboard';
 
-export default function AuditPage() {
+function AuditPageContent() {
   const [step, setStep] = useState<AuditStep>('upload');
   const [isProcessing, setIsProcessing] = useState(false);
+  const { setStore } = useAuditStore();
 
-  const handleUploadComplete = () => {
+  const handleUploadComplete = (files: File[]) => {
+    if (files.length === 0) return;
     setIsProcessing(true);
     setStep('processing');
-    // Simulate agent swarm; later plug in real processing
-    const t = setTimeout(() => {
-      setStep('dashboard');
-      setIsProcessing(false);
-    }, 2000);
-    return () => clearTimeout(t);
+    parseReportsStreaming(files, (file, rows) => {
+      // Optional: could drive AgentSwarm progress per file/rows
+    })
+      .then((store) => {
+        setStore(store);
+        setStep('dashboard');
+      })
+      .catch(() => {
+        setStep('upload');
+        // Could set error state and show message
+      })
+      .finally(() => {
+        setIsProcessing(false);
+      });
   };
 
   return (
     <div className="min-h-screen bg-[var(--color-surface)] text-[var(--color-text)]">
       <Header />
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* 1. Upload Reports */}
         <UploadPanel
           onUploadComplete={handleUploadComplete}
           disabled={step === 'processing'}
         />
 
-        {/* 2. Agent Swarm Processing */}
         {(step === 'processing' || step === 'dashboard') && (
           <AgentSwarm isRunning={step === 'processing'} />
         )}
 
-        {/* 3. KPI Dashboard */}
         {step === 'dashboard' && (
           <>
             <KPIGrid />
-            {/* 4. Charts / 5. Tables via Tabs */}
             <AuditTabs />
-            {/* 6. Export Report */}
             <ExportBar />
           </>
         )}
       </div>
     </div>
+  );
+}
+
+export default function AuditPage() {
+  return (
+    <AuditStoreProvider>
+      <AuditPageContent />
+    </AuditStoreProvider>
   );
 }

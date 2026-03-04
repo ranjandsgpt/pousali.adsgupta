@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { Upload, FileSpreadsheet } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle } from 'lucide-react';
+import { validateFileLimits, getTotalBytes } from '../utils/fileLimits';
+import { MAX_FILES } from '../utils/constants';
 
 interface UploadPanelProps {
-  onUploadComplete?: () => void;
+  onUploadComplete?: (files: File[]) => void;
   disabled?: boolean;
 }
 
@@ -14,6 +16,29 @@ export default function UploadPanel({
 }: UploadPanelProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [limitError, setLimitError] = useState<string | null>(null);
+
+  const addFiles = useCallback(
+    (newFiles: File[]) => {
+      if (newFiles.length === 0) return;
+      setLimitError(null);
+      const currentBytes = getTotalBytes(files);
+      const currentCount = files.length;
+      const result = validateFileLimits(currentCount, currentBytes, newFiles);
+      if (!result.ok) {
+        setLimitError(result.message ?? 'Upload limit exceeded.');
+        return;
+      }
+      const combined = [...files, ...newFiles];
+      if (combined.length > MAX_FILES) {
+        setLimitError(`Maximum ${MAX_FILES} files allowed.`);
+        return;
+      }
+      setFiles(combined);
+      onUploadComplete?.(combined);
+    },
+    [files, onUploadComplete]
+  );
 
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
@@ -36,12 +61,9 @@ export default function UploadPanel({
       const dropped = Array.from(e.dataTransfer.files).filter(
         (f) => f.name.endsWith('.csv') || f.type === 'text/csv'
       );
-      if (dropped.length) {
-        setFiles((prev) => [...prev, ...dropped]);
-        onUploadComplete?.();
-      }
+      addFiles(dropped);
     },
-    [disabled, onUploadComplete]
+    [disabled, addFiles]
   );
 
   const handleFileInput = useCallback(
@@ -49,14 +71,19 @@ export default function UploadPanel({
       const selected = Array.from(e.target.files ?? []).filter(
         (f) => f.name.endsWith('.csv') || f.type === 'text/csv'
       );
-      if (selected.length) {
-        setFiles((prev) => [...prev, ...selected]);
-        onUploadComplete?.();
-      }
+      addFiles(selected);
       e.target.value = '';
     },
-    [onUploadComplete]
+    [addFiles]
   );
+
+  const removeFile = useCallback((index: number) => {
+    setFiles((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      setLimitError(null);
+      return next;
+    });
+  }, []);
 
   return (
     <section
@@ -66,6 +93,15 @@ export default function UploadPanel({
       <h2 id="upload-heading" className="text-lg font-semibold text-[var(--color-text)] mb-4">
         Upload Reports
       </h2>
+      {limitError && (
+        <div
+          role="alert"
+          className="mb-4 flex items-center gap-3 rounded-xl bg-amber-500/10 border border-amber-500/30 px-4 py-3 text-amber-700 dark:text-amber-400 text-sm"
+        >
+          <AlertCircle size={20} aria-hidden />
+          {limitError}
+        </div>
+      )}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -83,7 +119,7 @@ export default function UploadPanel({
           onChange={handleFileInput}
           disabled={disabled}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-          aria-label="Select CSV report files"
+          aria-label="Select CSV report files (max 10 files, 50MB total)"
         />
         <Upload
           className="mx-auto mb-4 text-[var(--color-text-muted)]"
@@ -94,18 +130,28 @@ export default function UploadPanel({
           Drag and drop Amazon CSV exports here
         </p>
         <p className="text-sm text-[var(--color-text-muted)]">
-          or click to browse. Supports Business Report, Advertising, and other Seller Central exports.
+          Business Report, Sponsored Products (SP), Sponsored Brands (SB), Sponsored Display (SD). Max 10 files, 50MB total.
         </p>
       </div>
       {files.length > 0 && (
         <ul className="mt-4 flex flex-wrap gap-2" role="list">
-          {files.map((f) => (
+          {files.map((f, i) => (
             <li
-              key={`${f.name}-${f.size}`}
+              key={`${f.name}-${f.size}-${i}`}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 text-sm text-[var(--color-text)]"
             >
-              <FileSpreadsheet size={16} className="text-cyan-500" aria-hidden />
-              {f.name}
+              <FileSpreadsheet size={16} className="text-cyan-500 shrink-0" aria-hidden />
+              <span className="truncate max-w-[200px]" title={f.name}>{f.name}</span>
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => removeFile(i)}
+                  className="text-[var(--color-text-muted)] hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
+                  aria-label={`Remove ${f.name}`}
+                >
+                  ×
+                </button>
+              )}
             </li>
           ))}
         </ul>
