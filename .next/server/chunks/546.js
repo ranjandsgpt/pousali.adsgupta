@@ -10,4 +10,4 @@ exports.id=546,exports.ids=[546],exports.modules={70993:(e,t,s)=>{Promise.resolv
                   }
                 } catch (e) {}
               })();
-            `}})]}),(0,a.jsxs)("body",{className:"min-h-screen bg-[var(--color-surface)] text-[var(--color-text)] font-sans antialiased",children:[a.jsx("a",{href:"#main-content",className:"sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-cyan-500 focus:text-black focus:rounded focus:outline-none",children:"Skip to main content"}),a.jsx(n,{}),a.jsx("main",{id:"main-content",children:e}),a.jsx(l,{})]})]})}},54315:()=>{}};
+            `}})]}),(0,a.jsxs)("body",{className:"min-h-screen bg-[var(--color-surface)] text-[var(--color-text)] font-sans antialiased",children:[a.jsx("a",{href:"#main-content",className:"sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-cyan-500 focus:text-black focus:rounded focus:outline-none",children:"Skip to main content"}),a.jsx(n,{}),a.jsx("main",{id:"main-content",className:"pt-20",children:e}),a.jsx(l,{})]})]})}},54315:()=>{}};
