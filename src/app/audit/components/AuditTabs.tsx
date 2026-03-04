@@ -1,29 +1,52 @@
 'use client';
 
 import { useState } from 'react';
-import { BarChart3, Search, AlertTriangle, Package, Lightbulb, Sparkles } from 'lucide-react';
-import SearchTermTable from '../tables/SearchTermTable';
-import BleederTable from '../tables/BleederTable';
-import AsinProfitabilityTable from '../tables/AsinProfitabilityTable';
-import AuditCharts from '../charts/AuditCharts';
-import InventoryVelocityForecast from './InventoryVelocityForecast';
-import HaloEffectCalculator from './HaloEffectCalculator';
-import ProfitabilityScore from './ProfitabilityScore';
-import MasterInsightsEngine from './MasterInsightsEngine';
-import CampaignStructureAudit from './CampaignStructureAudit';
-import AdvancedInsightsPanel from './AdvancedInsightsPanel';
+import type { LucideIcon } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Heart,
+  Target,
+  Search,
+  FileSearch,
+  Ban,
+  Wallet,
+  TrendingUp,
+  Package,
+  PieChart,
+  PackageCheck,
+  Radio,
+  GitBranch,
+  Trash2,
+  Sparkles,
+  LineChart,
+  Brain,
+  Bot,
+  BarChart3,
+} from 'lucide-react';
+import { TabContent } from '../tabs/TabContent';
+import type { TabId } from '../tabs/useTabData';
 
-const TABS = [
-  { id: 'overview', label: 'Overview', icon: BarChart3 },
-  { id: 'master', label: 'Master Analysis', icon: Lightbulb },
-  { id: 'advanced', label: 'Advanced Insights', icon: Sparkles },
-  { id: 'charts', label: 'Charts', icon: BarChart3 },
-  { id: 'search-terms', label: 'Search Terms', icon: Search },
-  { id: 'bleeders', label: 'Bleeders', icon: AlertTriangle },
-  { id: 'asin', label: 'ASIN Performance', icon: Package },
-] as const;
-
-type TabId = (typeof TABS)[number]['id'];
+const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'account-health', label: 'Account Health', icon: Heart },
+  { id: 'campaign-intelligence', label: 'Campaign Intelligence', icon: Target },
+  { id: 'keyword-intelligence', label: 'Keyword Intelligence', icon: Search },
+  { id: 'search-term-intelligence', label: 'Search Term Intelligence', icon: FileSearch },
+  { id: 'negative-keyword-engine', label: 'Negative Keyword Engine', icon: Ban },
+  { id: 'budget-optimization', label: 'Budget Optimization', icon: Wallet },
+  { id: 'bid-optimization', label: 'Bid Optimization', icon: TrendingUp },
+  { id: 'asin-performance', label: 'ASIN Performance', icon: Package },
+  { id: 'profitability-analysis', label: 'Profitability Analysis', icon: PieChart },
+  { id: 'inventory-intelligence', label: 'Inventory Intelligence', icon: PackageCheck },
+  { id: 'market-signals', label: 'Market Signals', icon: Radio },
+  { id: 'structural-audit', label: 'Structural Audit', icon: GitBranch },
+  { id: 'waste-detection', label: 'Waste Detection', icon: Trash2 },
+  { id: 'growth-opportunities', label: 'Growth Opportunities', icon: Sparkles },
+  { id: 'predictive-forecasting', label: 'Predictive Forecasting', icon: LineChart },
+  { id: 'learning-intelligence', label: 'Learning Intelligence', icon: Brain },
+  { id: 'ai-strategy-engine', label: 'AI Strategy Engine', icon: Bot },
+  { id: 'charts-lab', label: 'Charts Lab', icon: BarChart3 },
+];
 
 export default function AuditTabs() {
   const [active, setActive] = useState<TabId>('overview');
@@ -35,7 +58,7 @@ export default function AuditTabs() {
     >
       <div
         role="tablist"
-        className="flex border-b border-white/10 overflow-x-auto"
+        className="flex border-b border-white/10 overflow-x-auto flex-wrap gap-1 p-2"
       >
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
@@ -46,21 +69,21 @@ export default function AuditTabs() {
             id={`tab-${id}`}
             onClick={() => setActive(id)}
             className={`
-              flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap
-              border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-inset
+              flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap rounded-lg
+              border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500
               ${
                 active === id
-                  ? 'border-cyan-500 text-cyan-500'
-                  : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                  ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
+                  : 'border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
               }
             `}
           >
-            <Icon size={18} aria-hidden />
+            <Icon size={14} aria-hidden />
             {label}
           </button>
         ))}
       </div>
-      <div className="p-6 min-h-[320px]">
+      <div className="p-6 min-h-[400px] overflow-auto">
         {TABS.map(({ id }) => (
           <div
             key={id}
@@ -70,29 +93,7 @@ export default function AuditTabs() {
             hidden={active !== id}
             className={active !== id ? 'hidden' : ''}
           >
-            {active === 'overview' && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <InventoryVelocityForecast />
-                  <HaloEffectCalculator />
-                  <ProfitabilityScore />
-                </div>
-                <p className="text-sm text-[var(--color-text-muted)]">
-                  Sections 31–33: Inventory velocity, halo effect, profitability score. Use Charts and Master Analysis tabs for more.
-                </p>
-              </div>
-            )}
-            {active === 'master' && (
-              <div className="space-y-6">
-                <MasterInsightsEngine />
-                <CampaignStructureAudit />
-              </div>
-            )}
-            {active === 'advanced' && <AdvancedInsightsPanel />}
-            {active === 'charts' && <AuditCharts />}
-            {active === 'search-terms' && <SearchTermTable />}
-            {active === 'bleeders' && <BleederTable />}
-            {active === 'asin' && <AsinProfitabilityTable />}
+            {active === id && <TabContent tabId={id} />}
           </div>
         ))}
       </div>

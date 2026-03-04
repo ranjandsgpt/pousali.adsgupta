@@ -16,8 +16,6 @@ import { AuditStoreProvider, useAuditStore } from './context/AuditStoreContext';
 import { LearningProvider, useLearning } from './learning/LearningContext';
 import { parseReportsStreaming } from './utils/reportParser';
 import { normalizeToCsvFiles } from './utils/xlsxToCsv';
-import LearningIntelligencePanel from './components/LearningIntelligencePanel';
-import GeminiInsightsPanel from './components/GeminiInsightsPanel';
 
 export type AuditStep = 'upload' | 'processing' | 'dashboard';
 
@@ -82,8 +80,6 @@ function AuditPageContent() {
               <GrowthOpportunitiesEngine />
             </div>
             <AuditTabs />
-            <LearningIntelligencePanel />
-            <GeminiInsightsPanel />
             <ExportBar />
           </>
         )}
