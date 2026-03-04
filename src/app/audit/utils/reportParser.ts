@@ -7,7 +7,7 @@
 
 import Papa from 'papaparse';
 import { PARSER_CHUNK_SIZE, MAX_ROWS_PER_FILE } from './constants';
-import { mapHeaders, classifyReportType, type HeaderMap } from './headerMapper';
+import { mapHeaders, classifyReportType, classifyAdvertisingReportSubtype, type HeaderMap } from './headerMapper';
 import { sanitizeNumeric } from './sanitizeNumeric';
 import { detectCurrencyFromValues, type DetectedCurrency } from './currencyDetector';
 import { normalizeDate } from './dateNormalizer';
@@ -37,14 +37,25 @@ export interface MemoryStore {
   totalAdSpend: number;
   totalAdSales: number;
   totalOrders: number;
+  /** Section 3: from Business Report */
+  totalSessions: number;
+  totalPageViews: number;
+  buyBoxPercent: number;
+  totalUnitsOrdered: number;
   currency: DetectedCurrency;
   files: { name: string; rows: number; type: ReportType }[];
   currencySample: unknown[];
-  /** Section 16 */
   storeMetrics: StoreMetrics;
   keywordMetrics: Record<string, KeywordMetrics>;
   asinMetrics: Record<string, AsinMetrics>;
   campaignMetrics: Record<string, CampaignMetrics>;
+  /** Section 4: funnel totals from Campaign Report */
+  totalImpressions: number;
+  totalClicks: number;
+  /** Section 5: attribution from Campaign Report */
+  attributedSales7d: number;
+  attributedSales14d: number;
+  attributedUnitsOrdered: number;
 }
 
 function createEmptyStore(): MemoryStore {
@@ -54,6 +65,10 @@ function createEmptyStore(): MemoryStore {
     totalAdSpend: 0,
     totalAdSales: 0,
     totalOrders: 0,
+    totalSessions: 0,
+    totalPageViews: 0,
+    buyBoxPercent: 0,
+    totalUnitsOrdered: 0,
     currency: null,
     files: [],
     currencySample: [],
@@ -64,10 +79,27 @@ function createEmptyStore(): MemoryStore {
       tacos: 0,
       roas: 0,
       organicSales: 0,
+      adSalesPercent: 0,
+      organicVsPaidRatio: 0,
+      revenueConcentrationTop10Asin: 0,
+      conversionRate: 0,
+      attributedSales7d: 0,
+      attributedSales14d: 0,
+      attributedUnitsOrdered: 0,
+      attributedConversionRate: 0,
+      breakEvenAcos: 0,
+      contributionMargin: 0,
+      profitabilityScore: 0,
+      adDependencyRatio: 0,
     },
     keywordMetrics: {},
     asinMetrics: {},
     campaignMetrics: {},
+    totalImpressions: 0,
+    totalClicks: 0,
+    attributedSales7d: 0,
+    attributedSales14d: 0,
+    attributedUnitsOrdered: 0,
   };
 }
 
@@ -83,7 +115,7 @@ function getStr(row: Record<string, unknown>, rawKey: string | undefined): strin
   return String(row[rawKey]).trim();
 }
 
-/** Parse business file: build SKU→ASIN map and sum totalStoreSales (Section 12). */
+/** Parse business file: SKU→ASIN, totalStoreSales, Sessions, Page Views, Buy Box %, Units (Section 3). */
 function parseBusinessFile(
   file: File,
   store: MemoryStore,
@@ -93,6 +125,10 @@ function parseBusinessFile(
   return new Promise((resolve, reject) => {
     let headerMap: HeaderMap | null = null;
     let rowCount = 0;
+    let buyBoxSum = 0;
+    let buyBoxCount = 0;
+    let unitSessionSum = 0;
+    let unitSessionCount = 0;
     const fileName = file.name;
 
     Papa.parse(file, {
@@ -118,6 +154,16 @@ function parseBusinessFile(
         const orders = getNumeric(row, headerMap!.orders) || getNumeric(row, headerMap!.units);
         if (orders > 0) store.totalOrders += orders;
 
+        store.totalSessions += getNumeric(row, headerMap!.sessions);
+        store.totalPageViews += getNumeric(row, headerMap!.pageViews);
+        const units = getNumeric(row, headerMap!.units) || getNumeric(row, headerMap!.orders);
+        if (units > 0) store.totalUnitsOrdered += units;
+
+        const buyBox = getNumeric(row, headerMap!.buyBox);
+        if (buyBox > 0) { buyBoxSum += buyBox; buyBoxCount++; }
+        const unitSess = getNumeric(row, headerMap!.unitSession);
+        if (unitSess > 0) { unitSessionSum += unitSess; unitSessionCount++; }
+
         if (headerMap!.sku && headerMap!.asin) {
           const sku = String(row[headerMap!.sku] ?? '').trim();
           const asin = String(row[headerMap!.asin] ?? '').trim();
@@ -132,6 +178,7 @@ function parseBusinessFile(
         if (onProgress && rowCount % 5000 === 0) onProgress(fileName, rowCount);
       },
       complete: () => {
+        if (buyBoxCount > 0) store.buyBoxPercent = buyBoxSum / buyBoxCount;
         store.files.push({ name: fileName, rows: rowCount, type: 'business' });
         resolve();
       },
@@ -140,14 +187,16 @@ function parseBusinessFile(
   });
 }
 
-/** Parse advertising file: dedupe, resolve ASIN, aggregate. */
+/** Parse advertising file: dedupe, resolve ASIN, aggregate. Section 1: only Campaign Report rows contribute to store totals. */
 function parseAdvertisingFile(
   file: File,
   store: MemoryStore,
   skuToAsinMap: SkuToAsinMap,
   seenRows: Set<string>,
-  onProgress?: (file: string, rows: number) => void
+  onProgress?: (file: string, rows: number) => void,
+  options?: { contributeToTotals: boolean }
 ): Promise<void> {
+  const contributeToTotals = options?.contributeToTotals !== false;
   return new Promise((resolve, reject) => {
     let headerMap: HeaderMap | null = null;
     let rowCount = 0;
@@ -182,13 +231,26 @@ function parseAdvertisingFile(
         if (isDuplicate(key, seenRows)) return;
 
         const spend = getNumeric(row, headerMap!.spend);
-        const sales = getNumeric(row, headerMap!.sales);
+        const sales =
+          getNumeric(row, headerMap!.sales) ||
+          getNumeric(row, headerMap!['sales14d']) ||
+          getNumeric(row, headerMap!['sales7d']);
+        const sales7d = getNumeric(row, headerMap!['sales7d']);
+        const sales14d = getNumeric(row, headerMap!['sales14d']);
         const clicks = getNumeric(row, headerMap!.clicks);
+        const impressions = getNumeric(row, headerMap!.impressions);
         const orders = getNumeric(row, headerMap!.orders) || getNumeric(row, headerMap!.units);
 
-        store.totalAdSpend += spend;
-        store.totalAdSales += sales;
-        if (orders > 0) store.totalOrders += orders;
+        if (contributeToTotals) {
+          store.totalAdSpend += spend;
+          store.totalAdSales += sales;
+          if (orders > 0) store.totalOrders += orders;
+          store.totalImpressions += impressions;
+          store.totalClicks += clicks;
+          store.attributedSales7d += sales7d;
+          store.attributedSales14d += sales14d;
+          store.attributedUnitsOrdered += orders;
+        }
         if (store.currencySample.length < 100) {
           if (row[headerMap!.spend] != null) store.currencySample.push(row[headerMap!.spend]);
           if (row[headerMap!.sales] != null) store.currencySample.push(row[headerMap!.sales]);
@@ -292,8 +354,19 @@ export async function parseReportsStreaming(
     await parseBusinessFile(file, store, skuToAsinMap, onProgress);
   }
 
-  for (const { file } of adFiles) {
-    await parseAdvertisingFile(file, store, skuToAsinMap, seenRows, onProgress);
+  const campaignFiles = adFiles.filter((f) => classifyAdvertisingReportSubtype(f.file.name) === 'campaign');
+  const otherAdFiles = adFiles.filter((f) => classifyAdvertisingReportSubtype(f.file.name) !== 'campaign');
+  const useCampaignOnlyForTotals = campaignFiles.length > 0;
+
+  for (const { file } of campaignFiles) {
+    await parseAdvertisingFile(file, store, skuToAsinMap, seenRows, onProgress, {
+      contributeToTotals: true,
+    });
+  }
+  for (const { file } of otherAdFiles) {
+    await parseAdvertisingFile(file, store, skuToAsinMap, seenRows, onProgress, {
+      contributeToTotals: !useCampaignOnlyForTotals,
+    });
   }
 
   for (const { file, headerMap } of otherFiles) {
@@ -302,7 +375,11 @@ export async function parseReportsStreaming(
     if (hasSales && !hasSpend) {
       await parseBusinessFile(file, store, skuToAsinMap, onProgress);
     } else if (hasSpend) {
-      await parseAdvertisingFile(file, store, skuToAsinMap, seenRows, onProgress);
+      const subtype = classifyAdvertisingReportSubtype(file.name);
+      const contributeToTotals = subtype === 'campaign' || !useCampaignOnlyForTotals;
+      await parseAdvertisingFile(file, store, skuToAsinMap, seenRows, onProgress, {
+        contributeToTotals,
+      });
     }
   }
 
@@ -323,10 +400,26 @@ export async function parseReportsStreaming(
     m.acos = computeCampaignMetrics(m.spend, m.sales).acos;
   }
 
+  const top10AsinSales = Object.values(store.asinMetrics)
+    .sort((a, b) => b.totalSales - a.totalSales)
+    .slice(0, 10)
+    .reduce((sum, a) => sum + a.totalSales, 0);
+  const revenueConcentrationTop10Asin =
+    store.totalStoreSales > 0 ? top10AsinSales / store.totalStoreSales : 0;
+
   store.storeMetrics = computeStoreMetrics(
     store.totalStoreSales,
     store.totalAdSpend,
-    store.totalAdSales
+    store.totalAdSales,
+    {
+      totalSessions: store.totalSessions,
+      totalOrders: store.totalOrders,
+      revenueConcentrationTop10Asin,
+      attributedSales7d: store.attributedSales7d,
+      attributedSales14d: store.attributedSales14d,
+      attributedUnitsOrdered: store.attributedUnitsOrdered,
+      totalClicks: store.totalClicks,
+    }
   );
 
   return store;

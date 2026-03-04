@@ -11,29 +11,42 @@ export default function KPIGrid() {
   const symbol = store.currency ? formatCurrency(0, store.currency).replace('0.00', '') : '$';
 
   const derived = useMemo(() => {
-    const totalAdClicks = Object.values(store.keywordMetrics).reduce((s, m) => s + m.clicks, 0);
-    const totalSessions = Object.values(store.asinMetrics).reduce((s, m) => s + m.sessions, 0);
+    const totalAdClicks = store.totalClicks > 0 ? store.totalClicks : Object.values(store.keywordMetrics).reduce((s, m) => s + m.clicks, 0);
+    const totalSessions = store.totalSessions > 0 ? store.totalSessions : Object.values(store.asinMetrics).reduce((s, m) => s + m.sessions, 0);
     const totalOrders = store.totalOrders ?? 0;
+    const buyBoxFromStore = store.buyBoxPercent;
     const buyBoxValues = Object.values(store.asinMetrics)
       .map((m) => m.buyBoxPercent)
       .filter((v): v is number => typeof v === 'number' && v >= 0);
     const buyBoxPct =
-      buyBoxValues.length > 0
-        ? buyBoxValues.reduce((a, b) => a + b, 0) / buyBoxValues.length
-        : null;
+      buyBoxFromStore != null && buyBoxFromStore > 0
+        ? buyBoxFromStore
+        : buyBoxValues.length > 0
+          ? buyBoxValues.reduce((a, b) => a + b, 0) / buyBoxValues.length
+          : null;
     const storeAcos =
       store.totalAdSales > 0
         ? (store.totalAdSpend / store.totalAdSales) * 100
         : null;
+    const m = store.storeMetrics;
+    const conversionRate =
+      m.conversionRate != null && m.conversionRate > 0
+        ? m.conversionRate
+        : totalSessions > 0 && totalOrders > 0
+          ? (totalOrders / totalSessions) * 100
+          : null;
     return {
       totalAdClicks,
       totalSessions,
       totalOrders,
       buyBoxPct,
       storeAcos,
-      conversionRate:
-        totalSessions > 0 && totalOrders > 0 ? (totalOrders / totalSessions) * 100 : null,
+      conversionRate,
       aov: totalOrders > 0 ? store.totalStoreSales / totalOrders : null,
+      adSalesPercent: m.adSalesPercent,
+      organicVsPaidRatio: m.organicVsPaidRatio,
+      revenueConcentrationTop10: m.revenueConcentrationTop10Asin,
+      totalPageViews: store.totalPageViews,
     };
   }, [store]);
 
@@ -165,6 +178,55 @@ export default function KPIGrid() {
               ? 'orange'
               : 'red'
           : 'blue',
+    },
+    {
+      id: 'ad-sales',
+      label: 'Ad Sales',
+      value: store.totalAdSales > 0 ? formatCurrency(store.totalAdSales, store.currency) : '—',
+      trend: trendLabel,
+      status: store.totalAdSales > 0 ? 'green' : 'blue',
+    },
+    {
+      id: 'organic-sales',
+      label: 'Organic Sales',
+      value: store.storeMetrics.organicSales > 0 ? formatCurrency(store.storeMetrics.organicSales, store.currency) : '—',
+      trend: trendLabel,
+      status: store.storeMetrics.organicSales > 0 ? 'green' : 'blue',
+    },
+    {
+      id: 'total-sales',
+      label: 'Total Sales',
+      value: store.totalStoreSales > 0 ? formatCurrency(store.totalStoreSales, store.currency) : '—',
+      trend: trendLabel,
+      status: store.totalStoreSales > 0 ? 'green' : 'blue',
+    },
+    {
+      id: 'ad-sales-pct',
+      label: 'Ad Sales % of Total',
+      value: derived.adSalesPercent != null && derived.adSalesPercent > 0 ? formatPercent(derived.adSalesPercent) : '—',
+      trend: trendLabel,
+      status: derived.adSalesPercent != null ? 'blue' : 'blue',
+    },
+    {
+      id: 'organic-vs-paid',
+      label: 'Organic vs Paid Ratio',
+      value: derived.organicVsPaidRatio != null && derived.organicVsPaidRatio > 0 ? derived.organicVsPaidRatio.toFixed(2) + '×' : '—',
+      trend: trendLabel,
+      status: derived.organicVsPaidRatio != null ? 'blue' : 'blue',
+    },
+    {
+      id: 'revenue-concentration',
+      label: 'Revenue Concentration (Top 10 ASIN)',
+      value: derived.revenueConcentrationTop10 != null && derived.revenueConcentrationTop10 > 0 ? formatPercent(derived.revenueConcentrationTop10 * 100) : '—',
+      trend: trendLabel,
+      status: derived.revenueConcentrationTop10 != null ? 'blue' : 'blue',
+    },
+    {
+      id: 'page-views',
+      label: 'Page Views',
+      value: derived.totalPageViews != null && derived.totalPageViews > 0 ? derived.totalPageViews.toLocaleString() : '—',
+      trend: trendLabel,
+      status: derived.totalPageViews != null && derived.totalPageViews > 0 ? 'blue' : 'blue',
     },
   ];
 

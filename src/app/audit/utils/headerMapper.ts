@@ -22,6 +22,10 @@ export type CanonicalColumn =
   | 'date'
   | 'budget'
   | 'pageViews'
+  | 'buyBox'
+  | 'unitSession'
+  | 'sales7d'
+  | 'sales14d'
   | 'other';
 
 export interface HeaderMap {
@@ -41,11 +45,17 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
   sales: [
     'Sales',
     'Attributed Sales',
-    '14 Day Total Sales',
-    '7 Day Total Sales',
     'Ad Sales',
-    'Attributed Sales (14d)',
     'Ordered Product Sales',
+  ],
+  sales7d: [
+    '7 Day Total Sales',
+    '7 Day Sales',
+  ],
+  sales14d: [
+    '14 Day Total Sales',
+    '14 Day Total Sales (Attributed)',
+    'Attributed Sales (14d)',
   ],
   clicks: [
     'Clicks',
@@ -116,6 +126,14 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
     'Page Views',
     'Page Views (DPV)',
   ],
+  buyBox: [
+    'Buy Box %',
+    'Buy Box Percentage',
+  ],
+  unitSession: [
+    'Unit Session %',
+    'Unit Session Percentage',
+  ],
   other: [],
 };
 
@@ -176,5 +194,22 @@ export function classifyReportType(map: HeaderMap): 'business' | 'advertising' |
   const hasAdMetrics = !!map.spend || !!map.clicks || !!map.impressions;
   if (hasOrderedProductSales && !hasAdMetrics) return 'business';
   if (hasAdMetrics) return 'advertising';
+  return 'unknown';
+}
+
+/** Section 1: Campaign Report is single source of truth for totals. Classify ad report by filename. */
+export type AdvertisingReportSubtype =
+  | 'campaign'
+  | 'search_term'
+  | 'targeting'
+  | 'advertised_product'
+  | 'unknown';
+
+export function classifyAdvertisingReportSubtype(fileName: string): AdvertisingReportSubtype {
+  const lower = fileName.toLowerCase();
+  if (lower.includes('search term') || lower.includes('customer search')) return 'search_term';
+  if (lower.includes('targeting') && !lower.includes('advertised')) return 'targeting';
+  if (lower.includes('advertised product') || lower.includes('product ad')) return 'advertised_product';
+  if (lower.includes('campaign')) return 'campaign';
   return 'unknown';
 }

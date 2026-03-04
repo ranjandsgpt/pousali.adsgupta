@@ -12,6 +12,7 @@ import ACOSHeatmap from '../charts/ACOSHeatmap';
 import BudgetPacingGauges from '../charts/BudgetPacingGauges';
 import SpendByCampaignBar from '../charts/SpendByCampaignBar';
 import ROASByCampaignBar from '../charts/ROASByCampaignBar';
+import FunnelOverviewChart from '../charts/FunnelOverviewChart';
 import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, ZAxis, PieChart, Pie, Cell, Legend } from 'recharts';
 
@@ -27,6 +28,7 @@ const CHART_MAP: Record<string, React.ComponentType> = {
   'budget-pacing': BudgetPacingGauges,
   'spend-by-campaign': SpendByCampaignBar,
   'roas-by-campaign': ROASByCampaignBar,
+  'funnel-overview': FunnelOverviewChart,
 };
 
 export function ChartRegistry({ chartIds }: { chartIds: string[] }) {

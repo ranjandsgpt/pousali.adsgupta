@@ -31,10 +31,11 @@ export type TabId =
 function buildKPIs(store: MemoryStore): KPIMetric[] {
   const m = store.storeMetrics;
   const acos = store.totalAdSales > 0 ? (store.totalAdSpend / store.totalAdSales) * 100 : 0;
-  const totalClicks = Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
+  const totalClicks = store.totalClicks > 0 ? store.totalClicks : Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
+  const totalImpressions = store.totalImpressions || 0;
   const totalOrders = store.totalOrders || 0;
-  const ctr = totalClicks > 0 ? (totalClicks / Math.max(totalClicks * 50, 1)) * 100 : 0;
-  const cvr = totalClicks > 0 ? (totalOrders / totalClicks) * 100 : 0;
+  const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : totalClicks > 0 ? (totalClicks / Math.max(totalClicks * 50, 1)) * 100 : 0;
+  const cvr = m.conversionRate > 0 ? m.conversionRate : totalClicks > 0 ? (totalOrders / totalClicks) * 100 : 0;
   const cpc = totalClicks > 0 ? store.totalAdSpend / totalClicks : 0;
   const sym = store.currency ? formatCurrency(0, store.currency).replace('0.00', '') : '$';
   return [
@@ -47,6 +48,18 @@ function buildKPIs(store: MemoryStore): KPIMetric[] {
     { label: 'CVR', value: formatPercent(cvr), status: cvr >= 8 ? 'good' : cvr < 3 ? 'warn' : 'neutral' },
     { label: 'Orders', value: String(totalOrders), status: 'neutral' },
     { label: 'CPC', value: `${sym}${cpc.toFixed(2)}`, status: 'neutral' },
+    { label: 'Impressions', value: totalImpressions > 0 ? totalImpressions.toLocaleString() : '—', status: 'neutral' },
+    { label: 'Sessions', value: store.totalSessions > 0 ? store.totalSessions.toLocaleString() : '—', status: 'neutral' },
+    { label: 'Ad Sales %', value: m.adSalesPercent > 0 ? formatPercent(m.adSalesPercent) : '—', status: 'neutral' },
+    { label: 'Revenue Concentration (Top 10)', value: m.revenueConcentrationTop10Asin > 0 ? formatPercent(m.revenueConcentrationTop10Asin * 100) : '—', status: 'neutral' },
+    { label: '7d Attributed Sales', value: m.attributedSales7d > 0 ? `${sym}${m.attributedSales7d.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—', status: 'neutral' },
+    { label: '14d Attributed Sales', value: m.attributedSales14d > 0 ? `${sym}${m.attributedSales14d.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—', status: 'neutral' },
+    { label: 'Attributed Units', value: m.attributedUnitsOrdered > 0 ? String(m.attributedUnitsOrdered) : '—', status: 'neutral' },
+    { label: 'Attributed CVR', value: m.attributedConversionRate > 0 ? formatPercent(m.attributedConversionRate) : '—', status: 'neutral' },
+    { label: 'Contribution Margin', value: m.contributionMargin !== 0 ? `${sym}${m.contributionMargin.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—', status: m.contributionMargin >= 0 ? 'good' : 'bad' },
+    { label: 'Break-even ACOS', value: m.breakEvenAcos > 0 ? formatPercent(m.breakEvenAcos) : '—', status: 'neutral' },
+    { label: 'Profitability Score', value: m.profitabilityScore !== 0 ? formatPercent(m.profitabilityScore) : '—', status: 'neutral' },
+    { label: 'Ad Dependency Ratio', value: m.adDependencyRatio > 0 ? formatPercent(m.adDependencyRatio) : '—', status: 'neutral' },
   ];
 }
 
@@ -292,13 +305,27 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
     if (tabId === 'budget-optimization')
       tables = [{ title: 'Campaign budget utilization', columns: [{ key: 'campaignName', label: 'Campaign' }, { key: 'budget', label: 'Budget', align: 'right', format: 'currency' }, { key: 'spend', label: 'Spend', align: 'right', format: 'currency' }], rows: Object.values(store.campaignMetrics).filter((c) => c.campaignName).slice(0, 20).map((c) => ({ campaignName: c.campaignName, budget: c.budget, spend: c.spend })) }];
     if (tabId === 'profitability-analysis')
-      tables = [{ title: 'Account profitability', columns: [{ key: 'metric', label: 'Metric' }, { key: 'value', label: 'Value', align: 'right' }], rows: [{ metric: 'True TACOS', value: `${store.storeMetrics.tacos.toFixed(1)}%` }, { metric: 'ROAS', value: store.storeMetrics.roas.toFixed(2) }, { metric: 'Organic share', value: `${(store.storeMetrics.organicSales && store.totalStoreSales ? (store.storeMetrics.organicSales / store.totalStoreSales) * 100 : 0).toFixed(1)}%` }] }];
+      tables = [{
+        title: 'Account profitability',
+        columns: [{ key: 'metric', label: 'Metric' }, { key: 'value', label: 'Value', align: 'right' }],
+        rows: [
+          { metric: 'True TACOS', value: `${store.storeMetrics.tacos.toFixed(1)}%` },
+          { metric: 'ROAS', value: store.storeMetrics.roas.toFixed(2) },
+          { metric: 'Organic share', value: `${(store.storeMetrics.organicSales && store.totalStoreSales ? (store.storeMetrics.organicSales / store.totalStoreSales) * 100 : 0).toFixed(1)}%` },
+          { metric: 'Contribution Margin', value: formatCurrency(store.storeMetrics.contributionMargin, store.currency) },
+          { metric: 'Break-even ACOS', value: store.storeMetrics.breakEvenAcos > 0 ? `${store.storeMetrics.breakEvenAcos.toFixed(1)}%` : '—' },
+          { metric: 'Profitability Score', value: `${store.storeMetrics.profitabilityScore.toFixed(1)}%` },
+          { metric: 'Ad Dependency Ratio', value: `${store.storeMetrics.adDependencyRatio.toFixed(1)}%` },
+          { metric: '7d Attributed Sales', value: store.storeMetrics.attributedSales7d > 0 ? formatCurrency(store.storeMetrics.attributedSales7d, store.currency) : '—' },
+          { metric: '14d Attributed Sales', value: store.storeMetrics.attributedSales14d > 0 ? formatCurrency(store.storeMetrics.attributedSales14d, store.currency) : '—' },
+        ],
+      }];
     if (tabId === 'structural-audit')
       tables = [{ title: 'Campaign structure', columns: [{ key: 'name', label: 'Campaign' }, { key: 'kwCount', label: 'Keyword count', align: 'right' }], rows: Object.entries(store.campaignMetrics).slice(0, 20).map(([name, c]) => ({ name: c.campaignName || name, kwCount: Object.values(store.keywordMetrics).filter((k) => k.campaign === (c.campaignName || name)).length })) }];
 
     const chartIds: string[] = [];
     if (['overview', 'account-health', 'campaign-intelligence', 'charts-lab'].includes(tabId))
-      chartIds.push('spend-by-campaign', 'roas-by-campaign', 'acos-heatmap', 'pareto-spend', 'spend-vs-conversion', 'wasted-spend');
+      chartIds.push('funnel-overview', 'spend-by-campaign', 'roas-by-campaign', 'acos-heatmap', 'pareto-spend', 'spend-vs-conversion', 'wasted-spend');
     if (['keyword-intelligence', 'charts-lab'].includes(tabId))
       chartIds.push('keyword-scatter', 'match-type-spend', 'ad-product-sales');
     if (['search-term-intelligence', 'charts-lab'].includes(tabId)) chartIds.push('search-term-waste');
