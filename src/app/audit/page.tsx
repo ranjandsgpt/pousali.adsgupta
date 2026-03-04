@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import Header from './components/Header';
 import UploadPanel from './components/UploadPanel';
-import AgentSwarm from './components/AgentSwarm';
+import ProtocolsActiveDrawer from './components/ProtocolsActiveDrawer';
 import KPIGrid from './components/KPIGrid';
 import AuditTabs from './components/AuditTabs';
 import ExportBar from './components/ExportBar';
@@ -13,8 +13,11 @@ import DetectedMetricsPanel from './components/DetectedMetricsPanel';
 import CriticalIssuesEngine from './components/CriticalIssuesEngine';
 import GrowthOpportunitiesEngine from './components/GrowthOpportunitiesEngine';
 import { AuditStoreProvider, useAuditStore } from './context/AuditStoreContext';
+import { LearningProvider, useLearning } from './learning/LearningContext';
 import { parseReportsStreaming } from './utils/reportParser';
 import { normalizeToCsvFiles } from './utils/xlsxToCsv';
+import LearningIntelligencePanel from './components/LearningIntelligencePanel';
+import GeminiInsightsPanel from './components/GeminiInsightsPanel';
 
 export type AuditStep = 'upload' | 'processing' | 'dashboard';
 
@@ -22,6 +25,7 @@ function AuditPageContent() {
   const [step, setStep] = useState<AuditStep>('upload');
   const [isProcessing, setIsProcessing] = useState(false);
   const { setStore } = useAuditStore();
+  const { runLearning } = useLearning();
   const lastFilesRef = useRef<File[]>([]);
 
   const handleUploadComplete = (files: File[]) => {
@@ -34,6 +38,7 @@ function AuditPageContent() {
         const csvFiles = await normalizeToCsvFiles(files);
         const store = await parseReportsStreaming(csvFiles, () => {});
         setStore(store);
+        await runLearning(store);
         setStep('dashboard');
       } catch {
         setStep('upload');
@@ -52,7 +57,13 @@ function AuditPageContent() {
 
   return (
     <div className="min-h-screen bg-[var(--color-surface)] text-[var(--color-text)]">
-      <Header />
+      <Header
+        rightSlot={
+          (step === 'processing' || step === 'dashboard') ? (
+            <ProtocolsActiveDrawer isRunning={step === 'processing'} visible />
+          ) : null
+        }
+      />
       {/* Section 40: responsive padding so page title does not overlap navbar */}
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10 pb-6 space-y-6">
         <UploadPanel
@@ -60,10 +71,6 @@ function AuditPageContent() {
           disabled={step === 'processing'}
         />
         <PrivacyNote />
-
-        {(step === 'processing' || step === 'dashboard') && (
-          <AgentSwarm isRunning={step === 'processing'} />
-        )}
 
         {step === 'dashboard' && (
           <>
@@ -75,6 +82,8 @@ function AuditPageContent() {
               <GrowthOpportunitiesEngine />
             </div>
             <AuditTabs />
+            <LearningIntelligencePanel />
+            <GeminiInsightsPanel />
             <ExportBar />
           </>
         )}
@@ -86,7 +95,9 @@ function AuditPageContent() {
 export default function AuditPage() {
   return (
     <AuditStoreProvider>
-      <AuditPageContent />
+      <LearningProvider>
+        <AuditPageContent />
+      </LearningProvider>
     </AuditStoreProvider>
   );
 }
