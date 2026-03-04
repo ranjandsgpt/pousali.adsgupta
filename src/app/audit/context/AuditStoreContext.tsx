@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from 'react';
 import type { MemoryStore } from '../utils/reportParser';
-import { computeTACOS, computeROAS } from '../utils/mathEngine';
 import { createEmptyStore } from '../utils/reportParser';
 
 export interface AuditState {
@@ -44,12 +43,11 @@ export function AuditStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuditState>(defaultState);
 
   const setStore = useCallback((store: MemoryStore) => {
-    const totalSales = store.totalStoreSales;
-    const totalSpend = store.totalAdSpend;
+    const m = store.storeMetrics;
     setState({
       store,
-      globalTACOS: computeTACOS(totalSpend, totalSales),
-      blendedROAS: totalSpend > 0 ? computeROAS(totalSales, totalSpend) : 0,
+      globalTACOS: m.tacos,
+      blendedROAS: m.roas,
     });
   }, []);
 

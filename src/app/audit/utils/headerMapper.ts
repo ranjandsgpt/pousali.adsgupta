@@ -13,11 +13,15 @@ export type CanonicalColumn =
   | 'units'
   | 'searchTerm'
   | 'campaignName'
+  | 'adGroup'
+  | 'matchType'
   | 'asin'
   | 'sku'
   | 'sessions'
   | 'orderedProductSales'
   | 'date'
+  | 'budget'
+  | 'pageViews'
   | 'other';
 
 export interface HeaderMap {
@@ -72,6 +76,14 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
     'Campaign',
     'Campaign Name',
   ],
+  adGroup: [
+    'Ad Group',
+    'Ad Group Name',
+  ],
+  matchType: [
+    'Match Type',
+    'Targeting',
+  ],
   asin: [
     'ASIN',
     'Advertised ASIN',
@@ -95,6 +107,14 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
     'Date',
     'Recorded Date',
     'Reported Date',
+  ],
+  budget: [
+    'Budget',
+    'Daily Budget',
+  ],
+  pageViews: [
+    'Page Views',
+    'Page Views (DPV)',
   ],
   other: [],
 };
