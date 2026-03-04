@@ -3,30 +3,19 @@
 import { useMemo } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
-import type { TabConfig, KPIMetric, PatternDetection, OpportunityDetection, TabTableConfig } from './types';
+import type { TabConfig, KPIMetric, PatternDetection, OpportunityDetection, TabTableConfig, InsightModule } from './types';
 import type { MemoryStore } from '../utils/reportParser';
 import type { DetectedCurrency } from '../utils/currencyDetector';
 
+/** 7 primary tabs: distributed analysis, deep-dive modules, reference UX. */
 export type TabId =
   | 'overview'
-  | 'account-health'
-  | 'campaign-intelligence'
-  | 'keyword-intelligence'
-  | 'search-term-intelligence'
-  | 'negative-keyword-engine'
-  | 'budget-optimization'
-  | 'bid-optimization'
-  | 'asin-performance'
-  | 'profitability-analysis'
-  | 'inventory-intelligence'
-  | 'market-signals'
-  | 'structural-audit'
-  | 'waste-detection'
-  | 'growth-opportunities'
-  | 'predictive-forecasting'
-  | 'learning-intelligence'
-  | 'ai-strategy-engine'
-  | 'charts-lab';
+  | 'keywords-search-terms'
+  | 'campaigns-budget'
+  | 'asins-products'
+  | 'waste-bleed'
+  | 'profitability-inventory'
+  | 'insights-reports';
 
 function buildKPIs(store: MemoryStore): KPIMetric[] {
   const m = store.storeMetrics;
@@ -273,6 +262,57 @@ function negativeKeywordTable(store: MemoryStore): TabTableConfig[] {
   ];
 }
 
+function buildInsightModules(store: MemoryStore, tabId: TabId): InsightModule[] {
+  const sym = store.currency ? formatCurrency(0, store.currency).replace('0.00', '') : '$';
+  const modules: InsightModule[] = [];
+  const kws = Object.values(store.keywordMetrics);
+  const campaigns = Object.values(store.campaignMetrics).filter((c) => c.campaignName);
+
+  if (tabId === 'overview') {
+    const critical = kws.filter((k) => k.spend > 50 && k.sales === 0).length + campaigns.filter((c) => c.acos > 60 && c.sales > 0).length;
+    const wasteTotal = kws.filter((k) => k.clicks >= 10 && k.sales === 0).reduce((s, k) => s + k.spend, 0);
+    const oppCount = kws.filter((k) => k.roas >= 4 && k.sales > 0).length + campaigns.filter((c) => c.sales > 0 && c.spend > 0 && c.sales / c.spend >= 3).length;
+    if (critical > 0) modules.push({ id: 'critical', title: 'Critical Issues', description: 'High ACOS campaigns and bleeding keywords eating into profit.', count: critical, impact: wasteTotal > 0 ? `${sym}${wasteTotal.toFixed(0)} at risk` : undefined, severity: 'critical', tableRef: 'critical' });
+    if (oppCount > 0) modules.push({ id: 'opportunities', title: 'Growth Opportunities', description: 'High ROAS keywords and campaigns ready to scale.', count: oppCount, severity: 'opportunity', tableRef: 'opportunities' });
+  }
+
+  if (tabId === 'keywords-search-terms') {
+    const bleeding = kws.filter((k) => k.clicks >= 10 && k.sales === 0);
+    const hidden = kws.filter((k) => k.roas >= 4 && k.spend < 100 && k.sales > 0);
+    const negCandidates = kws.filter((k) => k.clicks >= 5 && k.sales === 0);
+    if (bleeding.length > 0) modules.push({ id: 'bleeding', title: 'Bleeding Keywords', description: 'Keywords with spend and no sales. Add as negative or pause.', count: bleeding.length, impact: `${sym}${bleeding.reduce((s, k) => s + k.spend, 0).toFixed(0)} wasted`, severity: 'critical', tableRef: 'bleeding' });
+    if (hidden.length > 0) modules.push({ id: 'hidden', title: 'Hidden Profitable Keywords', description: 'High ROAS, low spend — scale bids or budget.', count: hidden.length, severity: 'opportunity', tableRef: 'hidden' });
+    if (negCandidates.length > 0) modules.push({ id: 'negatives', title: 'Negative Keyword Suggestions', description: 'Search terms with zero sales to negate.', count: negCandidates.length, severity: 'warning', tableRef: 'negatives' });
+  }
+
+  if (tabId === 'campaigns-budget') {
+    const highAcos = campaigns.filter((c) => c.acos > 40 && c.sales > 0);
+    const bestRoas = campaigns.filter((c) => c.spend > 0 && c.sales / c.spend >= 3);
+    if (highAcos.length > 0) modules.push({ id: 'high-acos', title: 'High ACOS Campaigns', description: 'Campaigns above target ACOS. Optimize bids or targeting.', count: highAcos.length, severity: 'warning', tableRef: 'high-acos' });
+    if (bestRoas.length > 0) modules.push({ id: 'scale-campaigns', title: 'Scale Opportunities', description: 'High ROAS campaigns to increase budget.', count: bestRoas.length, severity: 'opportunity', tableRef: 'scale-campaigns' });
+  }
+
+  if (tabId === 'asins-products') {
+    const asins = Object.values(store.asinMetrics);
+    const topByRoas = asins.filter((a) => a.adSpend > 0).sort((a, b) => (b.adSales / b.adSpend) - (a.adSales / a.adSpend)).slice(0, 10);
+    if (topByRoas.length > 0) modules.push({ id: 'top-asins', title: 'Top ASINs by ROAS', description: 'Best-performing products. Consider increasing ad support.', count: topByRoas.length, severity: 'opportunity', tableRef: 'top-asins' });
+  }
+
+  if (tabId === 'waste-bleed') {
+    const bleeding = kws.filter((k) => k.clicks >= 10 && k.sales === 0);
+    const totalBleed = bleeding.reduce((s, k) => s + k.spend, 0);
+    modules.push({ id: 'bleeder', title: 'Bleeder Report', description: 'Highlighting your biggest areas of spend waste.', count: bleeding.length, impact: totalBleed > 0 ? `${sym}${totalBleed.toFixed(2)}` : undefined, severity: 'critical', tableRef: 'bleeder' });
+  }
+
+  if (tabId === 'profitability-inventory') {
+    const m = store.storeMetrics;
+    if (m.contributionMargin !== 0) modules.push({ id: 'profit', title: 'Contribution Margin', description: 'Ad sales minus ad spend and product cost.', count: 1, impact: formatCurrency(m.contributionMargin, store.currency), severity: m.contributionMargin >= 0 ? 'info' : 'critical' });
+    modules.push({ id: 'health', title: 'Account Health', description: 'TACOS, ROAS, and profitability summary.', count: 1, severity: 'info', tableRef: 'health' });
+  }
+
+  return modules;
+}
+
 export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurrency } {
   const { state } = useAuditStore();
   const store = state.store;
@@ -283,33 +323,54 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
     const patterns = buildPatterns(store);
     const opportunities = buildOpportunities(store);
     const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
+    const insightModules = buildInsightModules(store, tabId);
 
     const emptyTables: TabTableConfig[] = [];
     let tables: TabTableConfig[] = emptyTables;
-    if (tabId === 'campaign-intelligence') tables = campaignTables(store, currency);
-    if (tabId === 'keyword-intelligence') tables = keywordTables(store);
-    if (tabId === 'search-term-intelligence') tables = searchTermTables(store);
-    if (tabId === 'negative-keyword-engine') tables = negativeKeywordTable(store);
-    if (tabId === 'overview' || tabId === 'account-health') {
+
+    if (tabId === 'overview') {
       tables = [
         { title: 'Top 20 campaigns by spend', columns: [{ key: 'name', label: 'Campaign' }, { key: 'spend', label: 'Spend', align: 'right', format: 'currency' }], rows: Object.values(store.campaignMetrics).sort((a, b) => b.spend - a.spend).slice(0, 20).map((c) => ({ name: c.campaignName, spend: c.spend })) },
       ];
     }
-    if (tabId === 'asin-performance') {
+    if (tabId === 'keywords-search-terms') {
+      const allKws = Object.values(store.keywordMetrics);
+      const withStatus = allKws.slice(0, 50).map((k) => {
+        let status: string = 'Monitor';
+        if (k.clicks >= 10 && k.sales === 0) status = 'Negative';
+        else if (k.roas >= 4 && k.sales > 0) status = 'Scale';
+        else if (k.acos > 30 && k.sales > 0) status = 'Optimize';
+        return { searchTerm: k.searchTerm.slice(0, 35), spend: k.spend, sales: k.sales, acos: k.acos, roas: k.roas.toFixed(2), clicks: k.clicks, status };
+      });
       tables = [
-        { title: 'ASIN performance', columns: [{ key: 'asin', label: 'ASIN' }, { key: 'adSales', label: 'Ad Sales', align: 'right', format: 'currency' }, { key: 'adSpend', label: 'Ad Spend', align: 'right', format: 'currency' }, { key: 'acos', label: 'ACOS', align: 'right', format: 'percent' }], rows: Object.values(store.asinMetrics).slice(0, 20).map((a) => ({ asin: a.asin, adSales: a.adSales, adSpend: a.adSpend, acos: a.acos })) },
+        { title: 'Search Term Performance', columns: [{ key: 'searchTerm', label: 'Search Term' }, { key: 'spend', label: 'Spend', align: 'right', format: 'currency' }, { key: 'sales', label: 'Sales', align: 'right', format: 'currency' }, { key: 'acos', label: 'ACOS', align: 'right', format: 'percent' }, { key: 'roas', label: 'ROAS', align: 'right' }, { key: 'status', label: 'Status' }], rows: withStatus, actionColumn: { key: 'searchTerm', label: 'Actions', type: 'optimize' } },
+        ...keywordTables(store),
       ];
     }
-    if (tabId === 'waste-detection') tables = [{ title: 'Top waste keywords', columns: [{ key: 'searchTerm', label: 'Keyword' }, { key: 'spend', label: 'Spend', align: 'right', format: 'currency' }], rows: Object.values(store.keywordMetrics).filter((k) => k.clicks >= 10 && k.sales === 0).sort((a, b) => b.spend - a.spend).slice(0, 20).map((k) => ({ searchTerm: k.searchTerm, spend: k.spend })) }];
-    if (tabId === 'growth-opportunities') tables = [{ title: 'High ROAS keywords', columns: [{ key: 'searchTerm', label: 'Keyword' }, { key: 'roas', label: 'ROAS', align: 'right' }, { key: 'spend', label: 'Spend', align: 'right', format: 'currency' }], rows: Object.values(store.keywordMetrics).filter((k) => k.roas >= 4).sort((a, b) => b.roas - a.roas).slice(0, 20).map((k) => ({ searchTerm: k.searchTerm, roas: k.roas.toFixed(2), spend: k.spend })) }];
-    if (tabId === 'budget-optimization')
-      tables = [{ title: 'Campaign budget utilization', columns: [{ key: 'campaignName', label: 'Campaign' }, { key: 'budget', label: 'Budget', align: 'right', format: 'currency' }, { key: 'spend', label: 'Spend', align: 'right', format: 'currency' }], rows: Object.values(store.campaignMetrics).filter((c) => c.campaignName).slice(0, 20).map((c) => ({ campaignName: c.campaignName, budget: c.budget, spend: c.spend })) }];
-    if (tabId === 'profitability-analysis')
+    if (tabId === 'campaigns-budget') {
+      tables = [
+        ...campaignTables(store, currency),
+        { title: 'Campaign budget utilization', columns: [{ key: 'campaignName', label: 'Campaign' }, { key: 'budget', label: 'Budget', align: 'right', format: 'currency' }, { key: 'spend', label: 'Spend', align: 'right', format: 'currency' }], rows: Object.values(store.campaignMetrics).filter((c) => c.campaignName).slice(0, 20).map((c) => ({ campaignName: c.campaignName, budget: c.budget, spend: c.spend })) },
+      ];
+    }
+    if (tabId === 'asins-products') {
+      tables = [
+        { title: 'ASIN performance', columns: [{ key: 'asin', label: 'ASIN' }, { key: 'adSales', label: 'Ad Sales', align: 'right', format: 'currency' }, { key: 'adSpend', label: 'Ad Spend', align: 'right', format: 'currency' }, { key: 'acos', label: 'ACOS', align: 'right', format: 'percent' }, { key: 'roas', label: 'ROAS', align: 'right' }], rows: Object.values(store.asinMetrics).slice(0, 30).map((a) => ({ asin: a.asin, adSales: a.adSales, adSpend: a.adSpend, acos: a.acos, roas: a.adSpend > 0 ? (a.adSales / a.adSpend).toFixed(2) : '—' })), actionColumn: { key: 'asin', label: 'Actions', type: 'view' } },
+      ];
+    }
+    if (tabId === 'waste-bleed') {
+      const bleedRows = Object.values(store.keywordMetrics).filter((k) => k.clicks >= 10 && k.sales === 0).sort((a, b) => b.spend - a.spend).slice(0, 20).map((k) => ({ searchTerm: k.searchTerm, spend: k.spend, clicks: k.clicks, acos: '—', roas: '0', matchType: k.matchType }));
+      tables = [
+        { title: 'Top Bleeding Keywords (10+ Clicks, 0 Sales)', columns: [{ key: 'searchTerm', label: 'Keyword' }, { key: 'spend', label: 'Spend', align: 'right', format: 'currency' }, { key: 'clicks', label: 'Clicks', align: 'right' }, { key: 'matchType', label: 'Match Type' }], rows: bleedRows, actionColumn: { key: 'searchTerm', label: 'Action', type: 'deactivate' } },
+        ...negativeKeywordTable(store),
+      ];
+    }
+    if (tabId === 'profitability-inventory') {
       tables = [{
         title: 'Account profitability',
         columns: [{ key: 'metric', label: 'Metric' }, { key: 'value', label: 'Value', align: 'right' }],
         rows: [
-          { metric: 'True TACOS', value: `${store.storeMetrics.tacos.toFixed(1)}%` },
+          { metric: 'TACOS', value: `${store.storeMetrics.tacos.toFixed(1)}%` },
           { metric: 'ROAS', value: store.storeMetrics.roas.toFixed(2) },
           { metric: 'Organic share', value: `${(store.storeMetrics.organicSales && store.totalStoreSales ? (store.storeMetrics.organicSales / store.totalStoreSales) * 100 : 0).toFixed(1)}%` },
           { metric: 'Contribution Margin', value: formatCurrency(store.storeMetrics.contributionMargin, store.currency) },
@@ -320,28 +381,21 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
           { metric: '14d Attributed Sales', value: store.storeMetrics.attributedSales14d > 0 ? formatCurrency(store.storeMetrics.attributedSales14d, store.currency) : '—' },
         ],
       }];
-    if (tabId === 'structural-audit')
-      tables = [{ title: 'Campaign structure', columns: [{ key: 'name', label: 'Campaign' }, { key: 'kwCount', label: 'Keyword count', align: 'right' }], rows: Object.entries(store.campaignMetrics).slice(0, 20).map(([name, c]) => ({ name: c.campaignName || name, kwCount: Object.values(store.keywordMetrics).filter((k) => k.campaign === (c.campaignName || name)).length })) }];
+    }
 
     const chartIds: string[] = [];
-    if (['overview', 'account-health', 'campaign-intelligence', 'charts-lab'].includes(tabId))
-      chartIds.push('funnel-overview', 'spend-by-campaign', 'roas-by-campaign', 'acos-heatmap', 'pareto-spend', 'spend-vs-conversion', 'wasted-spend');
-    if (['keyword-intelligence', 'charts-lab'].includes(tabId))
-      chartIds.push('keyword-scatter', 'match-type-spend', 'ad-product-sales');
-    if (['search-term-intelligence', 'charts-lab'].includes(tabId)) chartIds.push('search-term-waste');
-    if (['profitability-analysis', 'charts-lab'].includes(tabId)) chartIds.push('organic-vs-ad', 'tacos-gauge');
-    if (['budget-optimization', 'charts-lab'].includes(tabId)) chartIds.push('budget-pacing');
-    if (tabId === 'charts-lab') {
-      chartIds.push(
-        'daily-trend', 'spend-by-campaign', 'roas-by-campaign', 'acos-heatmap', 'pareto-spend', 'spend-vs-conversion', 'wasted-spend',
-        'match-type-spend', 'ad-product-sales', 'organic-vs-ad', 'budget-pacing', 'daily-trend'
-      );
-    }
+    if (tabId === 'overview') chartIds.push('funnel-overview', 'spend-by-campaign', 'roas-by-campaign', 'pareto-spend', 'spend-vs-conversion', 'wasted-spend');
+    if (tabId === 'keywords-search-terms') chartIds.push('match-type-spend', 'wasted-spend', 'spend-vs-conversion');
+    if (tabId === 'campaigns-budget') chartIds.push('spend-by-campaign', 'roas-by-campaign', 'acos-heatmap', 'budget-pacing');
+    if (tabId === 'asins-products') chartIds.push('ad-product-sales', 'organic-vs-ad');
+    if (tabId === 'waste-bleed') chartIds.push('wasted-spend');
+    if (tabId === 'profitability-inventory') chartIds.push('organic-vs-ad', 'pareto-spend');
 
     return {
       kpis: hasData ? kpis : [],
       patterns: hasData ? patterns : [],
       opportunities: hasData ? opportunities : [],
+      insightModules,
       tables: hasData ? tables : [],
       chartIds,
       currency,

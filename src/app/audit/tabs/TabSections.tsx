@@ -1,8 +1,29 @@
 'use client';
 
-import type { KPIMetric, PatternDetection, OpportunityDetection, TabTableConfig } from './types';
+import type { KPIMetric, PatternDetection, OpportunityDetection, TabTableConfig, RowActionType } from './types';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
 import type { DetectedCurrency } from '../utils/currencyDetector';
+
+const actionLabels: Record<RowActionType, string> = {
+  negative: 'Add as Negative',
+  optimize: 'Optimize',
+  deactivate: 'Deactivate',
+  scale: 'Scale',
+  monitor: 'Monitor',
+  view: 'View',
+};
+
+function actionButtonClass(type: RowActionType): string {
+  switch (type) {
+    case 'negative': return 'bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30';
+    case 'optimize': return 'bg-amber-500/20 text-amber-400 border-amber-500/40 hover:bg-amber-500/30';
+    case 'deactivate': return 'bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30';
+    case 'scale': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30';
+    case 'monitor': return 'bg-sky-500/20 text-sky-400 border-sky-500/40 hover:bg-sky-500/30';
+    case 'view': return 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40 hover:bg-cyan-500/30';
+    default: return 'bg-white/10 text-[var(--color-text)] border-white/20';
+  }
+}
 
 export function TabKPISummary({
   metrics,
@@ -124,35 +145,63 @@ export function TabDataTablesSection({
                         {c.label}
                       </th>
                     ))}
+                    {t.actionColumn && (
+                      <th className="px-2 py-2 text-right font-medium text-[var(--color-text)]">{t.actionColumn.label}</th>
+                    )}
                   </tr>
                 </thead>
-                <tbody>
-                  {t.rows.slice(0, 20).map((row, ri) => (
-                    <tr key={ri} className="border-b border-white/5">
-                      {t.columns.map((c) => {
-                        const raw = row[c.key];
-                        let cell: string | number = raw != null ? String(raw) : '—';
-                        if (c.format === 'currency' && typeof raw === 'number')
-                          cell = formatCurrency(raw, currency);
-                        if (c.format === 'percent' && typeof raw === 'number')
-                          cell = formatPercent(raw);
-                        if (c.format === 'number' && typeof raw === 'number') cell = raw.toFixed(2);
-                        return (
-                          <td
-                            key={c.key}
-                            className={`px-2 py-1.5 text-[var(--color-text)] ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}
-                          >
-                            {cell}
+                  <tbody>
+                    {t.rows.slice(0, 25).map((row, ri) => (
+                      <tr key={ri} className="border-b border-white/5">
+                        {t.columns.map((c) => {
+                          const raw = row[c.key];
+                          let cell: string | number = raw != null ? String(raw) : '—';
+                          if (c.format === 'currency' && typeof raw === 'number')
+                            cell = formatCurrency(raw, currency);
+                          if (c.format === 'percent' && typeof raw === 'number')
+                            cell = formatPercent(raw);
+                          if (c.format === 'number' && typeof raw === 'number') cell = raw.toFixed(2);
+                          const isStatus = c.key === 'status' && typeof raw === 'string';
+                          const statusClass = isStatus
+                            ? raw === 'Negative'
+                              ? 'bg-red-500/20 text-red-400'
+                              : raw === 'Scale'
+                                ? 'bg-emerald-500/20 text-emerald-400'
+                                : raw === 'Optimize'
+                                  ? 'bg-amber-500/20 text-amber-400'
+                                  : 'bg-sky-500/20 text-sky-400'
+                            : '';
+                          return (
+                            <td
+                              key={c.key}
+                              className={`px-2 py-1.5 text-[var(--color-text)] ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}
+                            >
+                              {isStatus ? (
+                                <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${statusClass}`}>{cell}</span>
+                              ) : (
+                                cell
+                              )}
+                            </td>
+                          );
+                        })}
+                        {t.actionColumn && (
+                          <td className="px-2 py-1.5 text-right">
+                            <button
+                              type="button"
+                              className={`rounded border px-2 py-1 text-xs font-medium transition-colors ${actionButtonClass(t.actionColumn!.type)}`}
+                            >
+                              {actionLabels[t.actionColumn!.type]}
+                            </button>
                           </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        )}
       </div>
     </section>
   );

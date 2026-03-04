@@ -4,48 +4,25 @@ import { useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
-  Heart,
-  Target,
   Search,
-  FileSearch,
-  Ban,
-  Wallet,
-  TrendingUp,
+  Target,
   Package,
-  PieChart,
-  PackageCheck,
-  Radio,
-  GitBranch,
   Trash2,
+  PieChart,
   Sparkles,
-  LineChart,
-  Brain,
-  Bot,
-  BarChart3,
 } from 'lucide-react';
 import { TabContent } from '../tabs/TabContent';
 import type { TabId } from '../tabs/useTabData';
 
+/** 7 primary tabs: distributed analysis, deep-dive modules, best-in-class UX. */
 const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'account-health', label: 'Account Health', icon: Heart },
-  { id: 'campaign-intelligence', label: 'Campaign Intelligence', icon: Target },
-  { id: 'keyword-intelligence', label: 'Keyword Intelligence', icon: Search },
-  { id: 'search-term-intelligence', label: 'Search Term Intelligence', icon: FileSearch },
-  { id: 'negative-keyword-engine', label: 'Negative Keyword Engine', icon: Ban },
-  { id: 'budget-optimization', label: 'Budget Optimization', icon: Wallet },
-  { id: 'bid-optimization', label: 'Bid Optimization', icon: TrendingUp },
-  { id: 'asin-performance', label: 'ASIN Performance', icon: Package },
-  { id: 'profitability-analysis', label: 'Profitability Analysis', icon: PieChart },
-  { id: 'inventory-intelligence', label: 'Inventory Intelligence', icon: PackageCheck },
-  { id: 'market-signals', label: 'Market Signals', icon: Radio },
-  { id: 'structural-audit', label: 'Structural Audit', icon: GitBranch },
-  { id: 'waste-detection', label: 'Waste Detection', icon: Trash2 },
-  { id: 'growth-opportunities', label: 'Growth Opportunities', icon: Sparkles },
-  { id: 'predictive-forecasting', label: 'Predictive Forecasting', icon: LineChart },
-  { id: 'learning-intelligence', label: 'Learning Intelligence', icon: Brain },
-  { id: 'ai-strategy-engine', label: 'AI Strategy Engine', icon: Bot },
-  { id: 'charts-lab', label: 'Charts Lab', icon: BarChart3 },
+  { id: 'keywords-search-terms', label: 'Keywords & Search Terms', icon: Search },
+  { id: 'campaigns-budget', label: 'Campaigns & Budget', icon: Target },
+  { id: 'asins-products', label: 'ASINs & Products', icon: Package },
+  { id: 'waste-bleed', label: 'Waste & Bleed', icon: Trash2 },
+  { id: 'profitability-inventory', label: 'Profitability & Inventory', icon: PieChart },
+  { id: 'insights-reports', label: 'Insights & Reports', icon: Sparkles },
 ];
 
 export default function AuditTabs() {
