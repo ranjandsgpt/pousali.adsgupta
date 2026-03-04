@@ -49,18 +49,19 @@ export default function ProtocolsActiveDrawer({ isRunning, visible = true }: Pro
 
   return (
     <>
+      {/* Fixed top-right so it's always visible and never overlaps page content */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/20 bg-white/5 text-sm text-[var(--color-text)] hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+        className="fixed top-20 right-4 z-40 flex items-center gap-2 px-3 py-2 rounded-lg border border-white/20 bg-[var(--color-surface-elevated)]/95 backdrop-blur-md text-sm text-[var(--color-text)] hover:bg-white/10 shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
         aria-label="View active protocols"
       >
         <span
           className={`h-2 w-2 rounded-full shrink-0 ${isRunning ? 'bg-cyan-500 animate-pulse' : 'bg-emerald-500'}`}
           aria-hidden
         />
-        <span className="font-medium">
-          {AGENTS.length} Protocol{AGENTS.length !== 1 ? 's' : ''} Active
+        <span className="font-medium whitespace-nowrap">
+          {AGENTS.length} Protocols Active
         </span>
       </button>
 
@@ -74,7 +75,7 @@ export default function ProtocolsActiveDrawer({ isRunning, visible = true }: Pro
           <aside
             role="dialog"
             aria-label="Active protocols"
-            className="fixed top-0 right-0 z-50 h-full w-full max-w-sm border-l border-white/10 bg-[var(--color-surface-elevated)] shadow-xl flex flex-col"
+            className="fixed top-0 right-0 z-[100] h-full w-full max-w-sm border-l border-white/10 bg-[var(--color-surface-elevated)] shadow-xl flex flex-col"
           >
             <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
               <h2 className="text-lg font-semibold text-[var(--color-text)]">Active Protocols</h2>

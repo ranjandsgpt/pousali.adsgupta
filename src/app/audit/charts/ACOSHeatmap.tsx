@@ -37,12 +37,12 @@ export default function ACOSHeatmap() {
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-4">
       <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">ACOS by Campaign (Heatmap)</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto pr-2">
+        <table className="w-full text-sm min-w-0">
           <thead>
             <tr className="text-left text-[var(--color-text-muted)] border-b border-white/10">
               <th className="pb-2 font-medium">Campaign</th>
-              <th className="pb-2 font-medium text-right">ACOS</th>
+              <th className="pb-2 font-medium text-right min-w-[4.5rem]">ACOS</th>
             </tr>
           </thead>
           <tbody>
@@ -51,7 +51,7 @@ export default function ACOSHeatmap() {
                 <td className="py-2 text-[var(--color-text)] max-w-[180px] truncate" title={r.campaign}>
                   {r.campaign}
                 </td>
-                <td className="py-2 text-right">
+                <td className="py-2 text-right whitespace-nowrap">
                   <span className={`inline-block px-2 py-0.5 rounded ${acosColor(r.acos)}`}>
                     {formatPercent(r.acos)}
                   </span>

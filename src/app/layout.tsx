@@ -97,7 +97,9 @@ export default function RootLayout({
           Skip to main content
         </a>
         <Navbar />
-        <main id="main-content">{children}</main>
+        <main id="main-content" className="pt-20">
+          {children}
+        </main>
         <Footer />
       </body>
     </html>

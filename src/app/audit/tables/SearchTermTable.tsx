@@ -182,8 +182,8 @@ export default function SearchTermTable() {
         </select>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-white/10">
-        <table className="w-full text-sm" role="table" aria-label="Search term performance">
+      <div className="overflow-x-auto rounded-xl border border-white/10 pr-2 sm:pr-4">
+        <table className="w-full text-sm min-w-[800px]" role="table" aria-label="Search term performance">
           <thead>
             <tr className="border-b border-white/10 bg-white/5">
               <th className="text-left px-4 py-3 font-semibold text-[var(--color-text)]">Search Term</th>
@@ -192,10 +192,10 @@ export default function SearchTermTable() {
               <th className="text-left px-4 py-3 font-semibold text-[var(--color-text)]">Campaign</th>
               <th className="text-right px-4 py-3 font-semibold text-[var(--color-text)]">Spend</th>
               <th className="text-right px-4 py-3 font-semibold text-[var(--color-text)]">Sales</th>
-              <th className="text-right px-4 py-3 font-semibold text-[var(--color-text)]">ACOS</th>
-              <th className="text-right px-4 py-3 font-semibold text-[var(--color-text)]">ROAS</th>
+              <th className="text-right px-4 py-3 font-semibold text-[var(--color-text)] min-w-[4rem]">ACOS</th>
+              <th className="text-right px-4 py-3 font-semibold text-[var(--color-text)] min-w-[4rem]">ROAS</th>
               <th className="text-center px-4 py-3 font-semibold text-[var(--color-text)]">Quality Score</th>
-              <th className="text-left px-4 py-3 font-semibold text-[var(--color-text)]">Action</th>
+              <th className="text-left px-4 py-3 font-semibold text-[var(--color-text)] min-w-[6rem]">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -220,12 +220,12 @@ export default function SearchTermTable() {
                 <td className="px-4 py-2 text-right tabular-nums">
                   {currency ? formatCurrency(r.sales, currency) : r.sales.toFixed(2)}
                 </td>
-                <td className="px-4 py-2 text-right tabular-nums">{formatPercent(r.acos)}</td>
-                <td className="px-4 py-2 text-right tabular-nums">{r.roas.toFixed(2)}×</td>
+                <td className="px-4 py-2 text-right tabular-nums whitespace-nowrap">{formatPercent(r.acos)}</td>
+                <td className="px-4 py-2 text-right tabular-nums whitespace-nowrap">{r.roas.toFixed(2)}×</td>
                 <td className="px-4 py-2 text-center">
                   <QualityScoreBadge score={r.qualityScore} />
                 </td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-2 whitespace-nowrap">
                   <ActionBadge action={r.action} />
                 </td>
               </tr>

@@ -55,13 +55,13 @@ export default function CriticalIssuesEngine() {
             </span>
           </div>
           <p className="text-sm text-[var(--color-text)] mb-2">High ACOS campaigns</p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+          <div className="overflow-x-auto pr-2">
+            <table className="w-full text-xs min-w-0">
               <thead>
                 <tr className="text-left text-[var(--color-text-muted)]">
                   <th className="pb-1 pr-2">Campaign</th>
-                  <th className="pb-1 text-right">Spend</th>
-                  <th className="pb-1 text-right">ACOS</th>
+                  <th className="pb-1 text-right min-w-[4rem]">Spend</th>
+                  <th className="pb-1 text-right min-w-[4rem]">ACOS</th>
                 </tr>
               </thead>
               <tbody className="text-[var(--color-text)]">
@@ -87,8 +87,8 @@ export default function CriticalIssuesEngine() {
             </span>
           </div>
           <p className="text-sm text-[var(--color-text)] mb-2">Keywords with excessive spend (zero sales)</p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+          <div className="overflow-x-auto pr-2">
+            <table className="w-full text-xs min-w-0">
               <thead>
                 <tr className="text-left text-[var(--color-text-muted)]">
                   <th className="pb-1 pr-2">Search Term</th>

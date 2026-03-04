@@ -97,14 +97,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = (await res.json()) as {
-      candidates?: Array<{
-        content?: { parts?: Array<{ text?: string }> };
-      };
+    type GeminiResponse = {
+      candidates?: {
+        content?: {
+          parts?: { text?: string }[];
+        };
+      }[];
     };
-    const text =
-      data.candidates?.[0]?.content?.parts?.[0]?.text ??
-      'No insight generated.';
+    const data = (await res.json()) as GeminiResponse;
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 
     return NextResponse.json({ insight: text });
   } catch (e) {

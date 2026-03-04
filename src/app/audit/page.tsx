@@ -64,8 +64,8 @@ function AuditPageContent() {
           ) : null
         }
       />
-      {/* Section 40: responsive padding so page title does not overlap navbar */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10 pb-6 space-y-6">
+      {/* Section 40: responsive padding so page title does not overlap navbar; pr avoids body scrollbar overlapping content */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10 pb-6 pr-6 sm:pr-8 space-y-6">
         <UploadPanel
           onUploadComplete={handleUploadComplete}
           disabled={step === 'processing'}
