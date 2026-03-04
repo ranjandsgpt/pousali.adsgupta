@@ -11,7 +11,7 @@ import { mapHeaders, classifyReportType, type HeaderMap } from './headerMapper';
 import { sanitizeNumeric } from './sanitizeNumeric';
 import { detectCurrencyFromValues, type DetectedCurrency } from './currencyDetector';
 import { normalizeDate } from './dateNormalizer';
-import { buildSkuToAsinMap, resolveAsin, type SkuToAsinMap } from './skuToAsin';
+import { resolveAsin, type SkuToAsinMap } from './skuToAsin';
 import { compositeKey, isDuplicate } from './duplicateDetection';
 import {
   computeStoreMetrics,
@@ -194,6 +194,7 @@ function parseAdvertisingFile(
             searchTerm: keyword,
             campaign,
             matchType: getStr(row, headerMap!.matchType),
+            asin: asin || undefined,
             spend: 0,
             sales: 0,
             clicks: 0,

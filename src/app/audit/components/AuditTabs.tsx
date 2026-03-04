@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import { BarChart3, Search, AlertTriangle, Package } from 'lucide-react';
+import SearchTermTable from '../tables/SearchTermTable';
+import BleederTable from '../tables/BleederTable';
+import AsinProfitabilityTable from '../tables/AsinProfitabilityTable';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -76,33 +79,9 @@ export default function AuditTabs() {
                 </p>
               </div>
             )}
-            {active === 'search-terms' && (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center">
-                <Search className="mx-auto mb-3 text-[var(--color-text-muted)]" size={40} />
-                <p className="text-[var(--color-text)] font-medium">Search Terms</p>
-                <p className="text-sm text-[var(--color-text-muted)] mt-1">
-                  Table: search term, spend, sales, ACOS. Plug in table component.
-                </p>
-              </div>
-            )}
-            {active === 'bleeders' && (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center">
-                <AlertTriangle className="mx-auto mb-3 text-[var(--color-text-muted)]" size={40} />
-                <p className="text-[var(--color-text)] font-medium">Bleeders</p>
-                <p className="text-sm text-[var(--color-text-muted)] mt-1">
-                  Wasted spend table. Plug in bleeders table here.
-                </p>
-              </div>
-            )}
-            {active === 'asin' && (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center">
-                <Package className="mx-auto mb-3 text-[var(--color-text-muted)]" size={40} />
-                <p className="text-[var(--color-text)] font-medium">ASIN Performance</p>
-                <p className="text-sm text-[var(--color-text-muted)] mt-1">
-                  ASIN-level profitability table. Plug in ASIN table here.
-                </p>
-              </div>
-            )}
+            {active === 'search-terms' && <SearchTermTable />}
+            {active === 'bleeders' && <BleederTable />}
+            {active === 'asin' && <AsinProfitabilityTable />}
           </div>
         ))}
       </div>

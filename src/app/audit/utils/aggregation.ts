@@ -15,11 +15,13 @@ export interface StoreMetrics {
   organicSales: number;
 }
 
-/** Keyword level */
+/** Keyword level (Section 6: Search Term Performance) */
 export interface KeywordMetrics {
   searchTerm: string;
   campaign: string;
   matchType: string;
+  /** For Table 3 "Show Detail" – keywords targeting this ASIN */
+  asin?: string;
   spend: number;
   sales: number;
   clicks: number;
@@ -27,11 +29,12 @@ export interface KeywordMetrics {
   roas: number;
 }
 
-/** ASIN level */
+/** ASIN level (Section 8: ASIN-Level Profitability) */
 export interface AsinMetrics {
   asin: string;
   sessions: number;
   pageViews: number;
+  buyBoxPercent?: number;
   adSpend: number;
   adSales: number;
   totalSales: number;
