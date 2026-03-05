@@ -9,6 +9,7 @@ import AuditTabs from './components/AuditTabs';
 import ExportBar from './components/ExportBar';
 import PrivacyNote from './components/PrivacyNote';
 import { AuditStoreProvider, useAuditStore } from './context/AuditStoreContext';
+import { GeminiReportProvider, useGeminiReport } from './context/GeminiReportContext';
 import { LearningProvider, useLearning } from './learning/LearningContext';
 import { parseReportsStreaming } from './utils/reportParser';
 import { normalizeToCsvFiles } from './utils/xlsxToCsv';
@@ -22,6 +23,7 @@ function AuditPageContent() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const { setStore } = useAuditStore();
   const { runLearning } = useLearning();
+  const { runGemini } = useGeminiReport();
   const lastFilesRef = useRef<File[]>([]);
 
   const handleUploadComplete = (files: File[]) => {
@@ -36,6 +38,7 @@ function AuditPageContent() {
         setStore(store);
         await runLearning(store);
         setStep('dashboard');
+        runGemini(store);
       } catch {
         setStep('upload');
       } finally {
@@ -99,7 +102,9 @@ export default function AuditPage() {
   return (
     <AuditStoreProvider>
       <LearningProvider>
-        <AuditPageContent />
+        <GeminiReportProvider>
+          <AuditPageContent />
+        </GeminiReportProvider>
       </LearningProvider>
     </AuditStoreProvider>
   );
