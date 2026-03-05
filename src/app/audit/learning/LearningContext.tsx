@@ -18,6 +18,7 @@ interface LearningContextValue {
   crossAccountInsights: Array<{ text: string; confidence: number }>;
   refresh: () => Promise<void>;
   runLearning: (store: MemoryStore) => Promise<void>;
+  recordGeminiFeedback: (messages: string[]) => void;
 }
 
 const LearningContext = createContext<LearningContextValue>({
@@ -25,6 +26,7 @@ const LearningContext = createContext<LearningContextValue>({
   crossAccountInsights: [],
   refresh: async () => {},
   runLearning: async () => {},
+  recordGeminiFeedback: () => {},
 });
 
 export function useLearning() {
@@ -49,13 +51,24 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     setCrossAccountInsights(insights);
   }, []);
 
+  const recordGeminiFeedback = useCallback((messages: string[]) => {
+    if (!messages || messages.length === 0) return;
+    setCrossAccountInsights((prev) => [
+      ...messages.map((text) => ({
+        text,
+        confidence: 95,
+      })),
+      ...prev,
+    ]);
+  }, []);
+
   useEffect(() => {
     refresh();
   }, [refresh]);
 
   return (
     <LearningContext.Provider
-      value={{ learning, crossAccountInsights, refresh, runLearning }}
+      value={{ learning, crossAccountInsights, refresh, runLearning, recordGeminiFeedback }}
     >
       {children}
     </LearningContext.Provider>

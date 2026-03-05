@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
+import { useLearning } from '../learning/LearningContext';
 import { runDiagnosticEngines } from '../engines';
 import { runSanityChecks } from '../utils/sanityChecks';
 import type { DualIntelligenceRequest, GeminiAuditResponse } from '../../api/generate-insights/route';
@@ -11,6 +12,7 @@ const LOW_ACOS_THRESHOLD = 15;
 
 export default function GeminiInsightsPanel() {
   const { state } = useAuditStore();
+  const { recordGeminiFeedback } = useLearning();
   const [result, setResult] = useState<GeminiAuditResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -234,7 +236,19 @@ export default function GeminiInsightsPanel() {
         setError('AI insights temporarily unavailable. Please rerun analysis.');
         return;
       }
-      setResult(data as GeminiAuditResponse);
+      const typed = data as GeminiAuditResponse;
+      setResult(typed);
+
+      // When Gemini flags disagreements with the deterministic engine,
+      // feed those messages into the Learning Intelligence layer so they
+      // can influence cross-account insights on subsequent analyses.
+      if (
+        typed.verification &&
+        typed.verification.disagreements &&
+        typed.verification.disagreements.length > 0
+      ) {
+        recordGeminiFeedback(typed.verification.disagreements);
+      }
     } catch {
       setError('AI insights temporarily unavailable. Please rerun analysis.');
     } finally {
