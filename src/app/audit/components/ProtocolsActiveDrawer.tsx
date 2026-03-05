@@ -1,20 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Check, X } from 'lucide-react';
+import { useAuditStore } from '../context/AuditStoreContext';
 
-const AGENTS = [
-  'FileUploadAgent',
-  'HeaderDiscoveryAgent',
-  'CurrencyMappingAgent',
-  'SKUtoASINAgent',
-  'DuplicateDetectionAgent',
-  'NumericSanitizerAgent',
-  'AggregationAgent',
-  'MathVerificationAgent',
-  'ChartBuilderAgent',
-  'ExportAgent',
+const AUDIT_PROTOCOLS = [
+  'keyword_bleed_detection',
+  'high_acos_campaigns',
+  'negative_keyword_opportunities',
+  'hidden_profitable_keywords',
+  'budget_capped_campaigns',
+  'low_conversion_keywords',
+  'asin_profitability_check',
+  'organic_vs_paid_halo',
+  'match_type_efficiency',
+  'keyword_scaling_candidates',
 ] as const;
+
+type AuditProtocol = (typeof AUDIT_PROTOCOLS)[number];
 
 const STAGGER_MS = 180;
 
@@ -25,25 +28,54 @@ interface ProtocolsActiveDrawerProps {
 }
 
 export default function ProtocolsActiveDrawer({ isRunning, visible = true }: ProtocolsActiveDrawerProps) {
+  const { state } = useAuditStore();
   const [open, setOpen] = useState(false);
   const [completedCount, setCompletedCount] = useState(0);
 
+  const protocolStatus = useMemo<Record<AuditProtocol, boolean>>(() => {
+    const store = state.store;
+    const kws = Object.values(store.keywordMetrics);
+    const campaigns = Object.values(store.campaignMetrics);
+    const asins = Object.values(store.asinMetrics);
+    const status: Record<AuditProtocol, boolean> = {
+      keyword_bleed_detection: kws.length > 0,
+      high_acos_campaigns: campaigns.length > 0,
+      negative_keyword_opportunities: kws.length > 0,
+      hidden_profitable_keywords: kws.length > 0,
+      budget_capped_campaigns: campaigns.some((c) => c.budget > 0),
+      low_conversion_keywords: store.totalSessions > 0 || kws.length > 0,
+      asin_profitability_check: asins.length > 0,
+      organic_vs_paid_halo: store.storeMetrics.organicSales !== 0 || store.totalAdSales > 0,
+      match_type_efficiency: kws.some((k) => !!k.matchType),
+      keyword_scaling_candidates: kws.length > 0,
+    };
+    return status;
+  }, [state.store]);
+
+  const activeProtocols = useMemo(
+    () => Object.values(protocolStatus).filter(Boolean).length,
+    [protocolStatus]
+  );
+
   useEffect(() => {
     if (!isRunning) {
-      setCompletedCount(AGENTS.length);
+      setCompletedCount(AUDIT_PROTOCOLS.length);
       return;
     }
     setCompletedCount(0);
     const timers: ReturnType<typeof setTimeout>[] = [];
-    AGENTS.forEach((_, i) => {
+    AUDIT_PROTOCOLS.forEach((_, i) => {
       timers.push(
-        setTimeout(() => setCompletedCount((c) => Math.min(c + 1, AGENTS.length)), (i + 1) * STAGGER_MS)
+        setTimeout(
+          () => setCompletedCount((c) => Math.min(c + 1, AUDIT_PROTOCOLS.length)),
+          (i + 1) * STAGGER_MS
+        )
       );
     });
     return () => timers.forEach(clearTimeout);
   }, [isRunning]);
 
-  const allComplete = completedCount >= AGENTS.length;
+  const allComplete = completedCount >= AUDIT_PROTOCOLS.length;
 
   if (!visible) return null;
 
@@ -61,7 +93,7 @@ export default function ProtocolsActiveDrawer({ isRunning, visible = true }: Pro
           aria-hidden
         />
         <span className="font-medium whitespace-nowrap">
-          {AGENTS.length} Protocols Active
+          {activeProtocols}/{AUDIT_PROTOCOLS.length} Protocols Active
         </span>
       </button>
 
@@ -97,8 +129,8 @@ export default function ProtocolsActiveDrawer({ isRunning, visible = true }: Pro
               </span>
             </div>
             <ul className="flex-1 overflow-y-auto p-4 space-y-2" role="list">
-              {AGENTS.map((name, i) => {
-                const completed = i < completedCount;
+              {AUDIT_PROTOCOLS.map((name, i) => {
+                const completed = protocolStatus[name];
                 return (
                   <li
                     key={name}
@@ -111,7 +143,9 @@ export default function ProtocolsActiveDrawer({ isRunning, visible = true }: Pro
                     ) : (
                       <span className="w-4 h-4 shrink-0 rounded-full border-2 border-current opacity-50" aria-hidden />
                     )}
-                    <span className="flex-1">[{completed ? '✓' : ' '}] {name}</span>
+                    <span className="flex-1">
+                      [{completed ? '✓' : ' '}] {name.replace(/_/g, ' ')}
+                    </span>
                     <span className="text-xs">
                       {completed ? 'Completed' : isRunning ? 'Running' : 'Pending'}
                     </span>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenAI } from '@google/genai';
 
 /** Aggregated audit summary only — no raw keywords or PII. */
 export interface GenerateInsightsBody {
@@ -12,7 +13,7 @@ export interface GenerateInsightsBody {
   summaryTables?: Record<string, unknown>;
 }
 
-const model = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 function buildPrompt(payload: GenerateInsightsBody): string {
   const parts: string[] = [
@@ -69,58 +70,33 @@ export async function POST(request: NextRequest) {
 
   const prompt = buildPrompt(body);
 
-  const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
   console.log('Using Gemini model:', model);
 
+  const ai = new GoogleGenAI({ apiKey });
+
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-      }),
+    const result = await ai.models.generateContent({
+      model,
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: prompt }],
+        },
+      ],
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API Error:', response.status, errorText);
+    const candidate = result.candidates?.[0];
+    const text = candidate?.content?.parts
+      ?.map((p) => p.text ?? '')
+      .join('\n')
+      .trim();
 
-      let details = errorText;
-      try {
-        const errJson = JSON.parse(errorText) as { error?: { message?: string; status?: string } };
-        if (errJson.error?.message) details = errJson.error.message;
-      } catch {
-        // keep raw errorText
-      }
-
-      return NextResponse.json(
-        { error: 'Gemini API request failed', details },
-        { status: 500 }
-      );
-    }
-
-    const data = (await response.json()) as {
-      candidates?: {
-        content?: {
-          parts?: { text?: string }[];
-        };
-      }[];
-    };
-    const text =
-      data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No insights generated';
-
-    return NextResponse.json({ insight: text });
+    return NextResponse.json({ insight: text && text.length > 0 ? text : 'No insights generated' });
   } catch (e) {
     console.error('generate-insights error', e);
     return NextResponse.json(
-      { error: 'Failed to generate insights' },
-      { status: 500 }
+      { insight: 'AI insights temporarily unavailable. Please rerun analysis.' },
+      { status: 200 }
     );
   }
 }

@@ -69,15 +69,12 @@ export default function GeminiInsightsPanel() {
       });
       const data = await res.json();
       if (!res.ok) {
-        const msg = data.details
-          ? `${data.error}: ${typeof data.details === 'string' ? data.details.slice(0, 300) : JSON.stringify(data.details).slice(0, 300)}`
-          : (data.error || 'Failed to generate insights');
-        setError(msg);
+        setError('AI insights temporarily unavailable. Please rerun analysis.');
         return;
       }
       setInsight(data.insight ?? '');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Request failed');
+    } catch {
+      setError('AI insights temporarily unavailable. Please rerun analysis.');
     } finally {
       setLoading(false);
     }
@@ -107,10 +104,6 @@ export default function GeminiInsightsPanel() {
       {error && (
         <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20" role="alert">
           <p className="text-sm font-medium text-red-400">{error}</p>
-          <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            Check GEMINI_API_KEY in your environment (Vercel or .env.local). Get a key at{' '}
-            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">Google AI Studio</a>.
-          </p>
         </div>
       )}
       {insight && (
