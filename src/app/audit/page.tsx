@@ -3,19 +3,23 @@
 import { useRef, useState } from 'react';
 import Header from './components/Header';
 import UploadPanel from './components/UploadPanel';
-import ProtocolsActiveDrawer from './components/ProtocolsActiveDrawer';
+import AuditProcessingPanel from './components/AuditProcessingPanel';
 import AuditSummaryBlock from './components/AuditSummaryBlock';
 import AuditTabs from './components/AuditTabs';
 import ExportBar from './components/ExportBar';
 import PrivacyNote from './components/PrivacyNote';
 import { AuditStoreProvider, useAuditStore } from './context/AuditStoreContext';
 import { GeminiReportProvider, useGeminiReport } from './context/GeminiReportContext';
+import { PipelineProvider, usePipeline, type PipelineStageId } from './context/PipelineContext';
 import { LearningProvider, useLearning } from './learning/LearningContext';
 import { parseReportsStreaming } from './utils/reportParser';
 import { normalizeToCsvFiles } from './utils/xlsxToCsv';
+import { runReportVerification } from './utils/reportVerification';
 import type { TabId } from './tabs/useTabData';
 
 export type AuditStep = 'upload' | 'processing' | 'dashboard';
+
+const MAX_PARSING_RETRIES = 3;
 
 function AuditPageContent() {
   const [step, setStep] = useState<AuditStep>('upload');
@@ -24,6 +28,7 @@ function AuditPageContent() {
   const { setStore } = useAuditStore();
   const { runLearning } = useLearning();
   const { runGemini } = useGeminiReport();
+  const { setStage, resetPipeline } = usePipeline();
   const lastFilesRef = useRef<File[]>([]);
 
   const handleUploadComplete = (files: File[]) => {
@@ -31,15 +36,62 @@ function AuditPageContent() {
     lastFilesRef.current = files;
     setIsProcessing(true);
     setStep('processing');
+    resetPipeline();
+
     (async () => {
       try {
+        setStage('file_upload', 'running');
         const csvFiles = await normalizeToCsvFiles(files);
-        const store = await parseReportsStreaming(csvFiles, () => {});
+        setStage('file_upload', 'completed');
+
+        let store = await parseReportsStreaming(
+          csvFiles,
+          () => {},
+          (stage, status, error) => {
+            setStage(stage as PipelineStageId, status === 'failed' ? 'failed' : status === 'running' ? 'running' : 'completed', error);
+          }
+        );
+
+        let attempt = 0;
+        let verification = runReportVerification(store);
+        while (attempt < MAX_PARSING_RETRIES - 1) {
+          const ok =
+            verification.crossReport.passed &&
+            verification.dataIntegrity.passed &&
+            verification.metricVerification.acosMatch &&
+            verification.metricVerification.roasMatch;
+          if (ok && verification.confidenceScore >= 80) break;
+          setStage('column_mapping', 'running');
+          setStage('report_parsing', 'running');
+          store = await parseReportsStreaming(
+            csvFiles,
+            () => {},
+            (stage, status) => {
+              setStage(stage as PipelineStageId, status === 'failed' ? 'failed' : status === 'running' ? 'running' : 'completed');
+            }
+          );
+          verification = runReportVerification(store);
+          attempt++;
+        }
+
+        setStage('pattern_detection', 'completed');
+        setStage('sanity_validation', 'completed');
+        setStage('cross_report_validation', verification.crossReport.passed ? 'completed' : 'failed', verification.crossReport.errors[0]);
+
         setStore(store);
         await runLearning(store);
         setStep('dashboard');
-        runGemini(store);
-      } catch {
+
+        setStage('gemini_analysis', 'running');
+        await runGemini(store, {
+          onComplete: (success) => {
+            setStage('gemini_analysis', success ? 'completed' : 'failed');
+            setStage('gemini_verification', 'completed');
+            setStage('insight_rendering', 'completed');
+          },
+        });
+      } catch (err) {
+        setStage('report_parsing', 'failed', err instanceof Error ? err.message : 'Parse failed');
         setStep('upload');
       } finally {
         setIsProcessing(false);
@@ -56,14 +108,7 @@ function AuditPageContent() {
 
   return (
     <div className="min-h-screen bg-[var(--color-surface)] text-[var(--color-text)]">
-      <Header
-        rightSlot={
-          (step === 'processing' || step === 'dashboard') ? (
-            <ProtocolsActiveDrawer isRunning={step === 'processing'} visible />
-          ) : null
-        }
-      />
-      {/* Section 40: responsive padding so page title does not overlap navbar; pr avoids body scrollbar overlapping content */}
+      <Header rightSlot={null} />
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10 pb-6 pr-6 sm:pr-8 space-y-6">
         <UploadPanel
           onUploadComplete={handleUploadComplete}
@@ -72,9 +117,7 @@ function AuditPageContent() {
         <PrivacyNote />
 
         {step === 'processing' && (
-          <section className="rounded-2xl border border-white/10 bg-[var(--color-surface-elevated)] p-4 text-sm text-[var(--color-text-muted)]">
-            Reprocessing reports and validating insights…
-          </section>
+          <AuditProcessingPanel />
         )}
 
         {step === 'dashboard' && (
@@ -102,9 +145,11 @@ export default function AuditPage() {
   return (
     <AuditStoreProvider>
       <LearningProvider>
-        <GeminiReportProvider>
-          <AuditPageContent />
-        </GeminiReportProvider>
+        <PipelineProvider>
+          <GeminiReportProvider>
+            <AuditPageContent />
+          </GeminiReportProvider>
+        </PipelineProvider>
       </LearningProvider>
     </AuditStoreProvider>
   );

@@ -24,7 +24,7 @@ const defaultState: GeminiReportState = {
 };
 
 interface GeminiReportContextValue extends GeminiReportState {
-  runGemini: (store: MemoryStore) => Promise<void>;
+  runGemini: (store: MemoryStore, opts?: { onComplete?: (success: boolean) => void }) => Promise<void>;
 }
 
 const GeminiReportContext = createContext<GeminiReportContextValue>({
@@ -187,10 +187,11 @@ export function GeminiReportProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const runGemini = useCallback(async (store: MemoryStore) => {
+  const runGemini = useCallback(async (store: MemoryStore, opts?: { onComplete?: (success: boolean) => void }) => {
     setLoading(true);
     setReport(null);
     setError(null);
+    let success = false;
     try {
       const payload = buildPayload(store);
       const res = await fetch('/api/generate-insights', {
@@ -201,17 +202,21 @@ export function GeminiReportProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       if (!res.ok) {
         setError('AI analysis temporarily unavailable. Please rerun analysis.');
+        opts?.onComplete?.(false);
         return;
       }
       const text = typeof data.report === 'string' ? data.report : (data.narrative ?? '');
-      if (text) {
+      if (text && !text.includes('temporarily unavailable')) {
         setReport(text);
         setError(null);
+        success = true;
       } else {
         setError('AI analysis temporarily unavailable. Please rerun analysis.');
       }
+      opts?.onComplete?.(success);
     } catch {
       setError('AI analysis temporarily unavailable. Please rerun analysis.');
+      opts?.onComplete?.(false);
     } finally {
       setLoading(false);
     }

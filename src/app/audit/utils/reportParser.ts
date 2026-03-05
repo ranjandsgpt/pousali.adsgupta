@@ -332,18 +332,26 @@ function getHeaderMapFromFile(file: File): Promise<{ headerMap: HeaderMap; type:
   });
 }
 
+export type PipelineStageCallback = (stage: string, status: 'running' | 'completed' | 'failed', error?: string) => void;
+
 export async function parseReportsStreaming(
   files: File[],
-  onProgress?: (file: string, rows: number) => void
+  onProgress?: (file: string, rows: number) => void,
+  onStageUpdate?: PipelineStageCallback
 ): Promise<MemoryStore> {
   const store = createEmptyStore();
   const seenRows = new Set<string>();
 
+  onStageUpdate?.('header_detection', 'running');
   const fileInfos: Array<{ file: File; type: ReportType; headerMap: HeaderMap }> = [];
   for (const file of files) {
     const { headerMap, type } = await getHeaderMapFromFile(file);
     fileInfos.push({ file, type, headerMap });
   }
+  onStageUpdate?.('header_detection', 'completed');
+  onStageUpdate?.('report_type_classification', 'completed');
+  onStageUpdate?.('column_mapping', 'completed');
+  onStageUpdate?.('report_parsing', 'running');
 
   const businessFiles = fileInfos.filter((f) => f.type === 'business');
   const adFiles = fileInfos.filter((f) => f.type === 'advertising');
@@ -382,9 +390,11 @@ export async function parseReportsStreaming(
       });
     }
   }
-
+  onStageUpdate?.('report_parsing', 'completed');
+  onStageUpdate?.('currency_normalization', 'running');
   store.currency = detectCurrencyFromValues(store.currencySample);
-
+  onStageUpdate?.('currency_normalization', 'completed');
+  onStageUpdate?.('metric_computation', 'running');
   for (const k of Object.keys(store.keywordMetrics)) {
     const m = store.keywordMetrics[k];
     const { acos, roas } = computeKeywordMetrics(m.spend, m.sales, m.clicks);
@@ -421,7 +431,7 @@ export async function parseReportsStreaming(
       totalClicks: store.totalClicks,
     }
   );
-
+  onStageUpdate?.('metric_computation', 'completed');
   return store;
 }
 

@@ -6,6 +6,8 @@ import { formatCurrency, formatPercent } from '../utils/formatNumber';
 import { FileDown, FileText, RotateCcw } from 'lucide-react';
 import { exportAuditPdf } from '../utils/exportPdf';
 import { exportAuditDocx } from '../utils/exportDocx';
+import { computeHealthScore } from '../utils/healthScoreEngine';
+import { runReportVerification } from '../utils/reportVerification';
 
 const DISPLAY_NAMES: Record<string, string> = {
   spend: 'Spend', sales: 'Sales', clicks: 'Clicks', impressions: 'Impressions', orders: 'Orders',
@@ -34,35 +36,26 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
   const { state } = useAuditStore();
   const { store } = state;
 
-  const { healthScore, healthLabel, criticalCount, summaryCards } = useMemo<{
+  const { healthScore, healthLabel, criticalCount, summaryCards, confidenceScore, wastedSpendEstimate } = useMemo<{
       healthScore: number;
       healthLabel: string;
       criticalCount: number;
       summaryCards: SummaryCard[];
+      confidenceScore: number;
+      wastedSpendEstimate: number;
     }>(() => {
+    const health = computeHealthScore(store);
+    const verification = runReportVerification(store);
+    const criticalCount = health.criticalIssuesCount;
+    const healthScore = health.healthScore;
+    const healthLabel = health.healthLabel;
+    const confidenceScore = verification.confidenceScore;
+    const wastedSpendEstimate = health.wastedSpendEstimate;
+
     const totalSales = store.totalStoreSales > 0 ? store.totalStoreSales : store.storeMetrics.totalSales;
     const acos = store.totalAdSales > 0 ? (store.totalAdSpend / store.totalAdSales) * 100 : null;
     const roas = state.blendedROAS;
     const tacos = state.globalTACOS;
-    const kws = Object.values(store.keywordMetrics);
-    const bleeding = kws.filter((k) => k.spend > 0 && k.sales === 0).length;
-    const campaigns = Object.values(store.campaignMetrics);
-    const highAcosCamp = campaigns.filter((c) => c.acos > 30 && c.sales > 0).length;
-    const criticalCount = bleeding + highAcosCamp;
-
-    let score = 70;
-    if (acos != null) {
-      if (acos > 60) score -= 30;
-      else if (acos > 30) score -= 15;
-      else if (acos < 20) score += 10;
-    }
-    if (roas >= 4) score += 10;
-    else if (roas < 1.5) score -= 20;
-    if (tacos > 25) score -= 15;
-    if (criticalCount > 10) score -= 15;
-    else if (criticalCount > 0) score -= 5;
-    const healthScore = Math.max(0, Math.min(100, score));
-    const healthLabel = healthScore >= 70 ? 'Good' : healthScore >= 40 ? 'Caution' : 'Critical';
 
     const totalSessions =
       store.totalSessions > 0
@@ -87,7 +80,7 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
           : null;
 
     const cards: SummaryCard[] = [
-      { label: 'Critical Issues', value: String(criticalCount), sub: '', status: criticalCount > 0 ? 'red' : 'green' },
+      { label: 'Critical Issues', value: String(criticalCount), sub: wastedSpendEstimate > 0 ? `~${formatCurrency(wastedSpendEstimate, store.currency)} waste` : '', status: criticalCount > 0 ? 'red' : 'green' },
       { label: 'Total Sales', value: totalSales > 0 ? formatCurrency(totalSales, store.currency) : '—', sub: '', status: totalSales > 0 ? 'blue' : 'blue' },
       { label: 'Total Ad Spend', value: store.totalAdSpend > 0 ? formatCurrency(store.totalAdSpend, store.currency) : '—', sub: '', status: 'blue' },
       { label: 'Total Ad Sales', value: store.totalAdSales > 0 ? formatCurrency(store.totalAdSales, store.currency) : '—', sub: '', status: 'blue' },
@@ -98,7 +91,7 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
       { label: 'CVR', value: conversionRate != null ? formatPercent(conversionRate) : '—', sub: '', status: conversionRate != null ? (conversionRate >= 10 ? 'green' : conversionRate >= 4 ? 'orange' : 'red') : 'blue' },
       { label: 'Buy Box %', value: buyBoxPct != null ? `${Math.round(buyBoxPct)}%` : '—', sub: '', status: buyBoxPct != null ? (buyBoxPct >= 90 ? 'green' : buyBoxPct >= 70 ? 'orange' : 'red') : 'blue' },
     ];
-    return { healthScore, healthLabel, criticalCount, summaryCards: cards };
+    return { healthScore, healthLabel, criticalCount, summaryCards: cards, confidenceScore, wastedSpendEstimate };
   }, [store, state.blendedROAS, state.globalTACOS]);
 
   const detectedTags = useMemo(() => {
@@ -174,7 +167,12 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
         <div>
           <p className="text-xs font-semibold text-[var(--color-text-muted)] mb-1">Health &amp; Risk</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div className={`rounded-xl border p-3 ${healthScore >= 70 ? 'bg-emerald-500/20 border-emerald-500/40' : healthScore >= 40 ? 'bg-amber-500/20 border-amber-500/40' : 'bg-red-500/20 border-red-500/40'}`}>
+            <div className={`rounded-xl border p-3 ${
+              healthScore >= 90 ? 'bg-emerald-500/20 border-emerald-500/40' :
+              healthScore >= 75 ? 'bg-emerald-500/15 border-emerald-500/30' :
+              healthScore >= 60 ? 'bg-amber-500/20 border-amber-500/40' :
+              healthScore >= 40 ? 'bg-amber-500/25 border-amber-500/50' : 'bg-red-500/20 border-red-500/40'
+            }`}>
               <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">Health Score</p>
               <p className="text-2xl font-bold tabular-nums">{healthScore}</p>
               <p className="text-xs mt-1 opacity-90">{healthLabel}</p>
@@ -248,6 +246,15 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
           ))}
         </div>
       </div>
+
+      {confidenceScore < 80 && hasData && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <h3 className="text-sm font-semibold text-amber-400 mb-2">Report ingestion warning</h3>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Report ingestion may contain inconsistencies (confidence: {confidenceScore}%). Consider re-uploading reports.
+          </p>
+        </div>
+      )}
 
       {missingTags.length > 0 && (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">

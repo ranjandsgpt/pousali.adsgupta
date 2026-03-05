@@ -61,6 +61,8 @@ const USER_PROMPT_PREFIX =
   'Avoid JSON.\n' +
   'Avoid repeating raw numbers excessively.\n' +
   'Explain insights in plain business language suitable for Amazon sellers.\n\n' +
+  'Step 4 — Metric verification\n' +
+  'Before concluding, verify parsed metric consistency: e.g. ad sales ≤ total sales, sessions ≥ clicks, no impossible or extreme ACOS/ROAS values, no missing traffic data where expected. If you detect inconsistencies or anomalies, add a short "Verification warnings" section at the end listing them.\n\n' +
   '---\n\n' +
   'Normalized dataset (JSON for analysis):\n\n';
 

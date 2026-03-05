@@ -33,7 +33,20 @@ export interface HeaderMap {
   [canonical: string]: string;
 }
 
-/** Possible header names per canonical column (case-insensitive match) */
+/**
+ * Normalize header for matching: remove spaces, hyphens, underscores; lowercase.
+ * Enables matching "Sessions - Total", "Buy Box %", "Units Ordered - B2C", etc.
+ */
+export function normalizeHeader(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/-/g, '')
+    .replace(/_/g, '')
+    .trim();
+}
+
+/** Possible header names per canonical column (matched via normalizeHeader) */
 const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
   spend: [
     'Spend',
@@ -47,6 +60,7 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
     'Attributed Sales',
     'Ad Sales',
     'Ordered Product Sales',
+    'Total Sales',
   ],
   sales7d: [
     '7 Day Total Sales',
@@ -71,11 +85,15 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
     'Units Ordered',
     'Attributed Units Ordered',
     '14 Day Total Orders',
+    'Total Order Items',
   ],
   units: [
     'Units Ordered',
     'Attributed Units Ordered',
     'Ordered Units',
+    'Units Ordered - B2C',
+    'Units Ordered Total',
+    'unitsordered',
   ],
   searchTerm: [
     'Search Term',
@@ -107,14 +125,17 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
   ],
   sessions: [
     'Sessions',
+    'Sessions - Total',
     'Total Sessions',
     'Traffic Sessions',
+    'sessions',
   ],
   orderedProductSales: [
     'Ordered Product Sales',
     'Ordered Product Sales (USD)',
     'Total Sales',
     'Product Sales',
+    'total_sales',
   ],
   date: [
     'Date',
@@ -133,6 +154,9 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
     'Buy Box %',
     'Buy Box Percentage',
     'Buy Box Pct',
+    'buyboxpercentage',
+    'BuyBox%',
+    'buy box percentage',
   ],
   unitSession: [
     'Unit Session %',
@@ -140,6 +164,7 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
     'Unit Session Pct',
     'UnitSessionPct',
     'Conversion Rate',
+    'conversion_rate',
   ],
   other: [],
 };
@@ -147,18 +172,21 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
 const normalizedVariations = new Map<string, CanonicalColumn>();
 for (const [canonical, variants] of Object.entries(COLUMN_VARIATIONS)) {
   for (const v of variants) {
-    normalizedVariations.set(v.toLowerCase().trim(), canonical as CanonicalColumn);
+    const norm = normalizeHeader(v);
+    if (norm && !normalizedVariations.has(norm)) {
+      normalizedVariations.set(norm, canonical as CanonicalColumn);
+    }
   }
 }
 
 /**
- * Map raw CSV headers to canonical column names.
+ * Map raw CSV headers to canonical column names using normalized matching.
  * Returns a map: canonical -> first matching raw header.
  */
 export function mapHeaders(rawHeaders: string[]): HeaderMap {
   const map: HeaderMap = {};
   for (const raw of rawHeaders) {
-    const key = raw.toLowerCase().trim();
+    const key = normalizeHeader(raw);
     const canonical = normalizedVariations.get(key);
     if (canonical && !map[canonical]) {
       map[canonical] = raw;
@@ -195,12 +223,20 @@ export function hasRequiredForACOS(map: HeaderMap): boolean {
   return !!map.spend && !!map.sales;
 }
 
-/** Classify report type from headers for ASIN Bridge (Business vs Advertising). */
+/**
+ * Classify report type from headers. Business reports: sessions, buy box, units ordered,
+ * total order items, conversion rate (and/or orderedProductSales) without ad spend/clicks/impressions.
+ */
 export function classifyReportType(map: HeaderMap): 'business' | 'advertising' | 'unknown' {
   const hasOrderedProductSales = !!map.orderedProductSales || !!map.sales;
   const hasAdMetrics = !!map.spend || !!map.clicks || !!map.impressions;
-  if (hasOrderedProductSales && !hasAdMetrics) return 'business';
   if (hasAdMetrics) return 'advertising';
+  if (hasOrderedProductSales) return 'business';
+  const hasSessions = !!map.sessions;
+  const hasBuyBox = !!map.buyBox;
+  const hasUnits = !!map.units || !!map.orders;
+  const hasConversion = !!map.unitSession;
+  if (hasSessions || hasBuyBox || hasUnits || hasConversion) return 'business';
   return 'unknown';
 }
 
