@@ -34,11 +34,12 @@ export default function AuditSummaryBlock({ onRerunAnalysis }: AuditSummaryBlock
   const { store } = state;
 
   const { healthScore, healthLabel, criticalCount, summaryCards } = useMemo<{
-    healthScore: number;
-    healthLabel: string;
-    criticalCount: number;
-    summaryCards: SummaryCard[];
-  }>(() => {
+      healthScore: number;
+      healthLabel: string;
+      criticalCount: number;
+      summaryCards: SummaryCard[];
+    }>(() => {
+    const totalSales = store.totalStoreSales > 0 ? store.totalStoreSales : store.storeMetrics.totalSales;
     const acos = store.totalAdSales > 0 ? (store.totalAdSpend / store.totalAdSales) * 100 : null;
     const roas = state.blendedROAS;
     const tacos = state.globalTACOS;
@@ -62,12 +63,39 @@ export default function AuditSummaryBlock({ onRerunAnalysis }: AuditSummaryBlock
     const healthScore = Math.max(0, Math.min(100, score));
     const healthLabel = healthScore >= 70 ? 'Good' : healthScore >= 40 ? 'Caution' : 'Critical';
 
+    const totalSessions =
+      store.totalSessions > 0
+        ? store.totalSessions
+        : Object.values(store.asinMetrics).reduce((s, m) => s + m.sessions, 0);
+    const totalOrders = store.totalOrders ?? 0;
+    const buyBoxFromStore = store.buyBoxPercent;
+    const buyBoxValues = Object.values(store.asinMetrics)
+      .map((m) => m.buyBoxPercent)
+      .filter((v): v is number => typeof v === 'number' && v >= 0);
+    const buyBoxPct =
+      buyBoxFromStore != null && buyBoxFromStore > 0
+        ? buyBoxFromStore
+        : buyBoxValues.length > 0
+          ? buyBoxValues.reduce((a, b) => a + b, 0) / buyBoxValues.length
+          : null;
+    const conversionRate =
+      store.storeMetrics.conversionRate != null && store.storeMetrics.conversionRate > 0
+        ? store.storeMetrics.conversionRate
+        : totalSessions > 0 && totalOrders > 0
+          ? (totalOrders / totalSessions) * 100
+          : null;
+
     const cards: SummaryCard[] = [
       { label: 'Critical Issues', value: String(criticalCount), sub: '', status: criticalCount > 0 ? 'red' : 'green' },
+      { label: 'Total Sales', value: totalSales > 0 ? formatCurrency(totalSales, store.currency) : '—', sub: '', status: totalSales > 0 ? 'blue' : 'blue' },
       { label: 'Total Ad Spend', value: store.totalAdSpend > 0 ? formatCurrency(store.totalAdSpend, store.currency) : '—', sub: '', status: 'blue' },
       { label: 'Total Ad Sales', value: store.totalAdSales > 0 ? formatCurrency(store.totalAdSales, store.currency) : '—', sub: '', status: 'blue' },
       { label: 'ROAS', value: roas > 0 ? `${roas.toFixed(2)}×` : '—', sub: '', status: roas >= 3 ? 'green' : roas >= 1.5 ? 'orange' : 'red' },
       { label: 'ACOS', value: acos != null ? formatPercent(acos) : '—', sub: '', status: acos != null ? (acos > 60 ? 'red' : acos > 30 ? 'orange' : 'green') : 'blue' },
+      { label: 'TACOS', value: tacos > 0 ? formatPercent(tacos) : '—', sub: '', status: tacos > 0 ? (tacos <= 10 ? 'green' : tacos <= 25 ? 'orange' : 'red') : 'blue' },
+      { label: 'Sessions', value: totalSessions > 0 ? totalSessions.toLocaleString() : '—', sub: '', status: totalSessions > 0 ? 'blue' : 'blue' },
+      { label: 'CVR', value: conversionRate != null ? formatPercent(conversionRate) : '—', sub: '', status: conversionRate != null ? (conversionRate >= 10 ? 'green' : conversionRate >= 4 ? 'orange' : 'red') : 'blue' },
+      { label: 'Buy Box %', value: buyBoxPct != null ? `${Math.round(buyBoxPct)}%` : '—', sub: '', status: buyBoxPct != null ? (buyBoxPct >= 90 ? 'green' : buyBoxPct >= 70 ? 'orange' : 'red') : 'blue' },
     ];
     return { healthScore, healthLabel, criticalCount, summaryCards: cards };
   }, [store, state.blendedROAS, state.globalTACOS]);
