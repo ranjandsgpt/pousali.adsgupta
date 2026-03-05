@@ -12,8 +12,7 @@ export interface GenerateInsightsBody {
   summaryTables?: Record<string, unknown>;
 }
 
-const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const model = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
 
 function buildPrompt(payload: GenerateInsightsBody): string {
   const parts: string[] = [
@@ -70,23 +69,23 @@ export async function POST(request: NextRequest) {
 
   const prompt = buildPrompt(body);
 
+  const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  console.log('Using Gemini model:', model);
+
   try {
-    const response = await fetch(
-      `${GEMINI_URL}?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }],
-            },
-          ],
-        }),
-      }
-    );
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+      }),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
