@@ -7,10 +7,16 @@ import { ChartRegistry, ChartsLabGrid } from './ChartRegistry';
 import FunnelOverviewChart from '../charts/FunnelOverviewChart';
 import KeywordProfitabilityMapChart from '../charts/KeywordProfitabilityMapChart';
 import { useTabData, type TabId } from './useTabData';
+
 import LearningIntelligencePanel from '../components/LearningIntelligencePanel';
 import GeminiInsightsPanel from '../components/GeminiInsightsPanel';
 
-export function TabContent({ tabId }: { tabId: TabId }) {
+export interface TabContentProps {
+  tabId: TabId;
+  onNavigateToTab?: (tab: TabId) => void;
+}
+
+export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
   const { kpis, patterns, opportunities, insightModules, tables, chartIds, currency } = useTabData(tabId);
 
   if (tabId === 'insights-reports') {
@@ -58,10 +64,14 @@ export function TabContent({ tabId }: { tabId: TabId }) {
           </section>
           {insightModules.length > 0 && (
             <section>
-              <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Critical Issues & Opportunities</h3>
+              <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Critical Issues & Growth Opportunities</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {insightModules.map((mod) => (
-                  <InsightModuleCard key={mod.id} module={mod}>
+                  <InsightModuleCard
+                    key={mod.id}
+                    module={mod}
+                    onNavigateToCampaigns={mod.id === 'critical' || mod.id === 'opportunities' ? onNavigateToTab ? () => onNavigateToTab('campaigns-budget') : undefined : undefined}
+                  >
                     {mod.deepDiveTable && <DeepDivePanel title={mod.title} table={mod.deepDiveTable} currency={currency} />}
                   </InsightModuleCard>
                 ))}

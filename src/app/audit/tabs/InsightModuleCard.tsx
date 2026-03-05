@@ -15,11 +15,14 @@ export function InsightModuleCard({
   module,
   onDeepDive,
   expanded,
+  onNavigateToCampaigns,
   children,
 }: {
   module: InsightModule;
   onDeepDive?: () => void;
   expanded?: boolean;
+  /** When set, shows "View in Campaigns & Budget" and switches to that tab on click */
+  onNavigateToCampaigns?: () => void;
   children?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -41,14 +44,25 @@ export function InsightModuleCard({
             )}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen(!isOpen)}
-          className="flex shrink-0 items-center gap-1 rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-cyan-400 hover:bg-white/10"
-        >
-          {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          Show Details
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {onNavigateToCampaigns && (
+            <button
+              type="button"
+              onClick={onNavigateToCampaigns}
+              className="rounded-lg border border-cyan-500/50 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-400 hover:bg-cyan-500/20"
+            >
+              View in Campaigns & Budget →
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen(!isOpen)}
+            className="flex items-center gap-1 rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-cyan-400 hover:bg-white/10"
+          >
+            {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            Show Details
+          </button>
+        </div>
       </div>
       {isOpen && children && <div className="mt-4 border-t border-white/10 pt-4">{children}</div>}
     </div>

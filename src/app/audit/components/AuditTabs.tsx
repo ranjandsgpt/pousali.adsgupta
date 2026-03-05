@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
@@ -14,7 +13,7 @@ import {
 import { TabContent } from '../tabs/TabContent';
 import type { TabId } from '../tabs/useTabData';
 
-/** 7 primary tabs: distributed analysis, deep-dive modules, best-in-class UX. */
+/** Tabs: Overview, Keywords, Campaigns, ASINs, Waste & Bleed, Profitability, Insights & Reports. */
 const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'keywords-search-terms', label: 'Keywords & Search Terms', icon: Search },
@@ -25,9 +24,12 @@ const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: 'insights-reports', label: 'Insights & Reports', icon: Sparkles },
 ];
 
-export default function AuditTabs() {
-  const [active, setActive] = useState<TabId>('overview');
+export interface AuditTabsProps {
+  activeTab: TabId;
+  onTabChange: (tab: TabId) => void;
+}
 
+export default function AuditTabs({ activeTab, onTabChange }: AuditTabsProps) {
   return (
     <section
       aria-label="Audit results tabs"
@@ -41,15 +43,15 @@ export default function AuditTabs() {
           <button
             key={id}
             role="tab"
-            aria-selected={active === id}
+            aria-selected={activeTab === id}
             aria-controls={`panel-${id}`}
             id={`tab-${id}`}
-            onClick={() => setActive(id)}
+            onClick={() => onTabChange(id)}
             className={`
               flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap rounded-lg
               border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500
               ${
-                active === id
+                activeTab === id
                   ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
                   : 'border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
               }
@@ -67,10 +69,12 @@ export default function AuditTabs() {
             id={`panel-${id}`}
             role="tabpanel"
             aria-labelledby={`tab-${id}`}
-            hidden={active !== id}
-            className={active !== id ? 'hidden' : ''}
+            hidden={activeTab !== id}
+            className={activeTab !== id ? 'hidden' : ''}
           >
-            {active === id && <TabContent tabId={id} />}
+            {activeTab === id && (
+              <TabContent tabId={id} onNavigateToTab={onTabChange} />
+            )}
           </div>
         ))}
       </div>
