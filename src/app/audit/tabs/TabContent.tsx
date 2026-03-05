@@ -38,7 +38,7 @@ export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
           <KeywordProfitabilityMapChart />
         </section>
         <section>
-          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">AI Strategy</h3>
+          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Master AI analysis</h3>
           <GeminiInsightsPanel />
         </section>
         <section>
@@ -54,7 +54,7 @@ export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {tabId === 'overview' && (
         <>
           <TabKPISummary metrics={kpis} currency={currency} />

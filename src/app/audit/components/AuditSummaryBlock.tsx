@@ -124,10 +124,12 @@ export default function AuditSummaryBlock({ onRerunAnalysis }: AuditSummaryBlock
     blue: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
   };
 
+  const byLabels = (labels: string[]) => summaryCards.filter((c) => labels.includes(c.label));
+
   return (
     <section
       aria-label="Audit summary and detected metrics"
-      className="rounded-2xl border border-white/10 bg-[var(--color-surface-elevated)] p-4 sm:p-6 space-y-5"
+      className="rounded-2xl border border-[#1f2937] bg-[#020617] p-4 sm:p-5 space-y-4"
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 className="text-xl sm:text-2xl font-bold text-[var(--color-text)]">
@@ -166,19 +168,63 @@ export default function AuditSummaryBlock({ onRerunAnalysis }: AuditSummaryBlock
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <div className={`rounded-xl border p-4 ${healthScore >= 70 ? 'bg-emerald-500/20 border-emerald-500/40' : healthScore >= 40 ? 'bg-amber-500/20 border-amber-500/40' : 'bg-red-500/20 border-red-500/40'}`}>
-          <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">Health Score</p>
-          <p className="text-2xl font-bold tabular-nums">{healthScore}</p>
-          <p className="text-xs mt-1 opacity-90">{healthLabel}</p>
-        </div>
-        {summaryCards.map((c) => (
-          <div key={c.label} className={`rounded-xl border p-4 ${cardStatusClass[c.status]}`}>
-            <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">{c.label}</p>
-            <p className="text-lg font-bold tabular-nums">{c.value}</p>
-            {c.sub && <p className="text-xs mt-1 opacity-75">{c.sub}</p>}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {/* Health & Risk */}
+        <div>
+          <p className="text-xs font-semibold text-[var(--color-text-muted)] mb-1">Health &amp; Risk</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className={`rounded-xl border p-3 ${healthScore >= 70 ? 'bg-emerald-500/20 border-emerald-500/40' : healthScore >= 40 ? 'bg-amber-500/20 border-amber-500/40' : 'bg-red-500/20 border-red-500/40'}`}>
+              <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">Health Score</p>
+              <p className="text-2xl font-bold tabular-nums">{healthScore}</p>
+              <p className="text-xs mt-1 opacity-90">{healthLabel}</p>
+            </div>
+            {byLabels(['Critical Issues']).map((c) => (
+              <div key={c.label} className={`rounded-xl border p-3 ${cardStatusClass[c.status]}`}>
+                <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">{c.label}</p>
+                <p className="text-lg font-bold tabular-nums">{c.value}</p>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+
+        {/* Revenue & Spend */}
+        <div>
+          <p className="text-xs font-semibold text-[var(--color-text-muted)] mb-1">Revenue &amp; Spend</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {byLabels(['Total Sales', 'Total Ad Sales', 'Total Ad Spend']).map((c) => (
+              <div key={c.label} className={`rounded-xl border p-3 ${cardStatusClass[c.status]}`}>
+                <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">{c.label}</p>
+                <p className="text-lg font-bold tabular-nums">{c.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Efficiency */}
+        <div>
+          <p className="text-xs font-semibold text-[var(--color-text-muted)] mb-1">Efficiency</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {byLabels(['ROAS', 'ACOS', 'TACOS']).map((c) => (
+              <div key={c.label} className={`rounded-xl border p-3 ${cardStatusClass[c.status]}`}>
+                <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">{c.label}</p>
+                <p className="text-lg font-bold tabular-nums">{c.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Traffic & Conversion */}
+        <div>
+          <p className="text-xs font-semibold text-[var(--color-text-muted)] mb-1">Traffic &amp; Conversion</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {byLabels(['Sessions', 'CVR', 'Buy Box %']).map((c) => (
+              <div key={c.label} className={`rounded-xl border p-3 ${cardStatusClass[c.status]}`}>
+                <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">{c.label}</p>
+                <p className="text-lg font-bold tabular-nums">{c.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="border-t border-white/10 pt-4">

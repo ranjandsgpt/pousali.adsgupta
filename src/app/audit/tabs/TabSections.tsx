@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { KPIMetric, PatternDetection, OpportunityDetection, TabTableConfig, RowActionType } from './types';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
 import type { DetectedCurrency } from '../utils/currencyDetector';
@@ -34,7 +35,7 @@ export function TabKPISummary({
 }) {
   if (metrics.length === 0) return null;
   return (
-    <section className="border border-white/10 rounded-lg p-4 bg-white/5">
+    <section className="border border-[#1f2937] rounded-xl p-3 sm:p-4 bg-[#111827]">
       <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">KPI Summary</h3>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {metrics.map((k, i) => {
@@ -47,7 +48,7 @@ export function TabKPISummary({
                   ? 'text-red-400'
                   : 'text-[var(--color-text)]';
           return (
-            <div key={i} className="rounded border border-white/10 p-2 bg-[var(--color-surface)]">
+            <div key={i} className="rounded-lg border border-[#1f2937] p-2 bg-[#020617]">
               <p className="text-xs text-[var(--color-text-muted)]">{k.label}</p>
               <p className={`text-sm font-semibold tabular-nums ${statusCls}`}>{k.value}</p>
               {k.sub && <p className="text-xs text-[var(--color-text-muted)]">{k.sub}</p>}
@@ -62,13 +63,13 @@ export function TabKPISummary({
 export function TabPatternDetection({ patterns }: { patterns: PatternDetection[] }) {
   if (patterns.length === 0) return null;
   return (
-    <section className="border border-white/10 rounded-lg p-4 bg-white/5">
-      <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Pattern Detection Engine</h3>
+    <section className="border border-[#1f2937] rounded-xl p-3 sm:p-4 bg-[#111827]">
+      <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Diagnostic patterns</h3>
       <div className="space-y-2 max-h-[400px] overflow-y-auto">
         {patterns.map((p, i) => (
           <div
             key={i}
-            className="rounded border border-amber-500/30 bg-amber-500/5 p-3 text-xs"
+            className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs shadow-sm"
           >
             <p className="font-medium text-[var(--color-text)]">{p.problemTitle}</p>
             <p className="text-[var(--color-text-muted)]">
@@ -95,13 +96,13 @@ export function TabPatternDetection({ patterns }: { patterns: PatternDetection[]
 export function TabOpportunityDetection({ opportunities }: { opportunities: OpportunityDetection[] }) {
   if (opportunities.length === 0) return null;
   return (
-    <section className="border border-white/10 rounded-lg p-4 bg-white/5">
-      <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Opportunity Detection</h3>
+    <section className="border border-[#1f2937] rounded-xl p-3 sm:p-4 bg-[#111827]">
+      <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Growth opportunities</h3>
       <div className="space-y-2 max-h-[300px] overflow-y-auto">
         {opportunities.map((o, i) => (
           <div
             key={i}
-            className="rounded border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs"
+            className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs shadow-sm"
           >
             <p className="font-medium text-[var(--color-text)]">{o.title}</p>
             <p className="text-[var(--color-text-muted)]">
@@ -126,17 +127,22 @@ export function TabDataTablesSection({
   currency: DetectedCurrency;
 }) {
   if (tables.length === 0) return null;
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+
   return (
-    <section className="border border-white/10 rounded-lg p-4 bg-white/5">
-      <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Data Tables</h3>
-      <div className="space-y-4">
-        {tables.map((t, idx) => (
+    <section className="border border-[#1f2937] rounded-xl p-3 sm:p-4 bg-[#111827]">
+      <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Data tables</h3>
+      <div className="space-y-3">
+        {tables.map((t, idx) => {
+          const isExpanded = expanded[idx] === true;
+          const visibleRows = isExpanded ? t.rows : t.rows.slice(0, 10);
+          return (
           <div key={idx}>
             <p className="text-xs font-medium text-[var(--color-text-muted)] mb-2">{t.title}</p>
-            <div className="overflow-x-auto rounded border border-white/10">
+            <div className="overflow-x-auto rounded-lg border border-[#1f2937] bg-[#020617]">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-white/10 bg-white/5">
+                  <tr className="border-b border-[#1f2937] bg-[#020617]">
                     {t.columns.map((c) => (
                       <th
                         key={c.key}
@@ -151,8 +157,8 @@ export function TabDataTablesSection({
                   </tr>
                 </thead>
                   <tbody>
-                    {t.rows.slice(0, 25).map((row, ri) => (
-                      <tr key={ri} className="border-b border-white/5">
+                    {visibleRows.map((row, ri) => (
+                      <tr key={ri} className="border-b border-[#020617]">
                         {t.columns.map((c) => {
                           const raw = row[c.key];
                           let cell: string | number = raw != null ? String(raw) : '—';
@@ -199,9 +205,22 @@ export function TabDataTablesSection({
                   </tbody>
                 </table>
               </div>
+              {t.rows.length > visibleRows.length && (
+                <div className="flex justify-end mt-2">
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-cyan-400 hover:text-cyan-300"
+                    onClick={() =>
+                      setExpanded((prev) => ({ ...prev, [idx]: !isExpanded }))
+                    }
+                  >
+                    {isExpanded ? 'Show less' : 'Show more'}
+                  </button>
+                </div>
+              )}
             </div>
           )
-        )}
+        })}
       </div>
     </section>
   );
@@ -209,8 +228,8 @@ export function TabDataTablesSection({
 
 export function TabVisualization({ children }: { children: React.ReactNode }) {
   return (
-    <section className="border border-white/10 rounded-lg p-4 bg-white/5">
-      <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Visualization</h3>
+    <section className="border border-[#1f2937] rounded-xl p-3 sm:p-4 bg-[#111827]">
+      <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Charts Lab</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{children}</div>
     </section>
   );

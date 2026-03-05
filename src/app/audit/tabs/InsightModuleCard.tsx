@@ -5,10 +5,10 @@ import type { InsightModule } from './types';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
 const severityStyles = {
-  critical: 'border-red-500/40 bg-red-500/10',
-  warning: 'border-amber-500/40 bg-amber-500/10',
-  info: 'border-sky-500/30 bg-sky-500/5',
-  opportunity: 'border-emerald-500/40 bg-emerald-500/10',
+  critical: 'border-red-500/60 bg-red-500/10',
+  warning: 'border-amber-500/60 bg-amber-500/10',
+  info: 'border-cyan-500/40 bg-cyan-500/10',
+  opportunity: 'border-emerald-500/60 bg-emerald-500/10',
 };
 
 export function InsightModuleCard({
@@ -30,7 +30,7 @@ export function InsightModuleCard({
   const style = severityStyles[module.severity ?? 'info'];
 
   return (
-    <div className={`rounded-xl border p-4 ${style}`}>
+    <div className={`rounded-xl border p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-transform transition-shadow duration-150 ${style}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h4 className="text-sm font-semibold text-[var(--color-text)]">{module.title}</h4>

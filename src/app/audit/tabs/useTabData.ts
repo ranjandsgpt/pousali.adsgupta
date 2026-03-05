@@ -386,9 +386,9 @@ function buildInsightModules(store: MemoryStore, tabId: TabId, diagnostics?: Dia
         suggestedNegativeMatchType: (k.matchType || '').toLowerCase().includes('broad') ? 'Phrase or Exact' : 'Exact',
       })),
     };
-    if (bleeding.length > 0) modules.push({ id: 'bleeding', title: 'Bleeding Keywords', description: 'Keywords with spend and no sales. Add as negative or pause.', count: bleeding.length, impact: `${sym}${bleeding.reduce((s, k) => s + k.spend, 0).toFixed(0)} wasted`, severity: 'critical', tableRef: 'bleeding', deepDiveTable: bleedingDeepDive });
-    if (hidden.length > 0) modules.push({ id: 'hidden', title: 'Hidden Profitable Keywords', description: 'High ROAS, low spend — scale bids or budget.', count: hidden.length, severity: 'opportunity', tableRef: 'hidden', deepDiveTable: hiddenDeepDive });
-    if (negCandidates.length > 0) modules.push({ id: 'negatives', title: 'Negative Keyword Suggestions', description: 'Search terms with zero sales to negate.', count: negCandidates.length, severity: 'warning', tableRef: 'negatives', deepDiveTable: negativesDeepDive });
+    if (bleeding.length > 0) modules.push({ id: 'bleeding', title: 'Wasted ad spend keywords', description: 'Keywords spending without sales. Fix or add as negatives.', count: bleeding.length, impact: `${sym}${bleeding.reduce((s, k) => s + k.spend, 0).toFixed(0)} wasted`, severity: 'critical', tableRef: 'bleeding', deepDiveTable: bleedingDeepDive });
+    if (hidden.length > 0) modules.push({ id: 'hidden', title: 'Keywords ready to scale', description: 'High ROAS, low spend — safe places to increase budget.', count: hidden.length, severity: 'opportunity', tableRef: 'hidden', deepDiveTable: hiddenDeepDive });
+    if (negCandidates.length > 0) modules.push({ id: 'negatives', title: 'Search terms to block', description: 'Queries driving spend with no sales. Add as negatives.', count: negCandidates.length, severity: 'warning', tableRef: 'negatives', deepDiveTable: negativesDeepDive });
     if (diagnostics?.searchTermClustering && diagnostics.searchTermClustering.clusters.length > 0) {
       const topClusters = diagnostics.searchTermClustering.clusters.slice(0, 20);
       const clusterDeepDive: DeepDiveTableConfig = {
@@ -458,8 +458,8 @@ function buildInsightModules(store: MemoryStore, tabId: TabId, diagnostics?: Dia
       ],
       rows: bestRoas.map((c) => ({ campaignName: c.campaignName, spend: c.spend, sales: c.sales, roas: (c.sales / c.spend).toFixed(2) })),
     };
-    if (highAcos.length > 0) modules.push({ id: 'high-acos', title: 'High ACOS Campaigns', description: 'Campaigns above target ACOS. Optimize bids or targeting.', count: highAcos.length, severity: 'warning', tableRef: 'high-acos', deepDiveTable: highAcosDeepDive });
-    if (bestRoas.length > 0) modules.push({ id: 'scale-campaigns', title: 'Scale Opportunities', description: 'High ROAS campaigns to increase budget.', count: bestRoas.length, severity: 'opportunity', tableRef: 'scale-campaigns', deepDiveTable: scaleDeepDive });
+    if (highAcos.length > 0) modules.push({ id: 'high-acos', title: 'High ACOS campaigns', description: 'Campaigns above target ACOS. Reduce bids or tighten targeting.', count: highAcos.length, severity: 'warning', tableRef: 'high-acos', deepDiveTable: highAcosDeepDive });
+    if (bestRoas.length > 0) modules.push({ id: 'scale-campaigns', title: 'Campaigns ready to scale', description: 'High ROAS campaigns with room to increase budget.', count: bestRoas.length, severity: 'opportunity', tableRef: 'scale-campaigns', deepDiveTable: scaleDeepDive });
     if (diagnostics?.campaignStructure && diagnostics.campaignStructure.duplicateTargeting.length > 0) {
       const dupDeepDive: DeepDiveTableConfig = {
         columns: [
@@ -526,7 +526,7 @@ function buildInsightModules(store: MemoryStore, tabId: TabId, diagnostics?: Dia
       })),
     };
     const desc = wastePct > 0 ? `Waste: ${wastePct.toFixed(1)}% of ad spend. ` : '';
-    modules.push({ id: 'bleeder', title: 'Bleeder Report', description: desc + 'Highlighting your biggest areas of spend waste.', count: bleeding.length, impact: totalBleed > 0 ? `${sym}${totalBleed.toFixed(2)}` : undefined, severity: 'critical', tableRef: 'bleeder', deepDiveTable: bleederDeepDive });
+    modules.push({ id: 'bleeder', title: 'Wasted ad spend', description: desc + 'Where your ad budget is being wasted.', count: bleeding.length, impact: totalBleed > 0 ? `${sym}${totalBleed.toFixed(2)}` : undefined, severity: 'critical', tableRef: 'bleeder', deepDiveTable: bleederDeepDive });
     if (diagnostics?.waste && diagnostics.waste.bleedingCampaigns.length > 0) {
       const campDeepDive: DeepDiveTableConfig = {
         columns: [
