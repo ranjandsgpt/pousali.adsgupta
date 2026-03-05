@@ -10,6 +10,7 @@ import ExportBar from './components/ExportBar';
 import PrivacyNote from './components/PrivacyNote';
 import { AuditStoreProvider, useAuditStore } from './context/AuditStoreContext';
 import { GeminiReportProvider, useGeminiReport } from './context/GeminiReportContext';
+import { DualEngineProvider, useDualEngine, mergeRecoveredIntoStore } from './dualEngine/dualEngineContext';
 import { PipelineProvider, usePipeline, type PipelineStageId } from './context/PipelineContext';
 import { LearningProvider, useLearning } from './learning/LearningContext';
 import { parseReportsStreaming } from './utils/reportParser';
@@ -28,6 +29,7 @@ function AuditPageContent() {
   const { setStore } = useAuditStore();
   const { runLearning } = useLearning();
   const { runGemini } = useGeminiReport();
+  const { runDualEngine } = useDualEngine();
   const { setStage, resetPipeline } = usePipeline();
   const lastFilesRef = useRef<File[]>([]);
 
@@ -83,13 +85,20 @@ function AuditPageContent() {
         setStep('dashboard');
 
         setStage('gemini_analysis', 'running');
-        await runGemini(store, {
-          onComplete: (success) => {
-            setStage('gemini_analysis', success ? 'completed' : 'failed');
-            setStage('gemini_verification', 'completed');
-            setStage('insight_rendering', 'completed');
-          },
-        });
+        const [dualResult] = await Promise.all([
+          runDualEngine(store),
+          runGemini(store, {
+            onComplete: (success) => {
+              setStage('gemini_analysis', success ? 'completed' : 'failed');
+              setStage('gemini_verification', 'completed');
+              setStage('insight_rendering', 'completed');
+            },
+          }),
+        ]);
+        if (dualResult.recoveredFields && Object.keys(dualResult.recoveredFields).length > 0) {
+          const merged = mergeRecoveredIntoStore(store, dualResult.recoveredFields);
+          setStore(merged);
+        }
       } catch (err) {
         setStage('report_parsing', 'failed', err instanceof Error ? err.message : 'Parse failed');
         setStep('upload');
@@ -146,9 +155,11 @@ export default function AuditPage() {
     <AuditStoreProvider>
       <LearningProvider>
         <PipelineProvider>
-          <GeminiReportProvider>
-            <AuditPageContent />
-          </GeminiReportProvider>
+          <DualEngineProvider>
+            <GeminiReportProvider>
+              <AuditPageContent />
+            </GeminiReportProvider>
+          </DualEngineProvider>
         </PipelineProvider>
       </LearningProvider>
     </AuditStoreProvider>

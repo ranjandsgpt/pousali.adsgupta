@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
+import { useDualEngine } from '../dualEngine/dualEngineContext';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
 import { FileDown, FileText, RotateCcw } from 'lucide-react';
 import { exportAuditPdf } from '../utils/exportPdf';
@@ -35,6 +36,7 @@ interface SummaryCard {
 export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssues }: AuditSummaryBlockProps) {
   const { state } = useAuditStore();
   const { store } = state;
+  const dualEngine = useDualEngine();
 
   const { healthScore, healthLabel, criticalCount, summaryCards, confidenceScore, wastedSpendEstimate } = useMemo<{
       healthScore: number;
@@ -162,6 +164,13 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
         </div>
       </div>
 
+      {dualEngine.ready && (
+        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 mb-4 flex items-center gap-2">
+          <span className="text-sm font-semibold text-cyan-300">Audit Confidence</span>
+          <span className="text-xl font-bold tabular-nums text-cyan-200">{dualEngine.auditConfidenceScore}%</span>
+          <span className="text-xs text-[var(--color-text-muted)]">(dual-engine consensus)</span>
+        </div>
+      )}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {/* Health & Risk */}
         <div>
