@@ -1382,7 +1382,7 @@ function buildInsightModules(
       keywordCount: number;
       suggestion: string;
     }> = [];
-    for (const [campaignName, agg] of byCampaignStructure.entries()) {
+    byCampaignStructure.forEach((agg, campaignName) => {
       const asinCount = agg.asins.size;
       const keywordCount = agg.keywordCount;
       const lower = campaignName.toLowerCase();
@@ -1405,7 +1405,7 @@ function buildInsightModules(
             'Harvest winners into manual campaigns and reduce targets to regain control.',
         });
       }
-    }
+    });
     if (structureRows.length > 0) {
       const structureDeepDive: DeepDiveTableConfig = {
         columns: [

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
 
 /** Aggregated payload for /api/generate-insights — no raw keywords or PII. */
@@ -27,6 +27,12 @@ export default function GeminiInsightsPanel() {
 
   const store = state.store;
   const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
+
+  // Phase 10/15: clear cached AI insight when store is replaced (e.g. after Rerun Analysis).
+  useEffect(() => {
+    setInsight(null);
+    setError(null);
+  }, [store]);
 
   const buildPayload = (): GenerateInsightsBody => {
     const m = store.storeMetrics;
