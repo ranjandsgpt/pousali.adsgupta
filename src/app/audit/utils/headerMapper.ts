@@ -75,6 +75,7 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
   units: [
     'Units Ordered',
     'Attributed Units Ordered',
+    'Ordered Units',
   ],
   searchTerm: [
     'Search Term',
@@ -107,11 +108,13 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
   sessions: [
     'Sessions',
     'Total Sessions',
+    'Traffic Sessions',
   ],
   orderedProductSales: [
     'Ordered Product Sales',
     'Ordered Product Sales (USD)',
     'Total Sales',
+    'Product Sales',
   ],
   date: [
     'Date',
@@ -129,10 +132,14 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
   buyBox: [
     'Buy Box %',
     'Buy Box Percentage',
+    'Buy Box Pct',
   ],
   unitSession: [
     'Unit Session %',
     'Unit Session Percentage',
+    'Unit Session Pct',
+    'UnitSessionPct',
+    'Conversion Rate',
   ],
   other: [],
 };
