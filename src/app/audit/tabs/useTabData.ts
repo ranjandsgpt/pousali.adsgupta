@@ -416,6 +416,25 @@ function buildInsightModules(store: MemoryStore, tabId: TabId, diagnostics?: Dia
       };
       modules.push({ id: 'keyword-harvest', title: 'Keyword Harvest (Auto → Manual)', description: 'Search terms converting in auto but not in manual.', count: diagnostics.searchTermLeakage.harvestSuggestions.length, severity: 'opportunity', tableRef: 'harvest', deepDiveTable: harvestDeepDive });
     }
+    if (diagnostics?.keywordLifecycle && diagnostics.keywordLifecycle.lifecycle.size > 0) {
+      const lifecycleRows = kws.map((k) => {
+        const key = k.searchTerm + '|' + k.campaign;
+        const stage = diagnostics!.keywordLifecycle!.lifecycle.get(key) ?? 'Monitor';
+        return { keyword: k.searchTerm, campaign: k.campaign, stage, spend: k.spend, sales: k.sales, roas: k.roas.toFixed(2) };
+      }).sort((a, b) => b.spend - a.spend).slice(0, 100);
+      const lifecycleDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'keyword', label: 'Keyword' },
+          { key: 'campaign', label: 'Campaign' },
+          { key: 'stage', label: 'Lifecycle Stage' },
+          { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+          { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+          { key: 'roas', label: 'ROAS', align: 'right' },
+        ],
+        rows: lifecycleRows,
+      };
+      modules.push({ id: 'keyword-lifecycle', title: 'Keyword Lifecycle', description: 'Discovery, Scaling, Defensive, Bleeding, Dead.', count: lifecycleRows.length, severity: 'info', tableRef: 'lifecycle', deepDiveTable: lifecycleDeepDive });
+    }
   }
 
   if (tabId === 'campaigns-budget') {
@@ -528,6 +547,50 @@ function buildInsightModules(store: MemoryStore, tabId: TabId, diagnostics?: Dia
     modules.push({ id: 'health', title: 'Account Health', description: 'TACOS, ROAS, and profitability summary.', count: 1, severity: 'info', tableRef: 'health' });
   }
 
+  if (tabId === 'insights-reports' && diagnostics) {
+    if (diagnostics.lostRevenue.lostRevenueEstimate > 0) {
+      modules.push({
+        id: 'lost-revenue',
+        title: 'Lost Revenue Estimate',
+        description: 'Revenue lost from ACOS above target.',
+        count: 1,
+        impact: `${sym}${diagnostics.lostRevenue.lostRevenueEstimate.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+        severity: 'warning',
+        tableRef: 'lost-revenue',
+      });
+    }
+    if (diagnostics.opportunity.scalingKeywords.length > 0 || diagnostics.opportunity.scalingCampaigns.length > 0) {
+      const oppDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'type', label: 'Type' },
+          { key: 'name', label: 'Name' },
+          { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+          { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+          { key: 'roas', label: 'ROAS', align: 'right' },
+        ],
+        rows: [
+          ...diagnostics.opportunity.scalingKeywords.slice(0, 30).map((k) => ({ type: 'Keyword', name: k.searchTerm, spend: k.spend, sales: k.sales, roas: (k.sales / k.spend).toFixed(2) })),
+          ...diagnostics.opportunity.scalingCampaigns.slice(0, 20).map((c) => ({ type: 'Campaign', name: c.campaignName, spend: c.spend, sales: c.sales, roas: (c.sales / c.spend).toFixed(2) })),
+        ],
+      };
+      const count = diagnostics.opportunity.scalingKeywords.length + diagnostics.opportunity.scalingCampaigns.length;
+      modules.push({ id: 'scaling-opportunities', title: 'Scaling Opportunities', description: 'ROAS above average, spend below average — ready to scale.', count, severity: 'opportunity', tableRef: 'scaling-opportunities', deepDiveTable: oppDeepDive });
+    }
+    if (diagnostics.portfolioConcentration.topKeywordsByRevenue.length > 0 || diagnostics.portfolioConcentration.topCampaignsBySpend.length > 0) {
+      const paretoDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'metric', label: 'Metric' },
+          { key: 'share', label: 'Share', align: 'right', format: 'percent' },
+        ],
+        rows: [
+          { metric: 'Top 10 keywords revenue share', share: diagnostics.portfolioConcentration.top10KeywordsRevenueShare * 100 },
+          { metric: 'Top 5 campaigns spend share', share: diagnostics.portfolioConcentration.top5CampaignsSpendShare * 100 },
+        ],
+      };
+      modules.push({ id: 'portfolio-concentration', title: 'Portfolio Concentration', description: 'Revenue and spend concentration (Pareto).', count: 2, severity: 'info', tableRef: 'portfolio-concentration', deepDiveTable: paretoDeepDive });
+    }
+  }
+
   return modules;
 }
 
@@ -541,7 +604,8 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
     const patterns = buildPatterns(store);
     const opportunities = buildOpportunities(store);
     const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
-    const insightModules = buildInsightModules(store, tabId);
+    const diagnostics = hasData ? runDiagnosticEngines(store) : null;
+    const insightModules = buildInsightModules(store, tabId, diagnostics);
 
     const emptyTables: TabTableConfig[] = [];
     let tables: TabTableConfig[] = emptyTables;
