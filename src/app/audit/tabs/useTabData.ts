@@ -230,11 +230,245 @@ function searchTermTables(store: MemoryStore): TabTableConfig[] {
   const byRevenue = [...kws].filter((k) => k.sales > 0).sort((a, b) => b.sales - a.sales).slice(0, 50);
   const waste = kws.filter((k) => k.clicks >= 5 && k.sales === 0).sort((a, b) => b.spend - a.spend).slice(0, 30);
   const highCvr = kws.filter((k) => k.clicks >= 10 && k.sales > 0).sort((a, b) => (b.sales / b.clicks) - (a.sales / a.clicks)).slice(0, 20);
+  const avgOrderValue =
+    store.totalOrders > 0 && store.totalAdSales > 0
+      ? store.totalAdSales / store.totalOrders
+      : 0;
+  const funnel = [...kws]
+    .filter((k) => k.clicks > 0 && k.sales > 0)
+    .sort((a, b) => b.clicks - a.clicks)
+    .slice(0, 50);
   return [
-    { title: 'Top 50 search terms by revenue', columns: [{ key: 'searchTerm', label: 'Search Term' }, { key: 'sales', label: 'Sales', align: 'right', format: 'currency' }, { key: 'spend', label: 'Spend', align: 'right', format: 'currency' }], rows: byRevenue.map((k) => ({ searchTerm: k.searchTerm, sales: k.sales, spend: k.spend })) },
-    { title: 'Top waste search terms', columns: [{ key: 'searchTerm', label: 'Search Term' }, { key: 'spend', label: 'Spend', align: 'right', format: 'currency' }, { key: 'clicks', label: 'Clicks', align: 'right' }], rows: waste.map((k) => ({ searchTerm: k.searchTerm, spend: k.spend, clicks: k.clicks })) },
-    { title: 'High conversion search terms', columns: [{ key: 'searchTerm', label: 'Search Term' }, { key: 'sales', label: 'Sales', align: 'right', format: 'currency' }, { key: 'clicks', label: 'Clicks', align: 'right' }], rows: highCvr.map((k) => ({ searchTerm: k.searchTerm, sales: k.sales, clicks: k.clicks })) },
+    {
+      title: 'Top 50 search terms by revenue',
+      columns: [
+        { key: 'searchTerm', label: 'Search Term' },
+        { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+      ],
+      rows: byRevenue.map((k) => ({
+        searchTerm: k.searchTerm,
+        sales: k.sales,
+        spend: k.spend,
+      })),
+    },
+    {
+      title: 'Search terms wasting spend',
+      columns: [
+        { key: 'searchTerm', label: 'Search Term' },
+        { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+        { key: 'clicks', label: 'Clicks', align: 'right' },
+      ],
+      rows: waste.map((k) => ({
+        searchTerm: k.searchTerm,
+        spend: k.spend,
+        clicks: k.clicks,
+      })),
+    },
+    {
+      title: 'High converting search terms',
+      columns: [
+        { key: 'searchTerm', label: 'Search Term' },
+        { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        { key: 'clicks', label: 'Clicks', align: 'right' },
+      ],
+      rows: highCvr.map((k) => ({
+        searchTerm: k.searchTerm,
+        sales: k.sales,
+        clicks: k.clicks,
+      })),
+    },
+    {
+      title: 'Search term funnel breakdown',
+      columns: [
+        { key: 'searchTerm', label: 'Search Term' },
+        { key: 'clicks', label: 'Clicks', align: 'right' },
+        { key: 'orders', label: 'Orders (est.)', align: 'right' },
+        { key: 'sales', label: 'Revenue', align: 'right', format: 'currency' },
+      ],
+      rows: funnel.map((k) => ({
+        searchTerm: k.searchTerm,
+        clicks: k.clicks,
+        orders: avgOrderValue > 0 ? k.sales / avgOrderValue : 0,
+        sales: k.sales,
+      })),
+    },
   ];
+}
+
+function keywordAdvancedTables(
+  store: MemoryStore,
+  diagnostics?: DiagnosticEnginesResult | null
+): TabTableConfig[] {
+  const tables: TabTableConfig[] = [];
+  const kws = Object.values(store.keywordMetrics);
+
+  // Keyword duplication report: same keyword across multiple campaigns.
+  const dupMap = new Map<
+    string,
+    { campaigns: Set<string>; totalSpend: number }
+  >();
+  for (const k of kws) {
+    const term = k.searchTerm;
+    if (!term) continue;
+    const campaign = k.campaign || '';
+    if (!campaign) continue;
+    let entry = dupMap.get(term);
+    if (!entry) {
+      entry = { campaigns: new Set<string>(), totalSpend: 0 };
+      dupMap.set(term, entry);
+    }
+    entry.campaigns.add(campaign);
+    entry.totalSpend += k.spend;
+  }
+  const dupRows = Array.from(dupMap.entries())
+    .filter(([, v]) => v.campaigns.size > 1)
+    .sort((a, b) => b[1].totalSpend - a[1].totalSpend)
+    .slice(0, 50)
+    .map(([term, v]) => ({
+      searchTerm: term,
+      campaigns: Array.from(v.campaigns).join(', '),
+      campaignCount: v.campaigns.size,
+      totalSpend: v.totalSpend,
+    }));
+  if (dupRows.length > 0) {
+    tables.push({
+      title: 'Keyword duplication report',
+      columns: [
+        { key: 'searchTerm', label: 'Keyword' },
+        { key: 'campaigns', label: 'Campaigns using keyword' },
+        { key: 'campaignCount', label: 'Campaign count', align: 'right' },
+        { key: 'totalSpend', label: 'Total spend', align: 'right', format: 'currency' },
+      ],
+      rows: dupRows,
+    });
+  }
+
+  // Keyword opportunity report: auto search terms converting but not in manual.
+  if (diagnostics?.searchTermLeakage && diagnostics.searchTermLeakage.harvestSuggestions.length > 0) {
+    const oppRows = diagnostics.searchTermLeakage.harvestSuggestions.slice(0, 50).map((k) => ({
+      searchTerm: k.searchTerm,
+      campaign: k.campaign,
+      clicks: k.clicks,
+      spend: k.spend,
+      sales: k.sales,
+      suggestion: 'Add to manual campaign (Exact/Phrase)',
+    }));
+    tables.push({
+      title: 'Keyword opportunity report (Auto → Manual)',
+      columns: [
+        { key: 'searchTerm', label: 'Search Term' },
+        { key: 'campaign', label: 'Auto campaign' },
+        { key: 'clicks', label: 'Clicks', align: 'right' },
+        { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+        { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        { key: 'suggestion', label: 'Suggested action' },
+      ],
+      rows: oppRows,
+    });
+  }
+
+  // Match type efficiency: compare Exact vs Phrase vs Broad ROAS.
+  type MatchAgg = { sales: number; spend: number };
+  const rootMap = new Map<
+    string,
+    { exact?: MatchAgg; phrase?: MatchAgg; broad?: MatchAgg }
+  >();
+  for (const k of kws) {
+    const mtRaw = (k.matchType || '').toLowerCase();
+    if (!mtRaw) continue;
+    const root = k.searchTerm;
+    if (!root) continue;
+    let bucket: 'exact' | 'phrase' | 'broad' | undefined;
+    if (mtRaw.includes('exact')) bucket = 'exact';
+    else if (mtRaw.includes('phrase')) bucket = 'phrase';
+    else if (mtRaw.includes('broad')) bucket = 'broad';
+    if (!bucket) continue;
+    let entry = rootMap.get(root);
+    if (!entry) {
+      entry = {};
+      rootMap.set(root, entry);
+    }
+    if (!entry[bucket]) entry[bucket] = { sales: 0, spend: 0 };
+    entry[bucket]!.sales += k.sales;
+    entry[bucket]!.spend += k.spend;
+  }
+  const matchRows = Array.from(rootMap.entries())
+    .map(([term, agg]) => {
+      const roasExact =
+        agg.exact && agg.exact.spend > 0 ? agg.exact.sales / agg.exact.spend : 0;
+      const roasPhrase =
+        agg.phrase && agg.phrase.spend > 0 ? agg.phrase.sales / agg.phrase.spend : 0;
+      const roasBroad =
+        agg.broad && agg.broad.spend > 0 ? agg.broad.sales / agg.broad.spend : 0;
+      const variants = [roasExact, roasPhrase, roasBroad].filter((v) => v > 0);
+      if (variants.length < 2) return null; // need at least two match types to compare.
+      const bestRoas = Math.max(roasExact, roasPhrase, roasBroad);
+      const bestMatchType =
+        bestRoas === roasExact
+          ? 'Exact'
+          : bestRoas === roasPhrase
+            ? 'Phrase'
+            : 'Broad';
+      return {
+        searchTerm: term,
+        bestMatchType,
+        roasExact,
+        roasPhrase,
+        roasBroad,
+      };
+    })
+    .filter((r): r is NonNullable<typeof r> => r != null)
+    .sort(
+      (a, b) =>
+        b.roasExact + b.roasPhrase + b.roasBroad -
+        (a.roasExact + a.roasPhrase + a.roasBroad)
+    )
+    .slice(0, 50);
+
+  if (matchRows.length > 0) {
+    tables.push({
+      title: 'Match type efficiency (Exact vs Phrase vs Broad)',
+      columns: [
+        { key: 'searchTerm', label: 'Search Term' },
+        { key: 'bestMatchType', label: 'Best match type' },
+        { key: 'roasExact', label: 'Exact ROAS', align: 'right' },
+        { key: 'roasPhrase', label: 'Phrase ROAS', align: 'right' },
+        { key: 'roasBroad', label: 'Broad ROAS', align: 'right' },
+      ],
+      rows: matchRows.map((r) => ({
+        searchTerm: r.searchTerm,
+        bestMatchType: r.bestMatchType,
+        roasExact: r.roasExact.toFixed(2),
+        roasPhrase: r.roasPhrase.toFixed(2),
+        roasBroad: r.roasBroad.toFixed(2),
+      })),
+    });
+  }
+
+  // Search term cluster analysis (table view).
+  if (diagnostics?.searchTermClustering && diagnostics.searchTermClustering.clusters.length > 0) {
+    const clusters = diagnostics.searchTermClustering.clusters.slice(0, 50);
+    tables.push({
+      title: 'Search term cluster analysis',
+      columns: [
+        { key: 'root', label: 'Cluster (root phrase)' },
+        { key: 'membersCount', label: 'Terms', align: 'right' },
+        { key: 'spend', label: 'Cluster spend', align: 'right', format: 'currency' },
+        { key: 'revenue', label: 'Cluster revenue', align: 'right', format: 'currency' },
+        { key: 'roas', label: 'Cluster ROAS', align: 'right' },
+      ],
+      rows: clusters.map((c) => ({
+        root: c.root,
+        membersCount: c.members.length,
+        spend: c.spend,
+        revenue: c.revenue,
+        roas: c.roas.toFixed(2),
+      })),
+    });
+  }
+
+  return tables;
 }
 
 function negativeKeywordTable(store: MemoryStore): TabTableConfig[] {
@@ -725,9 +959,23 @@ function buildInsightModules(
           { key: 'revenue', label: 'Cluster Revenue', align: 'right', format: 'currency' },
           { key: 'roas', label: 'Cluster ROAS', align: 'right' },
         ],
-        rows: topClusters.map((c) => ({ root: c.root, membersCount: c.members.length, spend: c.spend, revenue: c.revenue, roas: c.roas.toFixed(2) })),
+        rows: topClusters.map((c) => ({
+          root: c.root,
+          membersCount: c.members.length,
+          spend: c.spend,
+          revenue: c.revenue,
+          roas: c.roas.toFixed(2),
+        })),
       };
-      modules.push({ id: 'search-term-clusters', title: 'Search Term Clusters', description: 'Related queries grouped by root phrase.', count: topClusters.length, severity: 'info', tableRef: 'clusters', deepDiveTable: clusterDeepDive });
+      modules.push({
+        id: 'search-term-clusters',
+        title: 'Search Term Clusters',
+        description: 'Related queries grouped by root phrase.',
+        count: topClusters.length,
+        severity: 'info',
+        tableRef: 'clusters',
+        deepDiveTable: clusterDeepDive,
+      });
     }
     if (diagnostics?.searchTermLeakage && diagnostics.searchTermLeakage.harvestSuggestions.length > 0) {
       const harvestDeepDive: DeepDiveTableConfig = {
@@ -740,14 +988,32 @@ function buildInsightModules(
         ],
         rows: diagnostics.searchTermLeakage.harvestSuggestions.map((k) => ({ searchTerm: k.searchTerm, campaign: k.campaign, spend: k.spend, sales: k.sales, suggestion: 'Add to manual campaign' })),
       };
-      modules.push({ id: 'keyword-harvest', title: 'Keyword Harvest (Auto → Manual)', description: 'Search terms converting in auto but not in manual.', count: diagnostics.searchTermLeakage.harvestSuggestions.length, severity: 'opportunity', tableRef: 'harvest', deepDiveTable: harvestDeepDive });
+      modules.push({
+        id: 'keyword-harvest',
+        title: 'Keyword Harvest (Auto → Manual)',
+        description: 'Search terms converting in auto but not in manual.',
+        count: diagnostics.searchTermLeakage.harvestSuggestions.length,
+        severity: 'opportunity',
+        tableRef: 'harvest',
+        deepDiveTable: harvestDeepDive,
+      });
     }
     if (diagnostics?.keywordLifecycle && diagnostics.keywordLifecycle.lifecycle.size > 0) {
-      const lifecycleRows = kws.map((k) => {
-        const key = k.searchTerm + '|' + k.campaign;
-        const stage = diagnostics!.keywordLifecycle!.lifecycle.get(key) ?? 'Monitor';
-        return { keyword: k.searchTerm, campaign: k.campaign, stage, spend: k.spend, sales: k.sales, roas: k.roas.toFixed(2) };
-      }).sort((a, b) => b.spend - a.spend).slice(0, 100);
+      const lifecycleRows = kws
+        .map((k) => {
+          const key = k.searchTerm + '|' + k.campaign;
+          const stage = diagnostics!.keywordLifecycle!.lifecycle.get(key) ?? 'Monitor';
+          return {
+            keyword: k.searchTerm,
+            campaign: k.campaign,
+            stage,
+            spend: k.spend,
+            sales: k.sales,
+            roas: k.roas.toFixed(2),
+          };
+        })
+        .sort((a, b) => b.spend - a.spend)
+        .slice(0, 100);
       const lifecycleDeepDive: DeepDiveTableConfig = {
         columns: [
           { key: 'keyword', label: 'Keyword' },
@@ -759,7 +1025,123 @@ function buildInsightModules(
         ],
         rows: lifecycleRows,
       };
-      modules.push({ id: 'keyword-lifecycle', title: 'Keyword Lifecycle', description: 'Discovery, Scaling, Defensive, Bleeding, Dead.', count: lifecycleRows.length, severity: 'info', tableRef: 'lifecycle', deepDiveTable: lifecycleDeepDive });
+      modules.push({
+        id: 'keyword-lifecycle',
+        title: 'Keyword Lifecycle',
+        description: 'Discovery, Scaling, Defensive, Bleeding, Dead.',
+        count: lifecycleRows.length,
+        severity: 'info',
+        tableRef: 'lifecycle',
+        deepDiveTable: lifecycleDeepDive,
+      });
+    }
+
+    // Phase 6: additional advanced analytics modules for funnel and match type efficiency.
+    const avgOrderValue =
+      store.totalOrders > 0 && store.totalAdSales > 0
+        ? store.totalAdSales / store.totalOrders
+        : 0;
+    const funnelTerms = kws
+      .filter((k) => k.clicks > 0 && k.sales > 0)
+      .sort((a, b) => b.clicks - a.clicks)
+      .slice(0, 50);
+    if (funnelTerms.length > 0 && avgOrderValue > 0) {
+      const funnelDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'searchTerm', label: 'Search Term' },
+          { key: 'clicks', label: 'Clicks', align: 'right' },
+          { key: 'orders', label: 'Orders (est.)', align: 'right' },
+          { key: 'sales', label: 'Revenue', align: 'right', format: 'currency' },
+        ],
+        rows: funnelTerms.map((k) => ({
+          searchTerm: k.searchTerm,
+          clicks: k.clicks,
+          orders: k.sales / avgOrderValue,
+          sales: k.sales,
+        })),
+      };
+      modules.push({
+        id: 'search-funnel',
+        title: 'Search term funnel',
+        description: 'How clicks flow into estimated orders and revenue by query.',
+        count: funnelTerms.length,
+        severity: 'info',
+        tableRef: 'search-funnel',
+        deepDiveTable: funnelDeepDive,
+      });
+    }
+
+    // Match type efficiency module mirrors the table for a quick at-a-glance view.
+    type MatchAgg = { sales: number; spend: number };
+    const mtRootMap = new Map<
+      string,
+      { exact?: MatchAgg; phrase?: MatchAgg; broad?: MatchAgg }
+    >();
+    for (const k of kws) {
+      const mtRaw = (k.matchType || '').toLowerCase();
+      if (!mtRaw) continue;
+      const root = k.searchTerm;
+      if (!root) continue;
+      let bucket: 'exact' | 'phrase' | 'broad' | undefined;
+      if (mtRaw.includes('exact')) bucket = 'exact';
+      else if (mtRaw.includes('phrase')) bucket = 'phrase';
+      else if (mtRaw.includes('broad')) bucket = 'broad';
+      if (!bucket) continue;
+      let entry = mtRootMap.get(root);
+      if (!entry) {
+        entry = {};
+        mtRootMap.set(root, entry);
+      }
+      if (!entry[bucket]) entry[bucket] = { sales: 0, spend: 0 };
+      entry[bucket]!.sales += k.sales;
+      entry[bucket]!.spend += k.spend;
+    }
+    const mtSummary = Array.from(mtRootMap.entries())
+      .map(([term, agg]) => {
+        const roasExact =
+          agg.exact && agg.exact.spend > 0 ? agg.exact.sales / agg.exact.spend : 0;
+        const roasPhrase =
+          agg.phrase && agg.phrase.spend > 0 ? agg.phrase.sales / agg.phrase.spend : 0;
+        const roasBroad =
+          agg.broad && agg.broad.spend > 0 ? agg.broad.sales / agg.broad.spend : 0;
+        const variants = [roasExact, roasPhrase, roasBroad].filter((v) => v > 0);
+        if (variants.length < 2) return null;
+        const bestRoas = Math.max(roasExact, roasPhrase, roasBroad);
+        const bestMatchType =
+          bestRoas === roasExact
+            ? 'Exact'
+            : bestRoas === roasPhrase
+              ? 'Phrase'
+              : 'Broad';
+        return { searchTerm: term, bestMatchType, bestRoas };
+      })
+      .filter((r): r is NonNullable<typeof r> => r != null)
+      .sort((a, b) => b.bestRoas - a.bestRoas)
+      .slice(0, 50);
+
+    if (mtSummary.length > 0) {
+      const mtDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'searchTerm', label: 'Search Term' },
+          { key: 'bestMatchType', label: 'Best match type' },
+          { key: 'bestRoas', label: 'Best ROAS', align: 'right' },
+        ],
+        rows: mtSummary.map((r) => ({
+          searchTerm: r.searchTerm,
+          bestMatchType: r.bestMatchType,
+          bestRoas: r.bestRoas.toFixed(2),
+        })),
+      };
+      modules.push({
+        id: 'match-type-efficiency',
+        title: 'Match type efficiency',
+        description:
+          'Which match type wins for each search term (Exact vs Phrase vs Broad).',
+        count: mtSummary.length,
+        severity: 'info',
+        tableRef: 'match-type-efficiency',
+        deepDiveTable: mtDeepDive,
+      });
     }
   }
 
@@ -949,21 +1331,56 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
         if (k.clicks >= 10 && k.sales === 0) status = 'Negative';
         else if (k.roas >= 4 && k.sales > 0) status = 'Scale';
         else if (k.acos > 30 && k.sales > 0) status = 'Optimize';
-        const category = diagnostics?.keywordClassification?.classification.get(k.searchTerm + '|' + k.campaign) ?? '—';
-        return { searchTerm: k.searchTerm.slice(0, 35), spend: k.spend, sales: k.sales, acos: k.acos, roas: k.roas.toFixed(2), clicks: k.clicks, status, category };
+        const category =
+          diagnostics?.keywordClassification?.classification.get(
+            k.searchTerm + '|' + k.campaign
+          ) ?? '—';
+        return {
+          searchTerm: k.searchTerm.slice(0, 35),
+          spend: k.spend,
+          sales: k.sales,
+          acos: k.acos,
+          roas: k.roas.toFixed(2),
+          clicks: k.clicks,
+          status,
+          category,
+        };
       });
       const searchTermColumns = [
         { key: 'searchTerm', label: 'Search Term' },
-        { key: 'spend', label: 'Spend', align: 'right' as const, format: 'currency' as const },
-        { key: 'sales', label: 'Sales', align: 'right' as const, format: 'currency' as const },
-        { key: 'acos', label: 'ACOS', align: 'right' as const, format: 'percent' as const },
+        {
+          key: 'spend',
+          label: 'Spend',
+          align: 'right' as const,
+          format: 'currency' as const,
+        },
+        {
+          key: 'sales',
+          label: 'Sales',
+          align: 'right' as const,
+          format: 'currency' as const,
+        },
+        {
+          key: 'acos',
+          label: 'ACOS',
+          align: 'right' as const,
+          format: 'percent' as const,
+        },
         { key: 'roas', label: 'ROAS', align: 'right' as const },
         { key: 'status', label: 'Status' },
       ];
-      if (diagnostics?.keywordClassification) searchTermColumns.push({ key: 'category', label: 'Category' });
+      if (diagnostics?.keywordClassification)
+        searchTermColumns.push({ key: 'category', label: 'Category' });
       tables = [
-        { title: 'Search Term Performance', columns: searchTermColumns, rows: withStatus, actionColumn: { key: 'searchTerm', label: 'Actions', type: 'optimize' } },
+        {
+          title: 'Search Term Performance',
+          columns: searchTermColumns,
+          rows: withStatus,
+          actionColumn: { key: 'searchTerm', label: 'Actions', type: 'optimize' },
+        },
         ...keywordTables(store),
+        ...searchTermTables(store),
+        ...keywordAdvancedTables(store, diagnostics),
       ];
     }
     if (tabId === 'campaigns-budget') {
