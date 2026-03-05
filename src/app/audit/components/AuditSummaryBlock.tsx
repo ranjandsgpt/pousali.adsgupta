@@ -19,12 +19,26 @@ interface AuditSummaryBlockProps {
   onRerunAnalysis: () => void;
 }
 
+type SummaryStatus = 'red' | 'orange' | 'green' | 'blue';
+
+interface SummaryCard {
+  label: string;
+  value: string;
+  sub?: string;
+  status: SummaryStatus;
+}
+
 /** Single block under page: title, health score, summary cards, detected (and missing) metrics. */
 export default function AuditSummaryBlock({ onRerunAnalysis }: AuditSummaryBlockProps) {
   const { state } = useAuditStore();
   const { store } = state;
 
-  const { healthScore, healthLabel, criticalCount, summaryCards } = useMemo(() => {
+  const { healthScore, healthLabel, criticalCount, summaryCards } = useMemo<{
+    healthScore: number;
+    healthLabel: string;
+    criticalCount: number;
+    summaryCards: SummaryCard[];
+  }>(() => {
     const acos = store.totalAdSales > 0 ? (store.totalAdSpend / store.totalAdSales) * 100 : null;
     const roas = state.blendedROAS;
     const tacos = state.globalTACOS;
@@ -48,11 +62,10 @@ export default function AuditSummaryBlock({ onRerunAnalysis }: AuditSummaryBlock
     const healthScore = Math.max(0, Math.min(100, score));
     const healthLabel = healthScore >= 70 ? 'Good' : healthScore >= 40 ? 'Caution' : 'Critical';
 
-    const sym = store.currency ? formatCurrency(0, store.currency).replace('0.00', '') : '$';
-    const cards = [
+    const cards: SummaryCard[] = [
       { label: 'Critical Issues', value: String(criticalCount), sub: '', status: criticalCount > 0 ? 'red' : 'green' },
-      { label: 'Total Ad Spend', value: store.totalAdSpend > 0 ? formatCurrency(store.totalAdSpend, store.currency) : '—', sub: '', status: 'blue' as const },
-      { label: 'Total Ad Sales', value: store.totalAdSales > 0 ? formatCurrency(store.totalAdSales, store.currency) : '—', sub: '', status: 'blue' as const },
+      { label: 'Total Ad Spend', value: store.totalAdSpend > 0 ? formatCurrency(store.totalAdSpend, store.currency) : '—', sub: '', status: 'blue' },
+      { label: 'Total Ad Sales', value: store.totalAdSales > 0 ? formatCurrency(store.totalAdSales, store.currency) : '—', sub: '', status: 'blue' },
       { label: 'ROAS', value: roas > 0 ? `${roas.toFixed(2)}×` : '—', sub: '', status: roas >= 3 ? 'green' : roas >= 1.5 ? 'orange' : 'red' },
       { label: 'ACOS', value: acos != null ? formatPercent(acos) : '—', sub: '', status: acos != null ? (acos > 60 ? 'red' : acos > 30 ? 'orange' : 'green') : 'blue' },
     ];
@@ -76,7 +89,7 @@ export default function AuditSummaryBlock({ onRerunAnalysis }: AuditSummaryBlock
   const handleWord = async () => await exportAuditDocx(store);
   const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
 
-  const cardStatusClass = {
+  const cardStatusClass: Record<SummaryStatus, string> = {
     red: 'bg-red-500/20 text-red-400 border-red-500/40',
     orange: 'bg-amber-500/20 text-amber-400 border-amber-500/40',
     green: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40',
