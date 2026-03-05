@@ -622,10 +622,20 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
         if (k.clicks >= 10 && k.sales === 0) status = 'Negative';
         else if (k.roas >= 4 && k.sales > 0) status = 'Scale';
         else if (k.acos > 30 && k.sales > 0) status = 'Optimize';
-        return { searchTerm: k.searchTerm.slice(0, 35), spend: k.spend, sales: k.sales, acos: k.acos, roas: k.roas.toFixed(2), clicks: k.clicks, status };
+        const category = diagnostics?.keywordClassification?.classification.get(k.searchTerm + '|' + k.campaign) ?? '—';
+        return { searchTerm: k.searchTerm.slice(0, 35), spend: k.spend, sales: k.sales, acos: k.acos, roas: k.roas.toFixed(2), clicks: k.clicks, status, category };
       });
+      const searchTermColumns = [
+        { key: 'searchTerm', label: 'Search Term' },
+        { key: 'spend', label: 'Spend', align: 'right' as const, format: 'currency' as const },
+        { key: 'sales', label: 'Sales', align: 'right' as const, format: 'currency' as const },
+        { key: 'acos', label: 'ACOS', align: 'right' as const, format: 'percent' as const },
+        { key: 'roas', label: 'ROAS', align: 'right' as const },
+        { key: 'status', label: 'Status' },
+      ];
+      if (diagnostics?.keywordClassification) searchTermColumns.push({ key: 'category', label: 'Category' });
       tables = [
-        { title: 'Search Term Performance', columns: [{ key: 'searchTerm', label: 'Search Term' }, { key: 'spend', label: 'Spend', align: 'right', format: 'currency' }, { key: 'sales', label: 'Sales', align: 'right', format: 'currency' }, { key: 'acos', label: 'ACOS', align: 'right', format: 'percent' }, { key: 'roas', label: 'ROAS', align: 'right' }, { key: 'status', label: 'Status' }], rows: withStatus, actionColumn: { key: 'searchTerm', label: 'Actions', type: 'optimize' } },
+        { title: 'Search Term Performance', columns: searchTermColumns, rows: withStatus, actionColumn: { key: 'searchTerm', label: 'Actions', type: 'optimize' } },
         ...keywordTables(store),
       ];
     }
