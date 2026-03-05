@@ -102,7 +102,7 @@ export default function OptimizationOpportunitiesSection() {
     }
 
     return cards;
-  }, [store, insightModules, opportunities, currency]);
+  }, [store, insightModules]);
 
   if (opportunityCards.length === 0) return null;
 

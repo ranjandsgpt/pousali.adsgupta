@@ -270,6 +270,42 @@ function buildInsightModules(store: MemoryStore, tabId: TabId, diagnostics?: Dia
   const campaigns = Object.values(store.campaignMetrics).filter((c) => c.campaignName);
 
   if (tabId === 'overview' && diagnostics) {
+    const m = store.storeMetrics;
+    const strategyDetails: DeepDiveTableConfig = {
+      columns: [
+        { key: 'indicator', label: 'Indicator' },
+        { key: 'value', label: 'Value' },
+        { key: 'note', label: 'Insight / Recommendation' },
+      ],
+      rows: [
+        {
+          indicator: 'Account strategy',
+          value: diagnostics.accountStrategy,
+          note: 'Overall positioning based on ACOS, TACOS and ad sales share.',
+        },
+        {
+          indicator: 'TACOS',
+          value: `${m.tacos.toFixed(1)}%`,
+          note: 'Lower TACOS indicates more profitable, ad-efficient growth.',
+        },
+        {
+          indicator: 'ROAS',
+          value: m.roas.toFixed(2),
+          note: m.roas >= 3 ? 'Strong return on ad spend — safe room to scale winners.' : 'Return on ad spend needs improvement before scaling.',
+        },
+        {
+          indicator: 'Ad Sales % of Total',
+          value: m.adSalesPercent > 0 ? formatPercent(m.adSalesPercent) : '—',
+          note: 'Balance between organic and paid sales; monitor dependency on ads.',
+        },
+        {
+          indicator: 'Top campaign concentration',
+          value: diagnostics.portfolioConcentration.top5CampaignsSpendShare.toFixed(2),
+          note: 'High concentration means growth is driven by a few key campaigns.',
+        },
+      ],
+    };
+
     modules.push({
       id: 'account-strategy',
       title: 'Account Strategy',
@@ -277,6 +313,7 @@ function buildInsightModules(store: MemoryStore, tabId: TabId, diagnostics?: Dia
       count: 1,
       severity: 'info',
       tableRef: 'account-strategy',
+      deepDiveTable: strategyDetails,
     });
   }
 

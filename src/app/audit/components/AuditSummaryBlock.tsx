@@ -17,6 +17,7 @@ const DISPLAY_NAMES: Record<string, string> = {
 
 interface AuditSummaryBlockProps {
   onRerunAnalysis: () => void;
+  onFocusCriticalIssues?: () => void;
 }
 
 type SummaryStatus = 'red' | 'orange' | 'green' | 'blue';
@@ -29,7 +30,7 @@ interface SummaryCard {
 }
 
 /** Single block under page: title, health score, summary cards, detected (and missing) metrics. */
-export default function AuditSummaryBlock({ onRerunAnalysis }: AuditSummaryBlockProps) {
+export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssues }: AuditSummaryBlockProps) {
   const { state } = useAuditStore();
   const { store } = state;
 
@@ -179,10 +180,15 @@ export default function AuditSummaryBlock({ onRerunAnalysis }: AuditSummaryBlock
               <p className="text-xs mt-1 opacity-90">{healthLabel}</p>
             </div>
             {byLabels(['Critical Issues']).map((c) => (
-              <div key={c.label} className={`rounded-xl border p-3 ${cardStatusClass[c.status]}`}>
+              <button
+                key={c.label}
+                type="button"
+                onClick={onFocusCriticalIssues}
+                className={`text-left rounded-xl border p-3 ${cardStatusClass[c.status]} hover:bg-white/10 transition-colors`}
+              >
                 <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">{c.label}</p>
                 <p className="text-lg font-bold tabular-nums">{c.value}</p>
-              </div>
+              </button>
             ))}
           </div>
         </div>

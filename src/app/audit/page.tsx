@@ -16,14 +16,10 @@ import type { TabId } from './tabs/useTabData';
 
 export type AuditStep = 'upload' | 'processing' | 'dashboard';
 
-function AuditTabsWithState() {
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
-  return <AuditTabs activeTab={activeTab} onTabChange={setActiveTab} />;
-}
-
 function AuditPageContent() {
   const [step, setStep] = useState<AuditStep>('upload');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
   const { setStore } = useAuditStore();
   const { runLearning } = useLearning();
   const lastFilesRef = useRef<File[]>([]);
@@ -72,10 +68,25 @@ function AuditPageContent() {
         />
         <PrivacyNote />
 
+        {step === 'processing' && (
+          <section className="rounded-2xl border border-white/10 bg-[var(--color-surface-elevated)] p-4 text-sm text-[var(--color-text-muted)]">
+            Reprocessing reports and validating insights…
+          </section>
+        )}
+
         {step === 'dashboard' && (
           <>
-            <AuditSummaryBlock onRerunAnalysis={handleRerunAnalysis} />
-            <AuditTabsWithState />
+            <AuditSummaryBlock
+              onRerunAnalysis={handleRerunAnalysis}
+              onFocusCriticalIssues={() => {
+                setActiveTab('overview');
+                if (typeof window !== 'undefined') {
+                  const el = document.getElementById('critical-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+            />
+            <AuditTabs activeTab={activeTab} onTabChange={setActiveTab} />
             <ExportBar />
           </>
         )}

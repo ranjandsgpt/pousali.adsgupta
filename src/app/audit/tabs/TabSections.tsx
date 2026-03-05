@@ -126,8 +126,9 @@ export function TabDataTablesSection({
   tables: TabTableConfig[];
   currency: DetectedCurrency;
 }) {
-  if (tables.length === 0) return null;
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+
+  if (tables.length === 0) return null;
 
   return (
     <section className="border border-[#1f2937] rounded-xl p-3 sm:p-4 bg-[#111827]">

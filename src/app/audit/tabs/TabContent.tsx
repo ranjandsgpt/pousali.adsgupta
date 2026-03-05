@@ -63,7 +63,7 @@ export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
             <FunnelOverviewChart />
           </section>
           {insightModules.length > 0 && (
-            <section>
+            <section id="critical-section">
               <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Critical Issues & Growth Opportunities</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {insightModules.map((mod) => (
@@ -98,11 +98,17 @@ export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
         <TabKPISummary metrics={kpis.slice(0, 8)} currency={currency} />
       )}
 
-      {tabId === 'overview' && patterns.length > 0 && (
-        <TabPatternDetection patterns={patterns.slice(0, 5)} />
-      )}
-      {tabId === 'overview' && opportunities.length > 0 && (
-        <TabOpportunityDetection opportunities={opportunities.slice(0, 5)} />
+      {tabId === 'overview' && (patterns.length > 0 || opportunities.length > 0) && (
+        <section>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {patterns.length > 0 && (
+              <TabPatternDetection patterns={patterns.slice(0, 5)} />
+            )}
+            {opportunities.length > 0 && (
+              <TabOpportunityDetection opportunities={opportunities.slice(0, 5)} />
+            )}
+          </div>
+        </section>
       )}
 
       <TabDataTablesSection tables={tables} currency={currency} />
