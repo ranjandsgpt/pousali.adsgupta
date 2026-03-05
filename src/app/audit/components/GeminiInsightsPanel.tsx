@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
 import { runDiagnosticEngines } from '../engines';
 import { runSanityChecks } from '../utils/sanityChecks';
-import type { DualIntelligenceRequest, GeminiAuditResponse } from '../api/generate-insights/route';
+import type { DualIntelligenceRequest, GeminiAuditResponse } from '../../api/generate-insights/route';
 
 const BLEEDER_CLICKS_MIN = 10;
 const LOW_ACOS_THRESHOLD = 15;
