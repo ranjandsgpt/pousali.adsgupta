@@ -454,7 +454,196 @@ function buildInsightModules(
         deepDiveTable: cappedDeepDive,
       });
     }
-    if (oppCount > 0) modules.push({ id: 'opportunities', title: 'Growth Opportunities', description: 'High ROAS keywords and campaigns ready to scale.', count: oppCount, severity: 'opportunity', tableRef: 'opportunities', deepDiveTable: opportunitiesDeepDive });
+    if (oppCount > 0)
+      modules.push({
+        id: 'opportunities',
+        title: 'Growth Opportunities',
+        description: 'High ROAS keywords and campaigns ready to scale.',
+        count: oppCount,
+        severity: 'opportunity',
+        tableRef: 'opportunities',
+        deepDiveTable: opportunitiesDeepDive,
+      });
+
+    // Phase 5: additional opportunity tables.
+    if (sanity && sanity.scalingKeywords.length > 0) {
+      const scaling = [...sanity.scalingKeywords]
+        .sort((a, b) => b.roas - a.roas)
+        .slice(0, 50);
+      const scalingDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'keyword', label: 'Keyword' },
+          { key: 'campaign', label: 'Campaign' },
+          { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+          { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+          { key: 'roas', label: 'ROAS', align: 'right' },
+        ],
+        rows: scaling.map((k) => ({
+          keyword: k.searchTerm,
+          campaign: k.campaign,
+          spend: k.spend,
+          sales: k.sales,
+          roas: k.roas.toFixed(2),
+        })),
+      };
+      modules.push({
+        id: 'high-roas-low-spend-keywords',
+        title: 'High ROAS / low spend keywords',
+        description: 'Keywords that are performing well but under-funded.',
+        count: scaling.length,
+        severity: 'opportunity',
+        tableRef: 'high-roas-low-spend-keywords',
+        deepDiveTable: scalingDeepDive,
+      });
+    }
+
+    if (campaigns.length > 0) {
+      const avgRoas =
+        store.totalAdSpend > 0 ? store.totalAdSales / store.totalAdSpend : 0;
+      const highRoasLowBudget = campaigns
+        .filter((c) => c.budget > 0 && c.spend > 0)
+        .map((c) => ({
+          ...c,
+          roas: c.spend > 0 ? c.sales / c.spend : 0,
+        }))
+        .filter(
+          (c) =>
+            c.roas >= Math.max(3, avgRoas) &&
+            c.spend < c.budget * 0.6 // plenty of unused budget
+        )
+        .sort((a, b) => b.roas - a.roas)
+        .slice(0, 25);
+
+      if (highRoasLowBudget.length > 0) {
+        const campDeepDive: DeepDiveTableConfig = {
+          columns: [
+            { key: 'campaignName', label: 'Campaign' },
+            { key: 'budget', label: 'Budget', align: 'right', format: 'currency' },
+            { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+            { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+            { key: 'roas', label: 'ROAS', align: 'right' },
+          ],
+          rows: highRoasLowBudget.map((c) => ({
+            campaignName: c.campaignName,
+            budget: c.budget,
+            spend: c.spend,
+            sales: c.sales,
+            roas: c.roas.toFixed(2),
+          })),
+        };
+        modules.push({
+          id: 'campaigns-high-roas-low-budget',
+          title: 'Campaigns with high ROAS but low budget',
+          description:
+            'Strong campaigns where budget is still modest — consider increasing daily budgets.',
+          count: highRoasLowBudget.length,
+          severity: 'opportunity',
+          tableRef: 'campaigns-high-roas-low-budget',
+          deepDiveTable: campDeepDive,
+        });
+      }
+    }
+
+    if (diagnostics?.searchTermLeakage && diagnostics.searchTermLeakage.harvestSuggestions.length > 0) {
+      const leakage = diagnostics.searchTermLeakage.harvestSuggestions.slice(0, 50);
+      const leakageDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'searchTerm', label: 'Search Term' },
+          { key: 'campaign', label: 'Auto Campaign' },
+          { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+          { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+          { key: 'suggestion', label: 'Suggested Action' },
+        ],
+        rows: leakage.map((k) => ({
+          searchTerm: k.searchTerm,
+          campaign: k.campaign,
+          spend: k.spend,
+          sales: k.sales,
+          suggestion: 'Promote to Exact match in manual campaign',
+        })),
+      };
+      modules.push({
+        id: 'converting-missing-exact',
+        title: 'Converting search terms missing Exact',
+        description:
+          'Auto-campaign terms with sales but no Exact match keyword in manual campaigns.',
+        count: leakage.length,
+        severity: 'opportunity',
+        tableRef: 'converting-missing-exact',
+        deepDiveTable: leakageDeepDive,
+      });
+
+      const highCtrLeakage = leakage
+        .filter((k) => k.clicks >= 10)
+        .slice(0, 50);
+      if (highCtrLeakage.length > 0) {
+        const highCtrDeepDive: DeepDiveTableConfig = {
+          columns: [
+            { key: 'searchTerm', label: 'Search Term' },
+            { key: 'campaign', label: 'Auto Campaign' },
+            { key: 'clicks', label: 'Clicks', align: 'right' },
+            { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+            { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+          ],
+          rows: highCtrLeakage.map((k) => ({
+            searchTerm: k.searchTerm,
+            campaign: k.campaign,
+            clicks: k.clicks,
+            spend: k.spend,
+            sales: k.sales,
+          })),
+        };
+        modules.push({
+          id: 'high-ctr-not-manual',
+          title: 'High CTR keywords not in manual campaigns',
+          description:
+            'Strong auto-campaign terms with clicks and sales that are not yet mirrored in manual campaigns.',
+          count: highCtrLeakage.length,
+          severity: 'opportunity',
+          tableRef: 'high-ctr-not-manual',
+          deepDiveTable: highCtrDeepDive,
+        });
+      }
+    }
+
+    // Products with high organic sales but low ads.
+    const asins = Object.values(store.asinMetrics);
+    const highOrganicLowAd = asins
+      .filter((a) => a.totalSales > 0)
+      .map((a) => ({
+        ...a,
+        adShare: a.adSales > 0 ? a.adSales / a.totalSales : 0,
+      }))
+      .filter((a) => a.totalSales > 0 && a.adShare < 0.25)
+      .sort((a, b) => b.totalSales - a.totalSales)
+      .slice(0, 25);
+
+    if (highOrganicLowAd.length > 0) {
+      const asinDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'asin', label: 'ASIN' },
+          { key: 'totalSales', label: 'Total Sales', align: 'right', format: 'currency' },
+          { key: 'adSales', label: 'Ad Sales', align: 'right', format: 'currency' },
+          { key: 'adShare', label: 'Ad Sales Share', align: 'right', format: 'percent' },
+        ],
+        rows: highOrganicLowAd.map((a) => ({
+          asin: a.asin,
+          totalSales: a.totalSales,
+          adSales: a.adSales,
+          adShare: a.adShare * 100,
+        })),
+      };
+      modules.push({
+        id: 'organic-strong-low-ads',
+        title: 'Products with strong organic sales but low ad support',
+        description:
+          'ASINs with meaningful organic revenue where ads are barely used — candidates for additional ad coverage.',
+        count: highOrganicLowAd.length,
+        severity: 'opportunity',
+        tableRef: 'organic-strong-low-ads',
+        deepDiveTable: asinDeepDive,
+      });
+    }
   }
 
   if (tabId === 'keywords-search-terms') {
