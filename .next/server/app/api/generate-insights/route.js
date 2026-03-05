@@ -26,6 +26,14 @@ Tasks:
 
 If you received raw report files, also return schema_inferences for any ambiguous or variant column headers you used: an object mapping raw header string to { "canonical": "sessions"|"buyBox"|"units"|"pageViews"|"spend"|"sales"|..., "confidence": 0.0-1.0 }. Omit if no headers were ambiguous.
 
+Use these canonical formulas for consistent reasoning:
+- CTR = Clicks / Impressions (as percentage)
+- ACOS = Spend / Sales (as percentage)
+- ROAS = Sales / Spend
+- TACOS = Spend / Total Sales (as percentage)
+- CVR = Orders / Clicks (as percentage)
+- CPC = Spend / Clicks
+
 Return ONLY valid JSON in this exact shape (no markdown):
 {
   "metrics": [{label, value, numericValue}],
