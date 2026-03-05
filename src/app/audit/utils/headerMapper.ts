@@ -155,12 +155,20 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
     'Page Views',
     'Page Views (DPV)',
     'Page Views – Total',
+    'Page views – Total',
     'Page Views - Total',
     'pageviews',
   ],
   buyBox: [
+    'Featured Offer (Buy Box) percentage',
     'Buy Box %',
     'Buy Box Percentage',
+    'Buy Box percentage',
+    'Featured Offer Percentage',
+    'Featured Offer %',
+    'buy_box_percentage',
+    'buyBoxPercentage',
+    'BuyBoxPercentage',
     'Buy Box Pct',
     'buyboxpercentage',
     'BuyBox%',
@@ -249,6 +257,31 @@ export function classifyReportType(map: HeaderMap): 'business' | 'advertising' |
   const hasConversion = !!map.unitSession;
   if (hasSessions || hasBuyBox || hasUnits || hasConversion) return 'business';
   return 'unknown';
+}
+
+/**
+ * Step 1.6 — Business Report Detection.
+ * If the dataset contains any of these columns, classify as Amazon Business Report
+ * and enable traffic and Buy Box analysis automatically.
+ */
+const BUSINESS_REPORT_INDICATOR_HEADERS = [
+  'Sessions – Total',
+  'Sessions - Total',
+  'Page views – Total',
+  'Page Views – Total',
+  'Featured Offer (Buy Box) percentage',
+  'Units ordered',
+  'Units Ordered',
+  'Ordered Product Sales',
+];
+
+export function isBusinessReportByHeaders(rawHeaders: string[]): boolean {
+  const normalized = new Set(rawHeaders.map((h) => normalizeHeader(h)));
+  for (const ind of BUSINESS_REPORT_INDICATOR_HEADERS) {
+    if (normalized.has(normalizeHeader(ind))) return true;
+  }
+  const map = mapHeaders(rawHeaders);
+  return !!(map.sessions || map.pageViews || map.buyBox || map.units || map.orderedProductSales);
 }
 
 /** Section 1: Campaign Report is single source of truth for totals. Classify ad report by filename. */

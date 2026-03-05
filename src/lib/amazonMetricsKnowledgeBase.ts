@@ -1,0 +1,274 @@
+/**
+ * Amazon Metrics Knowledge Base.
+ * Step 1: Parsed metric definitions (from CSV or built-in).
+ * Step 2–7: Calculation resolution, validation, dependency graph, lazy computation.
+ * CSV schema: id, name, description, formula, exampleFields → dependencies extracted from formula.
+ *
+ * To load the 510-metric CSV (e.g. deepseek_csv_20260305_e7cc3a):
+ * 1. Place the CSV in public/ or fetch from your API.
+ * 2. Call loadMetricsFromCsv(csvText) at app init or when the file is available.
+ * 3. Core metrics (ACOS, ROAS, TACOS, CTR, CPC, CVR, Buy Box %) are always registered as fallback.
+ */
+
+export interface MetricDefinition {
+  id: number | string;
+  name: string;
+  description: string;
+  formula: string;
+  exampleFields: string[];
+  dependencies: string[];
+  category?: string;
+}
+
+export interface KnowledgeBaseEntry {
+  metricName: string;
+  formula: string;
+  dependencies: string[];
+  description: string;
+  category: string;
+}
+
+/** Extract metric/field names from a formula string (e.g. "Clicks / Impressions * 100" → ["Clicks", "Impressions"]). */
+export function extractDependenciesFromFormula(formula: string): string[] {
+  const normalized = formula
+    .replace(/\*/g, ' ')
+    .replace(/\//g, ' ')
+    .replace(/\+/g, ' ')
+    .replace(/-/g, ' ')
+    .replace(/\(/g, ' ')
+    .replace(/\)/g, ' ')
+    .replace(/\d+\.?\d*/g, ' ')
+    .replace(/%/g, ' ');
+  const tokens = normalized.split(/\s+/).filter((t) => t.length > 1 && /[A-Za-z]/.test(t));
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of tokens) {
+    const key = t.trim();
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      out.push(key);
+    }
+  }
+  return out;
+}
+
+/** Parse a single CSV row into MetricDefinition. Columns: id, name, description, formula, exampleFields (comma-sep). */
+export function parseMetricRow(row: Record<string, string>, index: number): MetricDefinition {
+  const name = row.name ?? row.Name ?? row.metric ?? '';
+  const formula = row.formula ?? row.Formula ?? '';
+  const exampleFields = (row.exampleFields ?? row.example_fields ?? row.fields ?? '')
+    .split(/[,;]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const dependencies = row.dependencies
+    ? row.dependencies.split(/[,;]/).map((s) => s.trim()).filter(Boolean)
+    : extractDependenciesFromFormula(formula);
+  return {
+    id: index + 1,
+    name,
+    description: row.description ?? row.Description ?? '',
+    formula,
+    exampleFields,
+    dependencies,
+    category: row.category ?? row.Category ?? 'general',
+  };
+}
+
+/** Parse CSV text into MetricDefinition[]. Expects header row. */
+export function parseMetricsCsv(csvText: string): MetricDefinition[] {
+  const lines = csvText.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const header = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
+  const out: MetricDefinition[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map((v) => v.trim().replace(/^"|"$/g, ''));
+    const row: Record<string, string> = {};
+    header.forEach((h, j) => { row[h] = values[j] ?? ''; });
+    if (row.name || row.Name || row.formula || row.Formula) {
+      out.push(parseMetricRow(row, out.length));
+    }
+  }
+  return out;
+}
+
+/** Core metrics always available (fallback when CSV not loaded). */
+const CORE_METRIC_DEFINITIONS: MetricDefinition[] = [
+  { id: 'acos', name: 'ACOS', description: 'Advertising Cost of Sales', formula: 'Spend / Sales * 100', exampleFields: ['Spend', 'Sales'], dependencies: ['Spend', 'Sales'], category: 'efficiency' },
+  { id: 'roas', name: 'ROAS', description: 'Return on Ad Spend', formula: 'Sales / Spend', exampleFields: ['Sales', 'Spend'], dependencies: ['Sales', 'Spend'], category: 'efficiency' },
+  { id: 'tacos', name: 'TACOS', description: 'Total Advertising Cost of Sales', formula: 'Spend / Total Sales * 100', exampleFields: ['Spend', 'Total Sales'], dependencies: ['Spend', 'Total Sales'], category: 'efficiency' },
+  { id: 'ctr', name: 'CTR', description: 'Click-Through Rate', formula: 'Clicks / Impressions * 100', exampleFields: ['Clicks', 'Impressions'], dependencies: ['Clicks', 'Impressions'], category: 'traffic' },
+  { id: 'cpc', name: 'CPC', description: 'Cost Per Click', formula: 'Spend / Clicks', exampleFields: ['Spend', 'Clicks'], dependencies: ['Spend', 'Clicks'], category: 'traffic' },
+  { id: 'cvr', name: 'CVR', description: 'Conversion Rate', formula: 'Orders / Clicks * 100', exampleFields: ['Orders', 'Clicks'], dependencies: ['Orders', 'Clicks'], category: 'conversion' },
+  { id: 'buy_box_percentage', name: 'Buy Box Percentage', description: 'Percentage of page views where the product owned the Buy Box', formula: 'BuyBoxPercentage', exampleFields: ['BuyBoxPercentage'], dependencies: ['BuyBoxPercentage'], category: 'business' },
+];
+
+/** In-memory knowledge base: metric name → entry. */
+const knowledgeBase = new Map<string, KnowledgeBaseEntry>();
+const definitionById = new Map<string | number, MetricDefinition>();
+
+function registerMetric(def: MetricDefinition): void {
+  const key = def.name.replace(/\s+/g, '_').toLowerCase();
+  knowledgeBase.set(key, {
+    metricName: def.name,
+    formula: def.formula,
+    dependencies: def.dependencies,
+    description: def.description,
+    category: def.category ?? 'general',
+  });
+  definitionById.set(def.id, def);
+}
+
+// Seed with core metrics
+CORE_METRIC_DEFINITIONS.forEach(registerMetric);
+
+/** Load additional definitions from parsed CSV rows. */
+export function loadMetricsFromDefinitions(defs: MetricDefinition[]): void {
+  defs.forEach(registerMetric);
+}
+
+/** Load from CSV text (e.g. deepseek_csv_20260305_e7cc3a). */
+export function loadMetricsFromCsv(csvText: string): number {
+  const defs = parseMetricsCsv(csvText);
+  loadMetricsFromDefinitions(defs);
+  return defs.length;
+}
+
+/** Get all parsed metric definitions. */
+export function getAllDefinitions(): MetricDefinition[] {
+  return Array.from(definitionById.values());
+}
+
+/** Get knowledge base entry by metric name (normalized). */
+export function getKnowledgeBaseEntry(metricName: string): KnowledgeBaseEntry | undefined {
+  const key = metricName.replace(/\s+/g, '_').toLowerCase();
+  return knowledgeBase.get(key);
+}
+
+/** Check if metric exists in knowledge base. */
+export function metricExistsInKnowledgeBase(metricName: string): boolean {
+  return getKnowledgeBaseEntry(metricName) != null;
+}
+
+/** Dependency graph: metric → list of dependency names. */
+export function getDependencyGraph(): Map<string, string[]> {
+  const graph = new Map<string, string[]>();
+  Array.from(knowledgeBase.entries()).forEach(([, entry]) => {
+    graph.set(entry.metricName, [...entry.dependencies]);
+  });
+  return graph;
+}
+
+/** Topological order for computation (dependencies first). */
+export function getComputeOrder(requestedMetrics: string[]): string[] {
+  const graph = getDependencyGraph();
+  const visited = new Set<string>();
+  const order: string[] = [];
+  function visit(name: string) {
+    if (visited.has(name)) return;
+    visited.add(name);
+    const deps = graph.get(name);
+    if (deps) for (const d of deps) visit(d);
+    order.push(name);
+  }
+  for (const m of requestedMetrics) visit(m);
+  return order;
+}
+
+/** Resolution: system value map (e.g. from MemoryStore). Compute only when requested and dependencies exist. */
+export type SystemMetricSource = Record<string, number>;
+
+export type ResolvedMetric = { value: number; source: 'system' | 'computed' } | { available: false; reason: string };
+
+/** Simple formula evaluator for known patterns (Spend, Sales, Clicks, Impressions, Orders, Total Sales). */
+function evaluateFormula(formula: string, data: SystemMetricSource): number | null {
+  const f = formula.replace(/\s+/g, ' ');
+  const keys = ['Spend', 'Sales', 'Clicks', 'Impressions', 'Orders', 'Total Sales', 'Ad Spend', 'Ad Sales', 'BuyBoxPercentage'];
+  let expr = f;
+  for (const k of keys) {
+    const v = data[k] ?? data[k.replace(/\s+/g, '')];
+    if (v !== undefined && typeof v === 'number') expr = expr.replace(new RegExp(k.replace(/\s/g, '\\s'), 'gi'), String(v));
+  }
+  try {
+    const sanitized = expr.replace(/\* 100/g, '* 100').replace(/\/\s*(\d)/g, '/ $1');
+    const fn = new Function(`return (${sanitized})`);
+    const result = fn();
+    return typeof result === 'number' && Number.isFinite(result) ? result : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Step 3: Resolution logic.
+ * If metric exists in system → use it. Else if in KB and dependencies exist → compute. Else unavailable.
+ */
+export function resolveMetric(
+  metricName: string,
+  systemValues: SystemMetricSource,
+  requestedBy?: 'ai' | 'validation' | 'chart'
+): ResolvedMetric {
+  const normalized = metricName.replace(/\s+/g, '_').toLowerCase();
+  const systemKey = Object.keys(systemValues).find((k) => k.replace(/\s+/g, '_').toLowerCase() === normalized);
+  if (systemKey != null && typeof systemValues[systemKey] === 'number') {
+    return { value: systemValues[systemKey], source: 'system' };
+  }
+  const entry = getKnowledgeBaseEntry(metricName);
+  if (!entry) return { available: false, reason: 'Metric not in knowledge base' };
+  const hasDeps = entry.dependencies.every((d) => {
+    const dk = Object.keys(systemValues).find((k) => k.replace(/\s+/g, '') === d.replace(/\s+/g, ''));
+    return dk != null || entry.dependencies.some((dep) => systemValues[dep] !== undefined);
+  });
+  const data: SystemMetricSource = { ...systemValues };
+  if (!hasDeps) {
+    const missing = entry.dependencies.filter((d) => {
+      const k = Object.keys(systemValues).find((k2) => k2.replace(/\s+/g, '') === d.replace(/\s+/g, ''));
+      return !k && systemValues[d] === undefined;
+    });
+    return { available: false, reason: `Missing dependencies: ${missing.join(', ')}` };
+  }
+  const computed = evaluateFormula(entry.formula, data);
+  if (computed != null) return { value: computed, source: 'computed' };
+  return { available: false, reason: 'Could not evaluate formula' };
+}
+
+/** Step 5: Validation – compare computed vs reported; flag if difference > tolerance (e.g. 3%). */
+const VALIDATION_TOLERANCE_PCT = 3;
+
+export function validateMetric(
+  metricName: string,
+  reportedValue: number,
+  systemValues: SystemMetricSource
+): { valid: boolean; expected: number; differencePct: number; validationFlag: boolean } {
+  const resolved = resolveMetric(metricName, systemValues, 'validation');
+  if (!('value' in resolved)) {
+    return { valid: false, expected: reportedValue, differencePct: 0, validationFlag: true };
+  }
+  const expected = resolved.value;
+  const diff = reportedValue === 0 ? (expected === 0 ? 0 : 100) : Math.abs(reportedValue - expected) / Math.abs(reportedValue) * 100;
+  const validationFlag = diff > VALIDATION_TOLERANCE_PCT;
+  return {
+    valid: !validationFlag,
+    expected,
+    differencePct: diff,
+    validationFlag,
+  };
+}
+
+/** Get formula context string for AI (Step 12). */
+export function getMetricDefinitionsContext(metricNames: string[]): string {
+  const lines: string[] = [];
+  for (const name of metricNames) {
+    const entry = getKnowledgeBaseEntry(name);
+    if (entry) lines.push(`${entry.metricName} = ${entry.formula}`);
+  }
+  return lines.join('\n');
+}
+
+/** Lazy compute: only compute when requested (AI, validation, or chart). */
+export function computeMetricWhenRequested(
+  metricName: string,
+  systemValues: SystemMetricSource,
+  requestedBy: 'ai' | 'validation' | 'chart'
+): ResolvedMetric {
+  return resolveMetric(metricName, systemValues, requestedBy);
+}

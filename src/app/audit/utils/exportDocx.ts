@@ -1,7 +1,10 @@
 /**
- * Word export – full audit: KPIs, patterns, opportunities, all tables, chart data.
- * Excludes Gemini narrative; includes everything else from the UI.
+ * Word export – Crystal Bohemia audit template (Sections 1–9).
+ * Step 15: When user clicks Download Word → {BrandName}_Amazon_Advertising_Audit_{Month}.docx
  */
+import type { MemoryStore } from './reportParser';
+import { exportCrystalBohemiaDocx } from './exportAuditTemplateDocx';
+import { buildFullExportData } from './exportDataBuilder';
 import {
   Document,
   Packer,
@@ -13,8 +16,6 @@ import {
   WidthType,
   BorderStyle,
 } from 'docx';
-import type { MemoryStore } from './reportParser';
-import { buildFullExportData } from './exportDataBuilder';
 
 function cell(text: string): TableCell {
   return new TableCell({
@@ -46,7 +47,13 @@ function tableFromColumnsAndRows(headers: string[], rows: (string | number)[][])
   });
 }
 
-export async function exportAuditDocx(store: MemoryStore): Promise<void> {
+/** Export using Crystal Bohemia template (default). Optionally pass brandName for filename. */
+export async function exportAuditDocx(store: MemoryStore, options?: { brandName?: string }): Promise<void> {
+  await exportCrystalBohemiaDocx(store, options);
+}
+
+/** Legacy full audit export (KPIs, patterns, opportunities, all tables, chart data). */
+export async function exportAuditDocxLegacy(store: MemoryStore): Promise<void> {
   const data = buildFullExportData(store);
   const children: (Paragraph | Table)[] = [
     new Paragraph({
@@ -170,7 +177,7 @@ export async function exportAuditDocx(store: MemoryStore): Promise<void> {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'Amazon-Advertising-Performance-Audit.docx';
+  a.download = 'Amazon-Advertising-Performance-Audit-Legacy.docx';
   a.click();
   URL.revokeObjectURL(url);
 }
