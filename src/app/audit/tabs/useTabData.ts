@@ -3,9 +3,10 @@
 import { useMemo } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
-import type { TabConfig, KPIMetric, PatternDetection, OpportunityDetection, TabTableConfig, InsightModule } from './types';
+import type { TabConfig, KPIMetric, PatternDetection, OpportunityDetection, TabTableConfig, InsightModule, DeepDiveTableConfig } from './types';
 import type { MemoryStore } from '../utils/reportParser';
 import type { DetectedCurrency } from '../utils/currencyDetector';
+import { runDiagnosticEngines, type DiagnosticEnginesResult } from '../engines';
 
 /** 7 primary tabs: distributed analysis, deep-dive modules, reference UX. */
 export type TabId =
@@ -262,46 +263,263 @@ function negativeKeywordTable(store: MemoryStore): TabTableConfig[] {
   ];
 }
 
-function buildInsightModules(store: MemoryStore, tabId: TabId): InsightModule[] {
+function buildInsightModules(store: MemoryStore, tabId: TabId, diagnostics?: DiagnosticEnginesResult | null): InsightModule[] {
   const sym = store.currency ? formatCurrency(0, store.currency).replace('0.00', '') : '$';
   const modules: InsightModule[] = [];
   const kws = Object.values(store.keywordMetrics);
   const campaigns = Object.values(store.campaignMetrics).filter((c) => c.campaignName);
 
+  if (tabId === 'overview' && diagnostics) {
+    modules.push({
+      id: 'account-strategy',
+      title: 'Account Strategy',
+      description: diagnostics.accountStrategy,
+      count: 1,
+      severity: 'info',
+      tableRef: 'account-strategy',
+    });
+  }
+
   if (tabId === 'overview') {
-    const critical = kws.filter((k) => k.spend > 50 && k.sales === 0).length + campaigns.filter((c) => c.acos > 60 && c.sales > 0).length;
+    const bleedingKw = kws.filter((k) => k.spend > 50 && k.sales === 0);
+    const highAcosCamp = campaigns.filter((c) => c.acos > 60 && c.sales > 0);
+    const critical = bleedingKw.length + highAcosCamp.length;
     const wasteTotal = kws.filter((k) => k.clicks >= 10 && k.sales === 0).reduce((s, k) => s + k.spend, 0);
-    const oppCount = kws.filter((k) => k.roas >= 4 && k.sales > 0).length + campaigns.filter((c) => c.sales > 0 && c.spend > 0 && c.sales / c.spend >= 3).length;
-    if (critical > 0) modules.push({ id: 'critical', title: 'Critical Issues', description: 'High ACOS campaigns and bleeding keywords eating into profit.', count: critical, impact: wasteTotal > 0 ? `${sym}${wasteTotal.toFixed(0)} at risk` : undefined, severity: 'critical', tableRef: 'critical' });
-    if (oppCount > 0) modules.push({ id: 'opportunities', title: 'Growth Opportunities', description: 'High ROAS keywords and campaigns ready to scale.', count: oppCount, severity: 'opportunity', tableRef: 'opportunities' });
+    const oppKw = kws.filter((k) => k.roas >= 4 && k.sales > 0);
+    const oppCamp = campaigns.filter((c) => c.sales > 0 && c.spend > 0 && c.sales / c.spend >= 3);
+    const oppCount = oppKw.length + oppCamp.length;
+    const criticalDeepDive: DeepDiveTableConfig = {
+      columns: [
+        { key: 'type', label: 'Type' },
+        { key: 'name', label: 'Name' },
+        { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+        { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        { key: 'acos', label: 'ACOS', align: 'right', format: 'percent' },
+        { key: 'action', label: 'Suggested Action' },
+      ],
+      rows: [
+        ...bleedingKw.sort((a, b) => b.spend - a.spend).map((k) => ({ type: 'Keyword', name: k.searchTerm, spend: k.spend, sales: 0, acos: 0, action: 'Add as negative or Pause' })),
+        ...highAcosCamp.sort((a, b) => b.acos - a.acos).map((c) => ({ type: 'Campaign', name: c.campaignName, spend: c.spend, sales: c.sales, acos: c.acos, action: 'Reduce bids or add negatives' })),
+      ],
+    };
+    const opportunitiesDeepDive: DeepDiveTableConfig = {
+      columns: [
+        { key: 'type', label: 'Type' },
+        { key: 'name', label: 'Name' },
+        { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+        { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        { key: 'roas', label: 'ROAS', align: 'right' },
+        { key: 'action', label: 'Suggested Action' },
+      ],
+      rows: [
+        ...oppKw.sort((a, b) => b.roas - a.roas).map((k) => ({ type: 'Keyword', name: k.searchTerm, spend: k.spend, sales: k.sales, roas: k.roas.toFixed(2), action: 'Scale bid or budget' })),
+        ...oppCamp.sort((a, b) => (b.sales / b.spend) - (a.sales / a.spend)).map((c) => ({ type: 'Campaign', name: c.campaignName, spend: c.spend, sales: c.sales, roas: (c.sales / c.spend).toFixed(2), action: 'Increase budget' })),
+      ],
+    };
+    if (critical > 0) modules.push({ id: 'critical', title: 'Critical Issues', description: 'High ACOS campaigns and bleeding keywords eating into profit.', count: critical, impact: wasteTotal > 0 ? `${sym}${wasteTotal.toFixed(0)} at risk` : undefined, severity: 'critical', tableRef: 'critical', deepDiveTable: criticalDeepDive });
+    if (oppCount > 0) modules.push({ id: 'opportunities', title: 'Growth Opportunities', description: 'High ROAS keywords and campaigns ready to scale.', count: oppCount, severity: 'opportunity', tableRef: 'opportunities', deepDiveTable: opportunitiesDeepDive });
   }
 
   if (tabId === 'keywords-search-terms') {
     const bleeding = kws.filter((k) => k.clicks >= 10 && k.sales === 0);
     const hidden = kws.filter((k) => k.roas >= 4 && k.spend < 100 && k.sales > 0);
     const negCandidates = kws.filter((k) => k.clicks >= 5 && k.sales === 0);
-    if (bleeding.length > 0) modules.push({ id: 'bleeding', title: 'Bleeding Keywords', description: 'Keywords with spend and no sales. Add as negative or pause.', count: bleeding.length, impact: `${sym}${bleeding.reduce((s, k) => s + k.spend, 0).toFixed(0)} wasted`, severity: 'critical', tableRef: 'bleeding' });
-    if (hidden.length > 0) modules.push({ id: 'hidden', title: 'Hidden Profitable Keywords', description: 'High ROAS, low spend — scale bids or budget.', count: hidden.length, severity: 'opportunity', tableRef: 'hidden' });
-    if (negCandidates.length > 0) modules.push({ id: 'negatives', title: 'Negative Keyword Suggestions', description: 'Search terms with zero sales to negate.', count: negCandidates.length, severity: 'warning', tableRef: 'negatives' });
+    const bleedingDeepDive: DeepDiveTableConfig = {
+      columns: [
+        { key: 'keyword', label: 'Keyword' },
+        { key: 'campaign', label: 'Campaign' },
+        { key: 'clicks', label: 'Clicks', align: 'right' },
+        { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+        { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        { key: 'acos', label: 'ACOS', align: 'right', format: 'percent' },
+        { key: 'roas', label: 'ROAS', align: 'right' },
+        { key: 'suggestedAction', label: 'Suggested Action' },
+      ],
+      rows: bleeding.sort((a, b) => b.spend - a.spend).map((k) => ({
+        keyword: k.searchTerm,
+        campaign: k.campaign,
+        clicks: k.clicks,
+        spend: k.spend,
+        sales: k.sales,
+        acos: 0,
+        roas: 0,
+        suggestedAction: 'Add as negative or Pause',
+      })),
+    };
+    const hiddenDeepDive: DeepDiveTableConfig = {
+      columns: [
+        { key: 'keyword', label: 'Keyword' },
+        { key: 'campaign', label: 'Campaign' },
+        { key: 'clicks', label: 'Clicks', align: 'right' },
+        { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+        { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        { key: 'roas', label: 'ROAS', align: 'right' },
+        { key: 'conversionRate', label: 'Conversion Rate', align: 'right', format: 'percent' },
+        { key: 'scalingSuggestion', label: 'Scaling Suggestion' },
+      ],
+      rows: hidden.sort((a, b) => b.roas - a.roas).map((k) => ({
+        keyword: k.searchTerm,
+        campaign: k.campaign,
+        clicks: k.clicks,
+        spend: k.spend,
+        sales: k.sales,
+        roas: k.roas,
+        conversionRate: k.clicks > 0 ? (k.sales / (k.clicks * 10)) * 100 : 0,
+        scalingSuggestion: 'Increase bid or add to high-traffic campaign',
+      })),
+    };
+    const negativesDeepDive: DeepDiveTableConfig = {
+      columns: [
+        { key: 'searchTerm', label: 'Search Term' },
+        { key: 'campaign', label: 'Campaign' },
+        { key: 'clicks', label: 'Clicks', align: 'right' },
+        { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+        { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        { key: 'suggestedNegativeMatchType', label: 'Suggested Negative Match Type' },
+      ],
+      rows: negCandidates.sort((a, b) => b.spend - a.spend).map((k) => ({
+        searchTerm: k.searchTerm,
+        campaign: k.campaign,
+        clicks: k.clicks,
+        spend: k.spend,
+        sales: k.sales,
+        suggestedNegativeMatchType: (k.matchType || '').toLowerCase().includes('broad') ? 'Phrase or Exact' : 'Exact',
+      })),
+    };
+    if (bleeding.length > 0) modules.push({ id: 'bleeding', title: 'Bleeding Keywords', description: 'Keywords with spend and no sales. Add as negative or pause.', count: bleeding.length, impact: `${sym}${bleeding.reduce((s, k) => s + k.spend, 0).toFixed(0)} wasted`, severity: 'critical', tableRef: 'bleeding', deepDiveTable: bleedingDeepDive });
+    if (hidden.length > 0) modules.push({ id: 'hidden', title: 'Hidden Profitable Keywords', description: 'High ROAS, low spend — scale bids or budget.', count: hidden.length, severity: 'opportunity', tableRef: 'hidden', deepDiveTable: hiddenDeepDive });
+    if (negCandidates.length > 0) modules.push({ id: 'negatives', title: 'Negative Keyword Suggestions', description: 'Search terms with zero sales to negate.', count: negCandidates.length, severity: 'warning', tableRef: 'negatives', deepDiveTable: negativesDeepDive });
+    if (diagnostics?.searchTermClustering && diagnostics.searchTermClustering.clusters.length > 0) {
+      const topClusters = diagnostics.searchTermClustering.clusters.slice(0, 20);
+      const clusterDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'root', label: 'Cluster (root phrase)' },
+          { key: 'membersCount', label: 'Terms', align: 'right' },
+          { key: 'spend', label: 'Cluster Spend', align: 'right', format: 'currency' },
+          { key: 'revenue', label: 'Cluster Revenue', align: 'right', format: 'currency' },
+          { key: 'roas', label: 'Cluster ROAS', align: 'right' },
+        ],
+        rows: topClusters.map((c) => ({ root: c.root, membersCount: c.members.length, spend: c.spend, revenue: c.revenue, roas: c.roas.toFixed(2) })),
+      };
+      modules.push({ id: 'search-term-clusters', title: 'Search Term Clusters', description: 'Related queries grouped by root phrase.', count: topClusters.length, severity: 'info', tableRef: 'clusters', deepDiveTable: clusterDeepDive });
+    }
+    if (diagnostics?.searchTermLeakage && diagnostics.searchTermLeakage.harvestSuggestions.length > 0) {
+      const harvestDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'searchTerm', label: 'Search Term' },
+          { key: 'campaign', label: 'Campaign' },
+          { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+          { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+          { key: 'suggestion', label: 'Suggestion' },
+        ],
+        rows: diagnostics.searchTermLeakage.harvestSuggestions.map((k) => ({ searchTerm: k.searchTerm, campaign: k.campaign, spend: k.spend, sales: k.sales, suggestion: 'Add to manual campaign' })),
+      };
+      modules.push({ id: 'keyword-harvest', title: 'Keyword Harvest (Auto → Manual)', description: 'Search terms converting in auto but not in manual.', count: diagnostics.searchTermLeakage.harvestSuggestions.length, severity: 'opportunity', tableRef: 'harvest', deepDiveTable: harvestDeepDive });
+    }
   }
 
   if (tabId === 'campaigns-budget') {
-    const highAcos = campaigns.filter((c) => c.acos > 40 && c.sales > 0);
-    const bestRoas = campaigns.filter((c) => c.spend > 0 && c.sales / c.spend >= 3);
-    if (highAcos.length > 0) modules.push({ id: 'high-acos', title: 'High ACOS Campaigns', description: 'Campaigns above target ACOS. Optimize bids or targeting.', count: highAcos.length, severity: 'warning', tableRef: 'high-acos' });
-    if (bestRoas.length > 0) modules.push({ id: 'scale-campaigns', title: 'Scale Opportunities', description: 'High ROAS campaigns to increase budget.', count: bestRoas.length, severity: 'opportunity', tableRef: 'scale-campaigns' });
+    const highAcos = campaigns.filter((c) => c.acos > 40 && c.sales > 0).sort((a, b) => b.acos - a.acos);
+    const bestRoas = campaigns.filter((c) => c.spend > 0 && c.sales / c.spend >= 3).sort((a, b) => (b.sales / b.spend) - (a.sales / a.spend));
+    const highAcosDeepDive: DeepDiveTableConfig = {
+      columns: [
+        { key: 'campaignName', label: 'Campaign' },
+        { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+        { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        { key: 'acos', label: 'ACOS', align: 'right', format: 'percent' },
+      ],
+      rows: highAcos.map((c) => ({ campaignName: c.campaignName, spend: c.spend, sales: c.sales, acos: c.acos })),
+    };
+    const scaleDeepDive: DeepDiveTableConfig = {
+      columns: [
+        { key: 'campaignName', label: 'Campaign' },
+        { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+        { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        { key: 'roas', label: 'ROAS', align: 'right' },
+      ],
+      rows: bestRoas.map((c) => ({ campaignName: c.campaignName, spend: c.spend, sales: c.sales, roas: (c.sales / c.spend).toFixed(2) })),
+    };
+    if (highAcos.length > 0) modules.push({ id: 'high-acos', title: 'High ACOS Campaigns', description: 'Campaigns above target ACOS. Optimize bids or targeting.', count: highAcos.length, severity: 'warning', tableRef: 'high-acos', deepDiveTable: highAcosDeepDive });
+    if (bestRoas.length > 0) modules.push({ id: 'scale-campaigns', title: 'Scale Opportunities', description: 'High ROAS campaigns to increase budget.', count: bestRoas.length, severity: 'opportunity', tableRef: 'scale-campaigns', deepDiveTable: scaleDeepDive });
+    if (diagnostics?.campaignStructure && diagnostics.campaignStructure.duplicateTargeting.length > 0) {
+      const dupDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'keyword', label: 'Keyword' },
+          { key: 'campaigns', label: 'Campaigns' },
+        ],
+        rows: diagnostics.campaignStructure.duplicateTargeting.slice(0, 50).map((d) => ({ keyword: d.keyword, campaigns: d.campaigns.map((c) => c.campaign).join(', ') })),
+      };
+      modules.push({ id: 'duplicate-targeting', title: 'Duplicate Targeting', description: 'Same keyword in multiple campaigns.', count: diagnostics.campaignStructure.duplicateTargeting.length, severity: 'warning', tableRef: 'duplicate-targeting', deepDiveTable: dupDeepDive });
+    }
+    if (diagnostics?.budgetThrottling && diagnostics.budgetThrottling.budgetCappedOpportunities.length > 0) {
+      const capDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'campaignName', label: 'Campaign' },
+          { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+          { key: 'budget', label: 'Budget', align: 'right', format: 'currency' },
+          { key: 'roas', label: 'ROAS', align: 'right' },
+        ],
+        rows: diagnostics.budgetThrottling.budgetCappedOpportunities.map((c) => ({ campaignName: c.campaignName, spend: c.spend, budget: c.budget, roas: c.spend > 0 ? (c.sales / c.spend).toFixed(2) : '—' })),
+      };
+      modules.push({ id: 'budget-capped', title: 'Budget Capped Opportunities', description: 'Campaigns at budget limit with strong ROAS.', count: diagnostics.budgetThrottling.budgetCappedOpportunities.length, severity: 'opportunity', tableRef: 'budget-capped', deepDiveTable: capDeepDive });
+    }
   }
 
   if (tabId === 'asins-products') {
     const asins = Object.values(store.asinMetrics);
-    const topByRoas = asins.filter((a) => a.adSpend > 0).sort((a, b) => (b.adSales / b.adSpend) - (a.adSales / a.adSpend)).slice(0, 10);
-    if (topByRoas.length > 0) modules.push({ id: 'top-asins', title: 'Top ASINs by ROAS', description: 'Best-performing products. Consider increasing ad support.', count: topByRoas.length, severity: 'opportunity', tableRef: 'top-asins' });
+    const topByRoas = asins.filter((a) => a.adSpend > 0).sort((a, b) => (b.adSales / b.adSpend) - (a.adSales / a.adSpend));
+    const topAsinsDeepDive: DeepDiveTableConfig = {
+      columns: [
+        { key: 'asin', label: 'ASIN' },
+        { key: 'adSales', label: 'Ad Sales', align: 'right', format: 'currency' },
+        { key: 'adSpend', label: 'Ad Spend', align: 'right', format: 'currency' },
+        { key: 'roas', label: 'ROAS', align: 'right' },
+      ],
+      rows: topByRoas.map((a) => ({ asin: a.asin, adSales: a.adSales, adSpend: a.adSpend, roas: (a.adSales / a.adSpend).toFixed(2) })),
+    };
+    if (topByRoas.length > 0) modules.push({ id: 'top-asins', title: 'Top ASINs by ROAS', description: 'Best-performing products. Consider increasing ad support.', count: topByRoas.length, severity: 'opportunity', tableRef: 'top-asins', deepDiveTable: topAsinsDeepDive });
   }
 
   if (tabId === 'waste-bleed') {
-    const bleeding = kws.filter((k) => k.clicks >= 10 && k.sales === 0);
-    const totalBleed = bleeding.reduce((s, k) => s + k.spend, 0);
-    modules.push({ id: 'bleeder', title: 'Bleeder Report', description: 'Highlighting your biggest areas of spend waste.', count: bleeding.length, impact: totalBleed > 0 ? `${sym}${totalBleed.toFixed(2)}` : undefined, severity: 'critical', tableRef: 'bleeder' });
+    const bleeding = diagnostics?.waste ? diagnostics.waste.bleedingKeywords : kws.filter((k) => k.clicks >= 10 && k.sales === 0);
+    const totalBleed = diagnostics?.waste ? diagnostics.waste.totalWasteSpend : bleeding.reduce((s, k) => s + k.spend, 0);
+    const wastePct = diagnostics?.waste ? diagnostics.waste.wastePctOfTotalAdSpend : (store.totalAdSpend > 0 ? (totalBleed / store.totalAdSpend) * 100 : 0);
+    const bleederDeepDive: DeepDiveTableConfig = {
+      columns: [
+        { key: 'keyword', label: 'Keyword' },
+        { key: 'campaign', label: 'Campaign' },
+        { key: 'clicks', label: 'Clicks', align: 'right' },
+        { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+        { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        { key: 'acos', label: 'ACOS', align: 'right' },
+        { key: 'roas', label: 'ROAS', align: 'right' },
+        { key: 'suggestedAction', label: 'Suggested Action' },
+      ],
+      rows: [...bleeding].sort((a, b) => b.spend - a.spend).map((k) => ({
+        keyword: k.searchTerm,
+        campaign: k.campaign,
+        clicks: k.clicks,
+        spend: k.spend,
+        sales: k.sales,
+        acos: '—',
+        roas: '0',
+        suggestedAction: 'Deactivate or Add as negative',
+      })),
+    };
+    const desc = wastePct > 0 ? `Waste: ${wastePct.toFixed(1)}% of ad spend. ` : '';
+    modules.push({ id: 'bleeder', title: 'Bleeder Report', description: desc + 'Highlighting your biggest areas of spend waste.', count: bleeding.length, impact: totalBleed > 0 ? `${sym}${totalBleed.toFixed(2)}` : undefined, severity: 'critical', tableRef: 'bleeder', deepDiveTable: bleederDeepDive });
+    if (diagnostics?.waste && diagnostics.waste.bleedingCampaigns.length > 0) {
+      const campDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'campaignName', label: 'Campaign' },
+          { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+          { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+          { key: 'suggestedAction', label: 'Suggested Action' },
+        ],
+        rows: diagnostics.waste.bleedingCampaigns.map((c) => ({ campaignName: c.campaignName, spend: c.spend, sales: 0, suggestedAction: 'Review targeting or pause' })),
+      };
+      modules.push({ id: 'bleeding-campaigns', title: 'Bleeding Campaigns', description: 'Campaigns with spend and no sales.', count: diagnostics.waste.bleedingCampaigns.length, severity: 'critical', tableRef: 'bleeding-campaigns', deepDiveTable: campDeepDive });
+    }
   }
 
   if (tabId === 'profitability-inventory') {

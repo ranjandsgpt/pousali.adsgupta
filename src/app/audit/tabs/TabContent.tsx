@@ -2,6 +2,7 @@
 
 import { TabKPISummary, TabPatternDetection, TabOpportunityDetection, TabDataTablesSection, TabVisualization } from './TabSections';
 import { InsightModuleCard } from './InsightModuleCard';
+import { DeepDivePanel } from './DeepDivePanel';
 import { ChartRegistry, ChartsLabGrid } from './ChartRegistry';
 import FunnelOverviewChart from '../charts/FunnelOverviewChart';
 import { useTabData, type TabId } from './useTabData';
@@ -44,7 +45,9 @@ export function TabContent({ tabId }: { tabId: TabId }) {
               <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Critical Issues & Opportunities</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {insightModules.map((mod) => (
-                  <InsightModuleCard key={mod.id} module={mod} />
+                  <InsightModuleCard key={mod.id} module={mod}>
+                    {mod.deepDiveTable && <DeepDivePanel title={mod.title} table={mod.deepDiveTable} currency={currency} />}
+                  </InsightModuleCard>
                 ))}
               </div>
             </section>
@@ -57,7 +60,9 @@ export function TabContent({ tabId }: { tabId: TabId }) {
           <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">What to analyze</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {insightModules.map((mod) => (
-              <InsightModuleCard key={mod.id} module={mod} />
+              <InsightModuleCard key={mod.id} module={mod}>
+                {mod.deepDiveTable && <DeepDivePanel title={mod.title} table={mod.deepDiveTable} currency={currency} />}
+              </InsightModuleCard>
             ))}
           </div>
         </section>

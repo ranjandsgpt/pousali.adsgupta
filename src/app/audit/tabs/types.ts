@@ -25,6 +25,20 @@ export interface OpportunityDetection {
   recommendedAction: string;
 }
 
+/** Column config for deep-dive table (sortable, exportable). */
+export interface DeepDiveColumn {
+  key: string;
+  label: string;
+  align?: 'left' | 'right';
+  format?: 'currency' | 'percent' | 'number';
+}
+
+/** Full dataset for Deep Dive panel: sort, filter, export CSV. */
+export interface DeepDiveTableConfig {
+  columns: DeepDiveColumn[];
+  rows: Record<string, unknown>[];
+}
+
 /** Deep-dive module: summary card with count, impact, and expandable detail (reference UX). */
 export interface InsightModule {
   id: string;
@@ -36,6 +50,8 @@ export interface InsightModule {
   /** Table key to show when "Deep Dive" is expanded */
   tableRef?: string;
   chartId?: string;
+  /** Full dataset for Deep Dive panel (sort, filter, export) */
+  deepDiveTable?: DeepDiveTableConfig;
 }
 
 export interface TableColumn {
