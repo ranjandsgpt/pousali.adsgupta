@@ -55,10 +55,21 @@ const EMPTY_RESULT: DualEngineResult = {
   ready: false,
 };
 
+export interface RunDualEngineOptions {
+  /** Raw report files (CSV/XLSX) to send to Gemini unmodified for metric extraction. */
+  rawFiles?: File[];
+  /** If true, show SLM result immediately and run Gemini in background; UI updates when Gemini completes. */
+  deferGemini?: boolean;
+  /** Called when Gemini verification completes (with merged store if recovered fields applied). */
+  onGeminiComplete?: (mergedStore: MemoryStore | null) => void;
+}
+
 interface DualEngineContextValue extends DualEngineResult {
   loading: boolean;
+  /** True when SLM result is shown and Gemini verification is still running (progressive rendering). */
+  geminiVerificationPending: boolean;
   error: string | null;
-  runDualEngine: (store: MemoryStore) => Promise<DualEngineResult>;
+  runDualEngine: (store: MemoryStore, options?: RunDualEngineOptions) => Promise<DualEngineResult>;
   reset: () => void;
 }
 
@@ -83,10 +94,7 @@ function buildDatasetSummary(store: MemoryStore): Record<string, unknown> {
   };
 }
 
-async function fetchGeminiStructured(store: MemoryStore): Promise<{
-  artifacts: EngineArtifacts;
-  recovered_fields: RecoveredFields;
-} | null> {
+function buildStructuredPayload(store: MemoryStore): StructuredPayload {
   const campaigns = Object.values(store.campaignMetrics)
     .filter((c) => c.campaignName)
     .sort((a, b) => b.spend - a.spend)
@@ -108,11 +116,34 @@ async function fetchGeminiStructured(store: MemoryStore): Promise<{
     buyBoxPercent: store.buyBoxPercent,
     totalUnitsOrdered: store.totalUnitsOrdered,
   };
-  const res = await fetch('/api/dual-engine', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'structured', payload: { accountSummary, campaigns, searchTerms, asins } }),
-  });
+  return { accountSummary, campaigns, searchTerms, asins };
+}
+
+interface StructuredPayload {
+  accountSummary: Record<string, unknown>;
+  campaigns: unknown[];
+  searchTerms: unknown[];
+  asins: unknown[];
+}
+
+async function fetchGeminiStructured(
+  store: MemoryStore,
+  rawFiles?: File[]
+): Promise<{ artifacts: EngineArtifacts; recovered_fields: RecoveredFields } | null> {
+  const payload = buildStructuredPayload(store);
+  let res: Response;
+  if (rawFiles != null && rawFiles.length > 0) {
+    const formData = new FormData();
+    rawFiles.forEach((f) => formData.append('files', f));
+    formData.append('payload', JSON.stringify({ mode: 'structured', payload }));
+    res = await fetch('/api/dual-engine', { method: 'POST', body: formData });
+  } else {
+    res = await fetch('/api/dual-engine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'structured', payload }),
+    });
+  }
   const data = await res.json();
   if (!res.ok || data.error) return null;
   const metrics = (data.metrics_gemini || []) as MetricItem[];
@@ -148,97 +179,178 @@ async function fetchVerifySlm(slmArtifacts: EngineArtifacts, datasetSummary: Rec
 export function DualEngineProvider({ children }: { children: ReactNode }) {
   const [result, setResult] = useState<DualEngineResult>(EMPTY_RESULT);
   const [loading, setLoading] = useState(false);
+  const [geminiVerificationPending, setGeminiVerificationPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reset = useCallback(() => {
     setResult(EMPTY_RESULT);
     setError(null);
+    setGeminiVerificationPending(false);
   }, []);
 
-  const runDualEngine = useCallback(async (store: MemoryStore): Promise<DualEngineResult> => {
-    setLoading(true);
-    setError(null);
-    try {
-      const datasetSummary = buildDatasetSummary(store);
-      const [slmArtifacts, geminiResult] = await Promise.all([
-        Promise.resolve(buildSlmArtifacts(store)),
-        fetchGeminiStructured(store),
-      ]);
+  const runDualEngine = useCallback(
+    async (store: MemoryStore, options?: RunDualEngineOptions): Promise<DualEngineResult> => {
+      const { rawFiles, deferGemini, onGeminiComplete } = options ?? {};
+      setLoading(true);
+      setError(null);
+      setGeminiVerificationPending(false);
 
-      const geminiArtifacts = geminiResult?.artifacts ?? null;
-      const recovered_fields = geminiResult?.recovered_fields ?? {};
-
-      const verificationSlmByGemini = await fetchVerifySlm(slmArtifacts, datasetSummary);
-      const verificationGeminiBySlm = geminiArtifacts
-        ? verifyGeminiBySlm(geminiArtifacts, {
-            totalAdSpend: store.totalAdSpend,
-            totalAdSales: store.totalAdSales,
-            totalStoreSales: store.totalStoreSales || store.storeMetrics.totalSales,
-          })
-        : null;
-
-      const confidence = computeConfidence(
-        verificationSlmByGemini,
-        verificationGeminiBySlm,
-        slmArtifacts,
-        geminiArtifacts
-      );
-      const validated = selectArtifacts(slmArtifacts, geminiArtifacts, confidence);
-      const auditConfidenceScore = computeAuditConfidenceScore(confidence);
-      const recoveredFields = mergeRecoveredFields(
-        store.totalSessions,
-        store.buyBoxPercent,
-        store.totalUnitsOrdered,
-        recovered_fields,
-        (confidence.metrics.score + confidence.tables.score + confidence.charts.score + confidence.insights.score) / 4,
-        0.9
-      );
-
-      const next: DualEngineResult = {
-        slmArtifacts,
-        geminiArtifacts,
-        verificationSlmByGemini,
-        verificationGeminiBySlm,
-        confidence,
-        validated,
-        auditConfidenceScore,
-        recoveredFields,
-        ready: true,
-      };
-      setResult(next);
-      return next;
-    } catch (e) {
       const slmArtifacts = buildSlmArtifacts(store);
-      const confidence = {
-        metrics: { score: 0.9, source: 'slm' as const },
-        tables: { score: 0.9, source: 'slm' as const },
-        charts: { score: 0.9, source: 'slm' as const },
-        insights: { score: 0.9, source: 'slm' as const },
+      const datasetSummary = buildDatasetSummary(store);
+
+      const setSlmOnlyResult = (): DualEngineResult => {
+        const confidence = {
+          metrics: { score: 0.9, source: 'slm' as const },
+          tables: { score: 0.9, source: 'slm' as const },
+          charts: { score: 0.9, source: 'slm' as const },
+          insights: { score: 0.9, source: 'slm' as const },
+        };
+        const slmOnly: DualEngineResult = {
+          slmArtifacts,
+          geminiArtifacts: null,
+          verificationSlmByGemini: null,
+          verificationGeminiBySlm: null,
+          confidence,
+          validated: selectArtifacts(slmArtifacts, null, confidence),
+          auditConfidenceScore: 90,
+          recoveredFields: {},
+          ready: true,
+        };
+        setResult(slmOnly);
+        return slmOnly;
       };
-      const next: DualEngineResult = {
-        slmArtifacts,
-        geminiArtifacts: null,
-        verificationSlmByGemini: null,
-        verificationGeminiBySlm: null,
-        confidence,
-        validated: selectArtifacts(slmArtifacts, null, confidence),
-        auditConfidenceScore: 90,
-        recoveredFields: {},
-        ready: true,
-      };
-      setResult(next);
-      setError(e instanceof Error ? e.message : 'Dual engine failed');
-      return next;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+
+      if (deferGemini) {
+        setSlmOnlyResult();
+        setLoading(false);
+        setGeminiVerificationPending(true);
+        fetchGeminiStructured(store, rawFiles)
+          .then((geminiResult) => {
+            const geminiArtifacts = geminiResult?.artifacts ?? null;
+            const recovered_fields = geminiResult?.recovered_fields ?? {};
+            return Promise.all([
+              Promise.resolve(geminiResult),
+              fetchVerifySlm(slmArtifacts, datasetSummary),
+              Promise.resolve(geminiArtifacts),
+              Promise.resolve(recovered_fields),
+            ]);
+          })
+          .then(([, verificationSlmByGemini, geminiArtifacts, recovered_fields]) => {
+            const verificationGeminiBySlm =
+              geminiArtifacts != null
+                ? verifyGeminiBySlm(geminiArtifacts, {
+                    totalAdSpend: store.totalAdSpend,
+                    totalAdSales: store.totalAdSales,
+                    totalStoreSales: store.totalStoreSales || store.storeMetrics.totalSales,
+                  })
+                : null;
+            const confidence = computeConfidence(
+              verificationSlmByGemini ?? null,
+              verificationGeminiBySlm,
+              slmArtifacts,
+              geminiArtifacts
+            );
+            const validated = selectArtifacts(slmArtifacts, geminiArtifacts, confidence);
+            const auditConfidenceScore = computeAuditConfidenceScore(confidence);
+            const recoveredFields = mergeRecoveredFields(
+              store.totalSessions,
+              store.buyBoxPercent,
+              store.totalUnitsOrdered,
+              recovered_fields,
+              (confidence.metrics.score + confidence.tables.score + confidence.charts.score + confidence.insights.score) / 4,
+              0.9
+            );
+            const next: DualEngineResult = {
+              slmArtifacts,
+              geminiArtifacts,
+              verificationSlmByGemini,
+              verificationGeminiBySlm,
+              confidence,
+              validated,
+              auditConfidenceScore,
+              recoveredFields,
+              ready: true,
+            };
+            setResult(next);
+            setGeminiVerificationPending(false);
+            const merged =
+              Object.keys(recoveredFields).length > 0
+                ? mergeRecoveredIntoStore(store, recoveredFields)
+                : null;
+            onGeminiComplete?.(merged ?? store);
+          })
+          .catch((e) => {
+            setGeminiVerificationPending(false);
+            setError(e instanceof Error ? e.message : 'Gemini verification failed');
+            onGeminiComplete?.(null);
+          });
+        return setSlmOnlyResult();
+      }
+
+      try {
+        const [geminiResult, verificationSlmByGemini] = await Promise.all([
+          fetchGeminiStructured(store, rawFiles),
+          fetchVerifySlm(slmArtifacts, datasetSummary),
+        ]);
+
+        const geminiArtifacts = geminiResult?.artifacts ?? null;
+        const recovered_fields = geminiResult?.recovered_fields ?? {};
+
+        const verificationGeminiBySlm = geminiArtifacts
+          ? verifyGeminiBySlm(geminiArtifacts, {
+              totalAdSpend: store.totalAdSpend,
+              totalAdSales: store.totalAdSales,
+              totalStoreSales: store.totalStoreSales || store.storeMetrics.totalSales,
+            })
+          : null;
+
+        const confidence = computeConfidence(
+          verificationSlmByGemini ?? null,
+          verificationGeminiBySlm,
+          slmArtifacts,
+          geminiArtifacts
+        );
+        const validated = selectArtifacts(slmArtifacts, geminiArtifacts, confidence);
+        const auditConfidenceScore = computeAuditConfidenceScore(confidence);
+        const recoveredFields = mergeRecoveredFields(
+          store.totalSessions,
+          store.buyBoxPercent,
+          store.totalUnitsOrdered,
+          recovered_fields,
+          (confidence.metrics.score + confidence.tables.score + confidence.charts.score + confidence.insights.score) / 4,
+          0.9
+        );
+
+        const next: DualEngineResult = {
+          slmArtifacts,
+          geminiArtifacts,
+          verificationSlmByGemini,
+          verificationGeminiBySlm,
+          confidence,
+          validated,
+          auditConfidenceScore,
+          recoveredFields,
+          ready: true,
+        };
+        setResult(next);
+        return next;
+      } catch (e) {
+        const next = setSlmOnlyResult();
+        setError(e instanceof Error ? e.message : 'Dual engine failed');
+        return next;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   return (
     <DualEngineContext.Provider
       value={{
         ...result,
         loading,
+        geminiVerificationPending,
         error,
         runDualEngine,
         reset,

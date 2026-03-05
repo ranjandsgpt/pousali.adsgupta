@@ -94,6 +94,8 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
     'Units Ordered - B2C',
     'Units Ordered Total',
     'unitsordered',
+    'Units Sold',
+    'units_sold',
   ],
   searchTerm: [
     'Search Term',
@@ -129,6 +131,9 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
     'Total Sessions',
     'Traffic Sessions',
     'sessions',
+    'session',
+    'sessions_total',
+    'Sessions – Total',
   ],
   orderedProductSales: [
     'Ordered Product Sales',
@@ -149,6 +154,9 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
   pageViews: [
     'Page Views',
     'Page Views (DPV)',
+    'Page Views – Total',
+    'Page Views - Total',
+    'pageviews',
   ],
   buyBox: [
     'Buy Box %',
@@ -157,12 +165,15 @@ const COLUMN_VARIATIONS: Record<CanonicalColumn, string[]> = {
     'buyboxpercentage',
     'BuyBox%',
     'buy box percentage',
+    'buy_box',
+    'buybox',
   ],
   unitSession: [
     'Unit Session %',
     'Unit Session Percentage',
     'Unit Session Pct',
     'UnitSessionPct',
+    'UnitSessionPercentage',
     'Conversion Rate',
     'conversion_rate',
   ],

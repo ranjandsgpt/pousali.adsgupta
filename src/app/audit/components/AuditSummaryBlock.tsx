@@ -9,6 +9,7 @@ import { exportAuditPdf } from '../utils/exportPdf';
 import { exportAuditDocx } from '../utils/exportDocx';
 import { computeHealthScore } from '../utils/healthScoreEngine';
 import { runReportVerification } from '../utils/reportVerification';
+import { validateMetrics } from '../utils/statisticalValidator';
 
 const DISPLAY_NAMES: Record<string, string> = {
   spend: 'Spend', sales: 'Sales', clicks: 'Clicks', impressions: 'Impressions', orders: 'Orders',
@@ -38,13 +39,14 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
   const { store } = state;
   const dualEngine = useDualEngine();
 
-  const { healthScore, healthLabel, criticalCount, summaryCards, confidenceScore, wastedSpendEstimate } = useMemo<{
+  const { healthScore, healthLabel, criticalCount, summaryCards, confidenceScore, wastedSpendEstimate, statisticalValidation } = useMemo<{
       healthScore: number;
       healthLabel: string;
       criticalCount: number;
       summaryCards: SummaryCard[];
       confidenceScore: number;
       wastedSpendEstimate: number;
+      statisticalValidation: { passed: boolean; anomalies: { metric: string; value: number; reason: string }[] };
     }>(() => {
     const health = computeHealthScore(store);
     const verification = runReportVerification(store);
@@ -80,6 +82,15 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
         : totalSessions > 0 && totalOrders > 0
           ? (totalOrders / totalSessions) * 100
           : null;
+    const totalClicks = store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
+    const cpc = totalClicks > 0 ? store.totalAdSpend / totalClicks : 0;
+    const cvrPct = totalClicks > 0 && totalOrders > 0 ? (totalOrders / totalClicks) * 100 : undefined;
+    const statisticalValidation = validateMetrics({
+      acos: store.totalAdSales > 0 ? (store.totalAdSpend / store.totalAdSales) * 100 : undefined,
+      roas: store.totalAdSpend > 0 ? store.totalAdSales / store.totalAdSpend : undefined,
+      cvrPct,
+      cpc,
+    });
 
     const cards: SummaryCard[] = [
       { label: 'Critical Issues', value: String(criticalCount), sub: wastedSpendEstimate > 0 ? `~${formatCurrency(wastedSpendEstimate, store.currency)} waste` : '', status: criticalCount > 0 ? 'red' : 'green' },
@@ -93,7 +104,7 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
       { label: 'CVR', value: conversionRate != null ? formatPercent(conversionRate) : '—', sub: '', status: conversionRate != null ? (conversionRate >= 10 ? 'green' : conversionRate >= 4 ? 'orange' : 'red') : 'blue' },
       { label: 'Buy Box %', value: buyBoxPct != null ? `${Math.round(buyBoxPct)}%` : '—', sub: '', status: buyBoxPct != null ? (buyBoxPct >= 90 ? 'green' : buyBoxPct >= 70 ? 'orange' : 'red') : 'blue' },
     ];
-    return { healthScore, healthLabel, criticalCount, summaryCards: cards, confidenceScore, wastedSpendEstimate };
+    return { healthScore, healthLabel, criticalCount, summaryCards: cards, confidenceScore, wastedSpendEstimate, statisticalValidation };
   }, [store, state.blendedROAS, state.globalTACOS]);
 
   const detectedTags = useMemo(() => {
@@ -167,8 +178,14 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
       {dualEngine.ready && (
         <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 mb-4 flex items-center gap-2">
           <span className="text-sm font-semibold text-cyan-300">Audit Confidence</span>
-          <span className="text-xl font-bold tabular-nums text-cyan-200">{dualEngine.auditConfidenceScore}%</span>
-          <span className="text-xs text-[var(--color-text-muted)]">(dual-engine consensus)</span>
+          {dualEngine.geminiVerificationPending ? (
+            <span className="text-sm text-cyan-200">AI verification in progress…</span>
+          ) : (
+            <>
+              <span className="text-xl font-bold tabular-nums text-cyan-200">{dualEngine.auditConfidenceScore}%</span>
+              <span className="text-xs text-[var(--color-text-muted)]">AI verified – confidence {dualEngine.auditConfidenceScore}%</span>
+            </>
+          )}
         </div>
       )}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -255,6 +272,20 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
           ))}
         </div>
       </div>
+
+      {!statisticalValidation.passed && statisticalValidation.anomalies.length > 0 && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <h3 className="text-sm font-semibold text-amber-400 mb-2">Data anomaly detected</h3>
+          <p className="text-sm text-[var(--color-text-muted)] mb-2">
+            The following metrics may indicate corrupted or implausible values:
+          </p>
+          <ul className="text-xs text-[var(--color-text-muted)] list-disc list-inside">
+            {statisticalValidation.anomalies.map((a, i) => (
+              <li key={i}>{a.metric}: {a.value} — {a.reason}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {confidenceScore < 80 && hasData && (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">

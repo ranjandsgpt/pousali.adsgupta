@@ -1,9 +1,11 @@
 /**
  * Section 16: Data aggregation architecture.
  * Internal data structures for store, keyword, ASIN, campaign metrics.
+ * Uses amazonMetricsLibrary for canonical formulas where applicable.
  */
 
 import { safePercent, safeDivide } from './mathEngine';
+import { contributionMarginRatio, lostRevenueEstimate as lostRevenueFormula } from './amazonMetricsLibrary';
 
 /** Store level (Section 2: core revenue KPIs) */
 export interface StoreMetrics {
@@ -31,6 +33,10 @@ export interface StoreMetrics {
   contributionMargin: number;
   profitabilityScore: number;
   adDependencyRatio: number;
+  /** CVR = (Orders / Clicks) × 100 */
+  cvr: number;
+  /** Lost revenue estimate from wasted spend */
+  lostRevenueEstimate: number;
 }
 
 /** Keyword level (Section 6: Search Term Performance) */
@@ -88,6 +94,8 @@ export function createEmptyStoreMetrics(): StoreMetrics {
     contributionMargin: 0,
     profitabilityScore: 0,
     adDependencyRatio: 0,
+    cvr: 0,
+    lostRevenueEstimate: 0,
   };
 }
 
@@ -105,6 +113,8 @@ export function computeStoreMetrics(
     totalClicks?: number;
     profitMarginPercent?: number;
     productCost?: number;
+    wastedSpend?: number;
+    targetACOSPct?: number;
   }
 ): StoreMetrics {
   const organicSales = totalStoreSales - totalAdSales;
@@ -115,15 +125,21 @@ export function computeStoreMetrics(
       ? safePercent(opts.totalOrders, opts.totalSessions)
       : 0;
   const totalClicks = opts?.totalClicks ?? 0;
+  const totalOrders = opts?.totalOrders ?? 0;
   const attributedUnits = opts?.attributedUnitsOrdered ?? 0;
   const attributedConversionRate =
     totalClicks > 0 && attributedUnits > 0 ? safePercent(attributedUnits, totalClicks) : 0;
   const productCost = opts?.productCost ?? 0;
-  const contributionMargin = totalAdSales - totalAdSpend - productCost;
+  const contributionMarginDollars = totalAdSales - totalAdSpend - productCost;
+  const contributionMarginPct = contributionMarginRatio(totalAdSales, totalAdSpend);
   const breakEvenAcos = opts?.profitMarginPercent ?? 0;
   const profitabilityScore =
-    totalAdSales > 0 ? safePercent(contributionMargin, totalAdSales) : 0;
+    totalAdSales > 0 ? safePercent(contributionMarginDollars, totalAdSales) : 0;
   const adDependencyRatio = safePercent(totalAdSales, totalStoreSales);
+  const cvr = totalClicks > 0 && totalOrders > 0 ? safePercent(totalOrders, totalClicks) : 0;
+  const wastedSpend = opts?.wastedSpend ?? 0;
+  const targetACOS = (opts?.targetACOSPct ?? 15) / 100;
+  const lostRevenueEstimate = lostRevenueFormula(wastedSpend, targetACOS);
   return {
     totalSales: totalStoreSales,
     totalAdSpend,
@@ -140,9 +156,11 @@ export function computeStoreMetrics(
     attributedUnitsOrdered: attributedUnits,
     attributedConversionRate,
     breakEvenAcos,
-    contributionMargin,
+    contributionMargin: contributionMarginDollars,
     profitabilityScore,
     adDependencyRatio,
+    cvr,
+    lostRevenueEstimate,
   };
 }
 

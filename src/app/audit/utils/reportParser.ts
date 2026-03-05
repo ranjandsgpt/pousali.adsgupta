@@ -18,6 +18,7 @@ import {
   computeKeywordMetrics,
   computeAsinMetrics,
   computeCampaignMetrics,
+  createEmptyStoreMetrics,
   type StoreMetrics,
   type KeywordMetrics,
   type AsinMetrics,
@@ -72,26 +73,7 @@ function createEmptyStore(): MemoryStore {
     currency: null,
     files: [],
     currencySample: [],
-    storeMetrics: {
-      totalSales: 0,
-      totalAdSpend: 0,
-      totalAdSales: 0,
-      tacos: 0,
-      roas: 0,
-      organicSales: 0,
-      adSalesPercent: 0,
-      organicVsPaidRatio: 0,
-      revenueConcentrationTop10Asin: 0,
-      conversionRate: 0,
-      attributedSales7d: 0,
-      attributedSales14d: 0,
-      attributedUnitsOrdered: 0,
-      attributedConversionRate: 0,
-      breakEvenAcos: 0,
-      contributionMargin: 0,
-      profitabilityScore: 0,
-      adDependencyRatio: 0,
-    },
+    storeMetrics: createEmptyStoreMetrics(),
     keywordMetrics: {},
     asinMetrics: {},
     campaignMetrics: {},
@@ -416,6 +398,9 @@ export async function parseReportsStreaming(
     .reduce((sum, a) => sum + a.totalSales, 0);
   const revenueConcentrationTop10Asin =
     store.totalStoreSales > 0 ? top10AsinSales / store.totalStoreSales : 0;
+  const wastedSpend = Object.values(store.keywordMetrics)
+    .filter((k) => k.sales === 0)
+    .reduce((s, k) => s + k.spend, 0);
 
   store.storeMetrics = computeStoreMetrics(
     store.totalStoreSales,
@@ -429,6 +414,8 @@ export async function parseReportsStreaming(
       attributedSales14d: store.attributedSales14d,
       attributedUnitsOrdered: store.attributedUnitsOrdered,
       totalClicks: store.totalClicks,
+      wastedSpend,
+      targetACOSPct: 15,
     }
   );
   onStageUpdate?.('metric_computation', 'completed');

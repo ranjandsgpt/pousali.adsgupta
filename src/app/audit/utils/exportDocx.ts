@@ -1,5 +1,6 @@
 /**
- * Section 9: Word export – client-side, white-label (no platform branding).
+ * Word export – full audit: KPIs, patterns, opportunities, all tables, chart data.
+ * Excludes Gemini narrative; includes everything else from the UI.
  */
 import {
   Document,
@@ -13,96 +14,152 @@ import {
   BorderStyle,
 } from 'docx';
 import type { MemoryStore } from './reportParser';
-import { getCurrencySymbol } from './currencyDetector';
-import { formatPercent } from './formatNumber';
+import { buildFullExportData } from './exportDataBuilder';
 
 function cell(text: string): TableCell {
   return new TableCell({
-    children: [new Paragraph({ children: [new TextRun({ text })] })],
+    children: [new Paragraph({ children: [new TextRun({ text: String(text).slice(0, 80) })] })],
     width: { size: 20, type: WidthType.PERCENTAGE },
   });
 }
 
-export async function exportAuditDocx(store: MemoryStore): Promise<void> {
-  const symbol = getCurrencySymbol(store.currency) || '$';
-  const m = store.storeMetrics;
+function tableFromColumnsAndRows(headers: string[], rows: (string | number)[][]): Table {
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1 },
+      bottom: { style: BorderStyle.SINGLE, size: 1 },
+      left: { style: BorderStyle.SINGLE, size: 1 },
+      right: { style: BorderStyle.SINGLE, size: 1 },
+    },
+    rows: [
+      new TableRow({
+        children: headers.map((h) => cell(h)),
+        tableHeader: true,
+      }),
+      ...rows.map((row) =>
+        new TableRow({
+          children: row.map((c) => cell(String(c))),
+        })
+      ),
+    ],
+  });
+}
 
+export async function exportAuditDocx(store: MemoryStore): Promise<void> {
+  const data = buildFullExportData(store);
   const children: (Paragraph | Table)[] = [
     new Paragraph({
-      children: [new TextRun({ text: 'Performance Audit', bold: true, size: 28 })],
+      children: [new TextRun({ text: data.title, bold: true, size: 28 })],
       spacing: { after: 200 },
     }),
     new Paragraph({
       children: [
         new TextRun({
-          text: `Generated ${new Date().toLocaleDateString()}. All data processed client-side.`,
+          text: `Generated ${data.generatedAt}. All data processed client-side.`,
           size: 22,
         }),
       ],
       spacing: { after: 400 },
     }),
-    new Paragraph({
-      children: [new TextRun({ text: 'Store metrics', bold: true, size: 24 })],
-      spacing: { after: 120 },
-    }),
-    new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      borders: {
-        top: { style: BorderStyle.SINGLE, size: 1 },
-        bottom: { style: BorderStyle.SINGLE, size: 1 },
-        left: { style: BorderStyle.SINGLE, size: 1 },
-        right: { style: BorderStyle.SINGLE, size: 1 },
-      },
-      rows: [
-        new TableRow({
-          children: [cell('Metric'), cell('Value')],
-          tableHeader: true,
-        }),
-        new TableRow({ children: [cell('Total Store Sales'), cell(`${symbol}${m.totalSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`)] }),
-        new TableRow({ children: [cell('Total Ad Spend'), cell(`${symbol}${m.totalAdSpend.toLocaleString('en-US', { minimumFractionDigits: 2 })}`)] }),
-        new TableRow({ children: [cell('Total Ad Sales'), cell(`${symbol}${m.totalAdSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`)] }),
-        new TableRow({ children: [cell('TACOS'), cell(formatPercent(m.tacos))] }),
-        new TableRow({ children: [cell('ROAS'), cell(m.roas.toFixed(2) + '×')] }),
-        new TableRow({ children: [cell('Organic Sales'), cell(`${symbol}${m.organicSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`)] }),
-      ],
-    }),
   ];
 
-  const kwList = Object.values(store.keywordMetrics).slice(0, 25);
-  if (kwList.length > 0) {
+  if (data.kpis.length > 0) {
     children.push(
       new Paragraph({
-        children: [new TextRun({ text: 'Search Term Performance (sample)', bold: true, size: 24 })],
+        children: [new TextRun({ text: 'Key metrics', bold: true, size: 24 })],
+        spacing: { before: 200, after: 120 },
+      }),
+      tableFromColumnsAndRows(
+        ['Metric', 'Value'],
+        data.kpis.map((k) => [k.label, k.value])
+      )
+    );
+  }
+
+  if (data.patterns.length > 0) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: 'Pattern detection (issues & risks)', bold: true, size: 24 })],
         spacing: { before: 300, after: 120 },
       }),
-      new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        borders: {
-          top: { style: BorderStyle.SINGLE, size: 1 },
-          bottom: { style: BorderStyle.SINGLE, size: 1 },
-          left: { style: BorderStyle.SINGLE, size: 1 },
-          right: { style: BorderStyle.SINGLE, size: 1 },
-        },
-        rows: [
-          new TableRow({
-            children: ['Search Term', 'Match', 'Campaign', 'Spend', 'Sales', 'ACOS'].map((h) => cell(h)),
-            tableHeader: true,
-          }),
-          ...kwList.map((k) =>
-            new TableRow({
-              children: [
-                cell(k.searchTerm.slice(0, 30)),
-                cell(k.matchType),
-                cell(k.campaign.slice(0, 20)),
-                cell(k.spend.toFixed(2)),
-                cell(k.sales.toFixed(2)),
-                cell(formatPercent(k.acos)),
-              ],
-            })
-          ),
-        ],
+      tableFromColumnsAndRows(
+        ['Issue', 'Entity', 'Action', 'Metrics'],
+        data.patterns.map((p) => [
+          p.problemTitle,
+          String(p.entityName).slice(0, 40),
+          String(p.recommendedAction).slice(0, 50),
+          (p.metricValues || '').slice(0, 30),
+        ])
+      )
+    );
+  }
+
+  if (data.opportunities.length > 0) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: 'Opportunities', bold: true, size: 24 })],
+        spacing: { before: 300, after: 120 },
+      }),
+      tableFromColumnsAndRows(
+        ['Type', 'Entity', 'Action', 'Metrics'],
+        data.opportunities.map((o) => [
+          o.title,
+          String(o.entityName).slice(0, 40),
+          String(o.recommendedAction).slice(0, 50),
+          (o.metricValues || '').slice(0, 30),
+        ])
+      )
+    );
+  }
+
+  let lastSection = '';
+  for (const tbl of data.tables) {
+    if (tbl.section !== lastSection) {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: tbl.section, bold: true, size: 24 })],
+          spacing: { before: 300, after: 120 },
+        })
+      );
+      lastSection = tbl.section;
+    }
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: tbl.title, bold: true, size: 22 })],
+        spacing: { after: 80 },
+      }),
+      tableFromColumnsAndRows(
+        tbl.columns.map((c) => c.label),
+        tbl.rows.map((r) =>
+          tbl.columns.map((col) => {
+            const v = r[col.key];
+            if (typeof v === 'number') {
+              const key = col.key.toLowerCase();
+              if (key.includes('acos') || key.includes('roas')) return v.toFixed(2);
+              return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+            }
+            return String(v);
+          })
+        )
+      )
+    );
+  }
+
+  for (const chart of data.chartDatasets) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: `Chart: ${chart.title}`, bold: true, size: 24 })],
+        spacing: { before: 300, after: 120 },
       })
     );
+    if (chart.labels && chart.values) {
+      const rows = chart.labels.map((l, i) => [l.slice(0, 50), chart.values![i] ?? 0]);
+      children.push(tableFromColumnsAndRows(['Category', 'Value'], rows));
+    } else if (chart.data && chart.data.length > 0) {
+      const rows = chart.data.map((d) => [d.name, d.value]);
+      children.push(tableFromColumnsAndRows(['Category', 'Value'], rows));
+    }
   }
 
   const doc = new Document({
@@ -113,7 +170,7 @@ export async function exportAuditDocx(store: MemoryStore): Promise<void> {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'performance-audit.docx';
+  a.download = 'Amazon-Advertising-Performance-Audit.docx';
   a.click();
   URL.revokeObjectURL(url);
 }

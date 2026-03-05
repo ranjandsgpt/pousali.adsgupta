@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import {
+  VERIFY_SLM_SYSTEM,
+  buildVerifySlmUserMessage,
+  STRUCTURED_FROM_RAW_SYSTEM,
+  STRUCTURED_FROM_RAW_USER_PREFIX,
+  STRUCTURED_FROM_JSON_USER_PREFIX,
+} from '@/app/audit/utils/geminiPromptRegistry';
 
 /**
  * Dual Engine API:
- * - mode: 'structured' — Gemini analyzes dataset and returns metrics_gemini, tables_gemini, charts_gemini, insights_gemini, recovered_fields
- * - mode: 'verify_slm' — Gemini receives SLM artifacts and returns verification scores (metrics_score, tables_score, charts_score, insights_score)
+ * - mode: 'structured' — Gemini analyzes dataset (and optionally raw files) and returns metrics_gemini, tables_gemini, charts_gemini, insights_gemini, recovered_fields
+ * - mode: 'verify_slm' — Gemini receives SLM artifacts and returns verification scores
+ *
+ * Accepts either:
+ * - application/json: body = { mode, payload }
+ * - multipart/form-data: files = raw report files (CSV/XLSX), payload = JSON string. Raw files are sent to Gemini unmodified.
  */
 
 const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
@@ -49,42 +60,54 @@ function parseJsonScores(text: string): Record<string, number> | null {
   }
 }
 
+function getMimeType(fileName: string): string {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith('.xlsx')) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  if (lower.endsWith('.xls')) return 'application/vnd.ms-excel';
+  return 'text/csv';
+}
+
 export async function POST(request: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 503 });
   }
+  const contentType = request.headers.get('content-type') || '';
   let body: { mode: 'structured' | 'verify_slm'; payload: StructuredPayload | VerifySlmPayload };
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  let rawFiles: Blob[] = [];
+
+  if (contentType.includes('multipart/form-data')) {
+    try {
+      const formData = await request.formData();
+      const payloadStr = formData.get('payload') as string | null;
+      if (!payloadStr) {
+        return NextResponse.json({ error: 'Missing payload in form data' }, { status: 400 });
+      }
+      body = JSON.parse(payloadStr);
+      const files = formData.getAll('files') as (Blob | File)[];
+      rawFiles = files.filter((f): f is Blob => f != null && typeof (f as Blob).arrayBuffer === 'function');
+    } catch (e) {
+      console.error('dual-engine multipart parse', e);
+      return NextResponse.json({ error: 'Invalid multipart/form-data' }, { status: 400 });
+    }
+  } else {
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
   }
+
   const ai = new GoogleGenAI({ apiKey });
   const { mode, payload } = body;
+
   if (mode === 'verify_slm') {
     const { datasetSummary, slmArtifacts } = payload as VerifySlmPayload;
-    const prompt = `You are an Amazon PPC data auditor. You are given:
-1) A dataset summary (normalized account data).
-2) SLM (deterministic) analytics outputs: metrics, tables, charts, insights.
-
-Verify the SLM outputs for consistency and correctness:
-- Metrics: do the numbers align with the dataset? (e.g. ACOS = spend/sales, ROAS = sales/spend)
-- Tables: do row counts and values match the data?
-- Charts: do chart data series match the tables they reference?
-- Insights: are the insights supported by the data?
-
-Return ONLY a JSON object with scores from 0 to 1 (1 = fully valid):
-{"metrics_score": number, "tables_score": number, "charts_score": number, "insights_score": number}
-
-Dataset summary:
-${JSON.stringify(datasetSummary, null, 2)}
-
-SLM artifacts:
-${JSON.stringify(slmArtifacts, null, 2)}`;
+    const prompt = buildVerifySlmUserMessage(datasetSummary, slmArtifacts);
     try {
       const result = await ai.models.generateContent({
         model,
+        config: { systemInstruction: VERIFY_SLM_SYSTEM },
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
       });
       const text = result.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() || '';
@@ -109,32 +132,58 @@ ${JSON.stringify(slmArtifacts, null, 2)}`;
       });
     }
   }
+
   if (mode === 'structured') {
     const p = payload as StructuredPayload;
-    const prompt = `You are an Amazon PPC data analyst. Analyze this normalized dataset and return structured JSON only.
+    const datasetJson = JSON.stringify(p, null, 2);
+    let parts: { text?: string; fileData?: { fileUri?: string; mimeType?: string } }[] = [];
 
-Dataset:
-${JSON.stringify(p, null, 2)}
+    if (rawFiles.length > 0) {
+      try {
+        const uploaded: { name?: string; mimeType?: string }[] = [];
+        for (const blob of rawFiles) {
+          const name = blob instanceof File ? blob.name : 'report.csv';
+          const mimeType = blob instanceof File ? (blob.type || getMimeType(name)) : getMimeType(name);
+          const file = await ai.files.upload({
+            file: blob as globalThis.Blob,
+            config: { mimeType },
+          });
+          uploaded.push({ name: (file as { name?: string }).name, mimeType });
+        }
+        const prompt =
+          STRUCTURED_FROM_RAW_USER_PREFIX +
+          '\n' +
+          datasetJson +
+          '\n\nReturn ONLY valid JSON in the exact shape specified in the system instruction.';
+        parts = [
+          ...uploaded.map((u) => ({ fileData: { fileUri: u.name, mimeType: u.mimeType } })),
+          { text: prompt },
+        ];
+      } catch (uploadErr) {
+        console.error('dual-engine file upload', uploadErr);
+        parts = [{ text: STRUCTURED_FROM_JSON_USER_PREFIX + datasetJson }];
+      }
+    } else {
+      parts = [{ text: STRUCTURED_FROM_JSON_USER_PREFIX + datasetJson }];
+    }
 
-Tasks:
-1) Extract key metrics (total ad spend, total ad sales, ACOS, ROAS, TACOS, sessions, buy_box_percentage, units_ordered, conversion_rate). Return as array of {label, value, numericValue}.
-2) If the dataset has sessions or buy_box or units_ordered in asins/rows but not in summary, set recovered_fields: {sessions?, buy_box_percentage?, units_ordered?} with your best estimate.
-3) Build 2-4 summary tables (campaigns by spend, top keywords, waste keywords, top ASINs) as {id, title, columns: [{key, label}], rows: [...]}.
-4) Build 2-3 chart specs as {id, title, type: "pie"|"bar", data: [{name, labels: [], values: []}]}.
-5) List 3-8 insights as {id, title, description, severity?, recommendedAction?, entityName?, entityType?}.
+    const userText =
+      parts.find((x) => x.text)?.text ?? STRUCTURED_FROM_JSON_USER_PREFIX + datasetJson;
+    const fileParts = parts.filter((x) => x.fileData?.fileUri);
 
-Return ONLY valid JSON in this exact shape (no markdown):
-{
-  "metrics": [...],
-  "tables": [...],
-  "charts": [...],
-  "insights": [...],
-  "recovered_fields": {}
-}`;
     try {
       const result = await ai.models.generateContent({
         model,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: { systemInstruction: STRUCTURED_FROM_RAW_SYSTEM },
+        contents: [
+          {
+            role: 'user',
+            parts:
+              fileParts.length > 0
+                ? ([...fileParts.map((x) => ({ fileData: x.fileData })), { text: userText }] as const)
+                : [{ text: userText }],
+          },
+        ],
       });
       const text = result.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() || '';
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -156,10 +205,18 @@ Return ONLY valid JSON in this exact shape (no markdown):
     } catch (e) {
       console.error('dual-engine structured', e);
       return NextResponse.json(
-        { error: 'Gemini structured analysis failed', metrics_gemini: [], tables_gemini: [], charts_gemini: [], insights_gemini: [], recovered_fields: {} },
+        {
+          error: 'Gemini structured analysis failed',
+          metrics_gemini: [],
+          tables_gemini: [],
+          charts_gemini: [],
+          insights_gemini: [],
+          recovered_fields: {},
+        },
         { status: 200 }
       );
     }
   }
+
   return NextResponse.json({ error: 'Invalid mode' }, { status: 400 });
 }
