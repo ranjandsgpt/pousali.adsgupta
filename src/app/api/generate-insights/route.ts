@@ -75,7 +75,8 @@ export async function POST(request: NextRequest) {
   const ai = new GoogleGenAI({ apiKey });
 
   try {
-    const result = await ai.models.generateContent({
+    // Step 1 — generate raw audit narrative from aggregated metrics.
+    const analysisResult = await ai.models.generateContent({
       model,
       contents: [
         {
@@ -85,13 +86,58 @@ export async function POST(request: NextRequest) {
       ],
     });
 
-    const candidate = result.candidates?.[0];
-    const text = candidate?.content?.parts
+    const candidate = analysisResult.candidates?.[0];
+    const rawText = candidate?.content?.parts
       ?.map((p) => p.text ?? '')
       .join('\n')
       .trim();
 
-    return NextResponse.json({ insight: text && text.length > 0 ? text : 'No insights generated' });
+    const baseInsight = rawText && rawText.length > 0 ? rawText : 'No insights generated';
+
+    // Step 2 — LLM validation layer (triple check).
+    const validationPrompt = [
+      'You are reviewing an Amazon PPC audit narrative for logical consistency.',
+      '',
+      'Here are the aggregated metrics that were used to generate the narrative:',
+      buildPrompt(body),
+      '',
+      'Here is the narrative you must validate:',
+      baseInsight,
+      '',
+      'Question: Does this narrative logically follow from, and stay consistent with, the metrics above?',
+      '',
+      'Respond with a single word only: VALID or INVALID.',
+    ].join('\n');
+
+    const runValidation = async () => {
+      const v = await ai.models.generateContent({
+        model,
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: validationPrompt }],
+          },
+        ],
+      });
+      const text = v.candidates?.[0]?.content?.parts
+        ?.map((p) => p.text ?? '')
+        .join('\n')
+        .trim()
+        .toUpperCase();
+      if (!text) return 'INVALID' as const;
+      if (text.includes('INVALID')) return 'INVALID' as const;
+      if (text.includes('VALID')) return 'VALID' as const;
+      return 'INVALID' as const;
+    };
+
+    const [v1, v2, v3] = await Promise.all([runValidation(), runValidation(), runValidation()]);
+    const allValid = v1 === 'VALID' && v2 === 'VALID' && v3 === 'VALID';
+
+    const finalInsight = allValid
+      ? baseInsight
+      : `Low confidence insight — requires manual review.\n\n${baseInsight}`;
+
+    return NextResponse.json({ insight: finalInsight });
   } catch (e) {
     console.error('generate-insights error', e);
     return NextResponse.json(

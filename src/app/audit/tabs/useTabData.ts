@@ -155,7 +155,15 @@ function campaignTables(store: MemoryStore, currency: DetectedCurrency): TabTabl
   const byRevenue = [...campaigns].sort((a, b) => b.sales - a.sales);
   const worstAcos = [...campaigns].filter((c) => c.spend > 0).sort((a, b) => b.acos - a.acos);
   const bestRoas = [...campaigns].filter((c) => c.spend > 0).sort((a, b) => (b.sales / b.spend) - (a.sales / a.spend));
-  const fmt = (n: number) => (currency ? formatCurrency(n, currency) : n.toFixed(2));
+  const avgSpend = campaigns.length ? campaigns.reduce((s, c) => s + c.spend, 0) / campaigns.length : 0;
+  const highSpendLowRoas = campaigns
+    .filter((c) => c.spend >= avgSpend && c.spend > 0 && c.sales > 0 && c.sales / c.spend < 1)
+    .sort((a, b) => b.spend - a.spend)
+    .slice(0, 20);
+  const strongRoasLowBudget = campaigns
+    .filter((c) => c.budget > 0 && c.spend > 0 && c.sales / c.spend >= 3 && c.spend < c.budget * 0.6)
+    .sort((a, b) => (b.sales / b.spend) - (a.sales / a.spend))
+    .slice(0, 20);
   return [
     {
       title: 'Top 20 campaigns by spend',
@@ -194,6 +202,36 @@ function campaignTables(store: MemoryStore, currency: DetectedCurrency): TabTabl
         { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
       ],
       rows: bestRoas.slice(0, 20).map((c) => ({ campaignName: c.campaignName, roas: (c.sales / c.spend).toFixed(2), sales: c.sales })),
+    },
+    {
+      title: 'High spend, low ROAS campaigns',
+      columns: [
+        { key: 'campaignName', label: 'Campaign' },
+        { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+        { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        { key: 'roas', label: 'ROAS', align: 'right' },
+      ],
+      rows: highSpendLowRoas.map((c) => ({
+        campaignName: c.campaignName,
+        spend: c.spend,
+        sales: c.sales,
+        roas: c.spend > 0 ? (c.sales / c.spend).toFixed(2) : '—',
+      })),
+    },
+    {
+      title: 'Strong ROAS campaigns with modest budgets',
+      columns: [
+        { key: 'campaignName', label: 'Campaign' },
+        { key: 'budget', label: 'Budget', align: 'right', format: 'currency' },
+        { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+        { key: 'roas', label: 'ROAS', align: 'right' },
+      ],
+      rows: strongRoasLowBudget.map((c) => ({
+        campaignName: c.campaignName,
+        budget: c.budget,
+        spend: c.spend,
+        roas: c.spend > 0 ? (c.sales / c.spend).toFixed(2) : '—',
+      })),
     },
   ];
 }
@@ -1146,8 +1184,12 @@ function buildInsightModules(
   }
 
   if (tabId === 'campaigns-budget') {
-    const highAcos = campaigns.filter((c) => c.acos > 40 && c.sales > 0).sort((a, b) => b.acos - a.acos);
-    const bestRoas = campaigns.filter((c) => c.spend > 0 && c.sales / c.spend >= 3).sort((a, b) => (b.sales / b.spend) - (a.sales / a.spend));
+    const highAcos = campaigns
+      .filter((c) => c.acos > 40 && c.sales > 0)
+      .sort((a, b) => b.acos - a.acos);
+    const bestRoas = campaigns
+      .filter((c) => c.spend > 0 && c.sales / c.spend >= 3)
+      .sort((a, b) => (b.sales / b.spend) - (a.sales / a.spend));
     const highAcosDeepDive: DeepDiveTableConfig = {
       columns: [
         { key: 'campaignName', label: 'Campaign' },
@@ -1166,17 +1208,74 @@ function buildInsightModules(
       ],
       rows: bestRoas.map((c) => ({ campaignName: c.campaignName, spend: c.spend, sales: c.sales, roas: (c.sales / c.spend).toFixed(2) })),
     };
-    if (highAcos.length > 0) modules.push({ id: 'high-acos', title: 'High ACOS campaigns', description: 'Campaigns above target ACOS. Reduce bids or tighten targeting.', count: highAcos.length, severity: 'warning', tableRef: 'high-acos', deepDiveTable: highAcosDeepDive });
-    if (bestRoas.length > 0) modules.push({ id: 'scale-campaigns', title: 'Campaigns ready to scale', description: 'High ROAS campaigns with room to increase budget.', count: bestRoas.length, severity: 'opportunity', tableRef: 'scale-campaigns', deepDiveTable: scaleDeepDive });
+    if (highAcos.length > 0)
+      modules.push({
+        id: 'high-acos',
+        title: 'High ACOS campaigns',
+        description:
+          'High spend campaigns with weak efficiency – primary budget drains to fix.',
+        count: highAcos.length,
+        severity: 'warning',
+        tableRef: 'high-acos',
+        deepDiveTable: highAcosDeepDive,
+      });
+    if (bestRoas.length > 0)
+      modules.push({
+        id: 'scale-campaigns',
+        title: 'Campaigns ready to scale',
+        description:
+          'Strong ROAS campaigns with room to increase budget and impression share.',
+        count: bestRoas.length,
+        severity: 'opportunity',
+        tableRef: 'scale-campaigns',
+        deepDiveTable: scaleDeepDive,
+      });
     if (diagnostics?.campaignStructure && diagnostics.campaignStructure.duplicateTargeting.length > 0) {
       const dupDeepDive: DeepDiveTableConfig = {
         columns: [
           { key: 'keyword', label: 'Keyword' },
-          { key: 'campaigns', label: 'Campaigns' },
+          { key: 'campaigns', label: 'Campaigns using keyword' },
+          { key: 'campaignCount', label: 'Campaign count', align: 'right' },
+          { key: 'totalSpend', label: 'Total spend', align: 'right', format: 'currency' },
+          { key: 'suggestion', label: 'Suggested action' },
         ],
-        rows: diagnostics.campaignStructure.duplicateTargeting.slice(0, 50).map((d) => ({ keyword: d.keyword, campaigns: d.campaigns.map((c) => c.campaign).join(', ') })),
+        rows: diagnostics.campaignStructure.duplicateTargeting
+          .slice(0, 50)
+          .map((d) => {
+            const keywordLower = d.keyword.toLowerCase();
+            const involvedCampaigns = d.campaigns.map((c) => c.campaign);
+            const totalSpend = kws
+              .filter(
+                (k) =>
+                  k.searchTerm.toLowerCase().trim() === keywordLower &&
+                  involvedCampaigns.includes(k.campaign)
+              )
+              .reduce((s, k) => s + k.spend, 0);
+            const campaignsText =
+              involvedCampaigns.length > 5
+                ? `${involvedCampaigns.slice(0, 5).join(', ')}, +${
+                    involvedCampaigns.length - 5
+                  } more`
+                : involvedCampaigns.join(', ');
+            return {
+              keyword: d.keyword,
+              campaigns: campaignsText,
+              campaignCount: involvedCampaigns.length,
+              totalSpend,
+              suggestion: 'Consolidate into fewer focused campaigns to reduce cannibalization.',
+            };
+          }),
       };
-      modules.push({ id: 'duplicate-targeting', title: 'Duplicate Targeting', description: 'Same keyword in multiple campaigns.', count: diagnostics.campaignStructure.duplicateTargeting.length, severity: 'warning', tableRef: 'duplicate-targeting', deepDiveTable: dupDeepDive });
+      modules.push({
+        id: 'duplicate-targeting',
+        title: 'Duplicate targeting & cannibalization',
+        description:
+          'Keywords split across many campaigns, diluting data and causing internal competition.',
+        count: diagnostics.campaignStructure.duplicateTargeting.length,
+        severity: 'warning',
+        tableRef: 'duplicate-targeting',
+        deepDiveTable: dupDeepDive,
+      });
     }
     if (diagnostics?.budgetThrottling && diagnostics.budgetThrottling.budgetCappedOpportunities.length > 0) {
       const capDeepDive: DeepDiveTableConfig = {
@@ -1188,7 +1287,146 @@ function buildInsightModules(
         ],
         rows: diagnostics.budgetThrottling.budgetCappedOpportunities.map((c) => ({ campaignName: c.campaignName, spend: c.spend, budget: c.budget, roas: c.spend > 0 ? (c.sales / c.spend).toFixed(2) : '—' })),
       };
-      modules.push({ id: 'budget-capped', title: 'Budget Capped Opportunities', description: 'Campaigns at budget limit with strong ROAS.', count: diagnostics.budgetThrottling.budgetCappedOpportunities.length, severity: 'opportunity', tableRef: 'budget-capped', deepDiveTable: capDeepDive });
+      modules.push({
+        id: 'budget-capped',
+        title: 'Budget throttling (capped campaigns)',
+        description:
+          'Campaigns frequently hitting daily budget – likely losing impression share despite strong ROAS.',
+        count: diagnostics.budgetThrottling.budgetCappedOpportunities.length,
+        severity: 'opportunity',
+        tableRef: 'budget-capped',
+        deepDiveTable: capDeepDive,
+      });
+    }
+
+    // Phase 7: Bid diagnostics (CPC efficiency).
+    const kwWithClicks = kws.filter((k) => k.clicks > 0 && k.spend > 0);
+    if (kwWithClicks.length > 0) {
+      const cpcs = kwWithClicks.map((k) => k.spend / k.clicks).sort((a, b) => a - b);
+      const medianCpc = cpcs[Math.floor(cpcs.length / 2)] || 0;
+      const highCpc = kwWithClicks
+        .filter((k) => k.spend / k.clicks > medianCpc * 1.8 && k.sales <= k.spend)
+        .sort((a, b) => b.spend - a.spend)
+        .slice(0, 40);
+      const lowCpcLowVolume = kwWithClicks
+        .filter((k) => k.spend / k.clicks < medianCpc * 0.5 && k.clicks < 5)
+        .sort((a, b) => a.clicks - b.clicks)
+        .slice(0, 40);
+      const bidDiagRows = [
+        ...highCpc.map((k) => ({
+          keyword: k.searchTerm,
+          campaign: k.campaign,
+          cpc: k.spend / k.clicks,
+          clicks: k.clicks,
+          spend: k.spend,
+          roas: k.roas.toFixed(2),
+          diagnosis: 'CPC well above portfolio median; likely above profitable level.',
+        })),
+        ...lowCpcLowVolume.map((k) => ({
+          keyword: k.searchTerm,
+          campaign: k.campaign,
+          cpc: k.spend / Math.max(k.clicks, 1),
+          clicks: k.clicks,
+          spend: k.spend,
+          roas: k.roas.toFixed(2),
+          diagnosis:
+            'Very low CPC and almost no clicks; consider increasing bid to win impressions.',
+        })),
+      ];
+      if (bidDiagRows.length > 0) {
+        const bidDeepDive: DeepDiveTableConfig = {
+          columns: [
+            { key: 'keyword', label: 'Keyword' },
+            { key: 'campaign', label: 'Campaign' },
+            { key: 'cpc', label: 'CPC', align: 'right' },
+            { key: 'clicks', label: 'Clicks', align: 'right' },
+            { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+            { key: 'roas', label: 'ROAS', align: 'right' },
+            { key: 'diagnosis', label: 'Bid diagnosis' },
+          ],
+          rows: bidDiagRows,
+        };
+        modules.push({
+          id: 'bid-diagnostics',
+          title: 'Bid diagnostics (CPC efficiency)',
+          description:
+            'Keywords where CPC is likely too high (unprofitable) or too low to win impressions.',
+          count: bidDiagRows.length,
+          severity: 'warning',
+          tableRef: 'bid-diagnostics',
+          deepDiveTable: bidDeepDive,
+        });
+      }
+    }
+
+    // Phase 7: Campaign structure diagnostics beyond duplicate targeting.
+    const byCampaignStructure = new Map<
+      string,
+      { asins: Set<string>; keywordCount: number }
+    >();
+    kws.forEach((k) => {
+      const camp = k.campaign || '';
+      if (!camp) return;
+      let entry = byCampaignStructure.get(camp);
+      if (!entry) {
+        entry = { asins: new Set<string>(), keywordCount: 0 };
+        byCampaignStructure.set(camp, entry);
+      }
+      if (k.asin) entry.asins.add(k.asin);
+      entry.keywordCount += 1;
+    });
+    const structureRows: Array<{
+      issue: string;
+      campaignName: string;
+      asinCount: number;
+      keywordCount: number;
+      suggestion: string;
+    }> = [];
+    for (const [campaignName, agg] of byCampaignStructure.entries()) {
+      const asinCount = agg.asins.size;
+      const keywordCount = agg.keywordCount;
+      const lower = campaignName.toLowerCase();
+      if (asinCount >= 4) {
+        structureRows.push({
+          issue: 'Mixed product campaign',
+          campaignName,
+          asinCount,
+          keywordCount,
+          suggestion: 'Split into separate campaigns per product group to improve control.',
+        });
+      }
+      if (lower.includes('auto') && keywordCount > 80) {
+        structureRows.push({
+          issue: 'Auto campaign with too many targets',
+          campaignName,
+          asinCount,
+          keywordCount,
+          suggestion:
+            'Harvest winners into manual campaigns and reduce targets to regain control.',
+        });
+      }
+    }
+    if (structureRows.length > 0) {
+      const structureDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'issue', label: 'Issue' },
+          { key: 'campaignName', label: 'Campaign' },
+          { key: 'asinCount', label: 'ASINs', align: 'right' },
+          { key: 'keywordCount', label: 'Targets', align: 'right' },
+          { key: 'suggestion', label: 'Suggested fix' },
+        ],
+        rows: structureRows.slice(0, 80),
+      };
+      modules.push({
+        id: 'campaign-structure-diagnostics',
+        title: 'Campaign structure diagnostics',
+        description:
+          'Mixed product groups and oversized auto campaigns that make optimization hard.',
+        count: structureRows.length,
+        severity: 'info',
+        tableRef: 'campaign-structure-diagnostics',
+        deepDiveTable: structureDeepDive,
+      });
     }
   }
 
@@ -1386,7 +1624,18 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
     if (tabId === 'campaigns-budget') {
       tables = [
         ...campaignTables(store, currency),
-        { title: 'Campaign budget utilization', columns: [{ key: 'campaignName', label: 'Campaign' }, { key: 'budget', label: 'Budget', align: 'right', format: 'currency' }, { key: 'spend', label: 'Spend', align: 'right', format: 'currency' }], rows: Object.values(store.campaignMetrics).filter((c) => c.campaignName).slice(0, 20).map((c) => ({ campaignName: c.campaignName, budget: c.budget, spend: c.spend })) },
+        {
+          title: 'Campaign budget utilization',
+          columns: [
+            { key: 'campaignName', label: 'Campaign' },
+            { key: 'budget', label: 'Budget', align: 'right', format: 'currency' },
+            { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+          ],
+          rows: Object.values(store.campaignMetrics)
+            .filter((c) => c.campaignName)
+            .slice(0, 20)
+            .map((c) => ({ campaignName: c.campaignName, budget: c.budget, spend: c.spend })),
+        },
       ];
     }
     if (tabId === 'asins-products') {
@@ -1422,7 +1671,8 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
     const chartIds: string[] = [];
     if (tabId === 'overview') chartIds.push('funnel-overview', 'spend-by-campaign', 'roas-by-campaign', 'pareto-spend', 'spend-vs-conversion', 'wasted-spend');
     if (tabId === 'keywords-search-terms') chartIds.push('match-type-spend', 'wasted-spend', 'spend-vs-conversion');
-    if (tabId === 'campaigns-budget') chartIds.push('spend-by-campaign', 'roas-by-campaign', 'acos-heatmap', 'budget-pacing');
+    if (tabId === 'campaigns-budget')
+      chartIds.push('spend-by-campaign', 'roas-by-campaign', 'spend-vs-conversion', 'acos-heatmap', 'budget-pacing');
     if (tabId === 'asins-products') chartIds.push('ad-product-sales', 'organic-vs-ad');
     if (tabId === 'waste-bleed') chartIds.push('wasted-spend');
     if (tabId === 'profitability-inventory') chartIds.push('organic-vs-ad', 'pareto-spend');
