@@ -101,14 +101,10 @@ export default function CriticalIssuesSection() {
   if (criticalCards.length === 0) return null;
 
   const sym = store.currency ? formatCurrency(0, store.currency).replace('0.00', '') : '$';
-  const totalWaste = useMemo(
-    () =>
-      criticalCards.reduce((sum, c) => {
-        const spend = c.deepDiveTable.rows.reduce((s, r) => s + (Number(r.spend) || 0), 0);
-        return sum + spend;
-      }, 0),
-    [criticalCards]
-  );
+  const totalWaste = criticalCards.reduce((sum, c) => {
+    const spend = c.deepDiveTable.rows.reduce((s, r) => s + (Number(r.spend) || 0), 0);
+    return sum + spend;
+  }, 0);
 
   return (
     <section
