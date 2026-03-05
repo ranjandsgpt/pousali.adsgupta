@@ -5,7 +5,7 @@
  */
 
 import { safePercent, safeDivide } from './mathEngine';
-import { contributionMarginRatio, lostRevenueEstimate as lostRevenueFormula } from './amazonMetricsLibrary';
+import { acos, roas, tacos, contributionMarginRatio, lostRevenueEstimate as lostRevenueFormula } from './amazonMetricsLibrary';
 
 /** Store level (Section 2: core revenue KPIs) */
 export interface StoreMetrics {
@@ -144,8 +144,8 @@ export function computeStoreMetrics(
     totalSales: totalStoreSales,
     totalAdSpend,
     totalAdSales,
-    tacos: safePercent(totalAdSpend, totalStoreSales),
-    roas: safeDivide(totalAdSales, totalAdSpend),
+    tacos: tacos(totalAdSpend, totalStoreSales),
+    roas: roas(totalAdSales, totalAdSpend),
     organicSales,
     adSalesPercent,
     organicVsPaidRatio,
@@ -167,22 +167,22 @@ export function computeStoreMetrics(
 export function computeKeywordMetrics(
   spend: number,
   sales: number,
-  clicks: number
+  _clicks: number
 ): { acos: number; roas: number } {
   return {
-    acos: safePercent(spend, sales),
-    roas: safeDivide(sales, spend),
+    acos: acos(spend, sales),
+    roas: roas(sales, spend),
   };
 }
 
 export function computeAsinMetrics(
   adSpend: number,
   adSales: number,
-  totalSales: number
+  _totalSales: number
 ): { acos: number } {
-  return { acos: safePercent(adSpend, adSales) };
+  return { acos: acos(adSpend, adSales) };
 }
 
 export function computeCampaignMetrics(spend: number, sales: number): { acos: number } {
-  return { acos: safePercent(spend, sales) };
+  return { acos: acos(spend, sales) };
 }

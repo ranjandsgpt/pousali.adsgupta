@@ -82,6 +82,13 @@ export interface RecoveredFields {
   conversion_rate?: number;
 }
 
+/** Multi-agent validation result (Phase 2–5). */
+export interface MultiAgentGateResult {
+  gatePassed: boolean;
+  minConfidence: number;
+  financialMetricsAllowed: boolean;
+}
+
 /** Result of dual-engine run: validated artifacts + global confidence */
 export interface DualEngineResult {
   slmArtifacts: EngineArtifacts;
@@ -97,7 +104,10 @@ export interface DualEngineResult {
   };
   auditConfidenceScore: number;
   recoveredFields: RecoveredFields;
+  /** Phase 2–5: multi-agent validation gate; recovered fields are already filtered to approved only when used. */
+  multiAgentResult?: MultiAgentGateResult | null;
   ready: boolean;
 }
 
-export const CONFIDENCE_THRESHOLD = 0.75;
+/** Phase 6–7: Artifacts appear in UI only if confidence ≥ 0.80. */
+export const CONFIDENCE_THRESHOLD = 0.8;

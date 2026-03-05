@@ -41,13 +41,16 @@ Tasks:
 6) Build 2-3 chart specs as {id, title, type: "pie"|"bar", data: [{name, labels: [], values: []}]}.
 7) List 3-8 insights as {id, title, description, severity?, recommendedAction?, entityName?, entityType?}.
 
+If you received raw report files, also return schema_inferences for any ambiguous or variant column headers you used: an object mapping raw header string to { "canonical": "sessions"|"buyBox"|"units"|"pageViews"|"spend"|"sales"|..., "confidence": 0.0-1.0 }. Omit if no headers were ambiguous.
+
 Return ONLY valid JSON in this exact shape (no markdown):
 {
   "metrics": [{label, value, numericValue}],
   "tables": [...],
   "charts": [...],
   "insights": [...],
-  "recovered_fields": {}
+  "recovered_fields": {},
+  "schema_inferences": {}
 }`;
 
 /** User message when Gemini has only normalized JSON (no raw files). */
@@ -61,6 +64,31 @@ export const STRUCTURED_FROM_RAW_USER_PREFIX = `The attached files are Amazon PP
 
 Optional normalized summary (for reference; prefer extracting from raw files when possible):
 `;
+
+/**
+ * Schema Intelligence escalation: when header mapping confidence < 80%, Gemini infers column meaning from raw headers.
+ * Used by Schema Intelligence Agent to reach schema confidence ≥ 80%.
+ */
+export const SCHEMA_INFER_SYSTEM = `You are an Amazon Seller Central and Amazon Advertising report schema expert.
+
+You are given a list of column headers from one or more Amazon reports (CSV/Excel exports). Headers often vary by locale and report type (e.g. "Sessions", "session", "Sessions - Total", "Total Sessions" for sessions; "Buy Box %", "Buy Box Percentage", "buybox_percent" for buy box).
+
+For each header, infer the most likely canonical Amazon metric. Canonical metrics must be exactly one of:
+spend, sales, clicks, impressions, orders, searchTerm, campaignName, matchType, asin, sessions, orderedProductSales, pageViews, buyBox, unitSession, units, budget, date, sku, adGroup, sales7d, sales14d
+
+Return ONLY valid JSON in this exact shape (no markdown):
+{
+  "mappings": [
+    { "rawHeader": "exact header text", "inferred_metric": "canonical", "confidence_score": number between 0 and 1 }
+  ]
+}
+
+confidence_score: 1 = certain, 0.9 = very likely, 0.7 = plausible, 0.5 = guess. Use 0 for unknown.`;
+
+/** Build user message for schema inference (list of headers). */
+export function buildSchemaInferUserMessage(headers: string[]): string {
+  return `Infer the canonical Amazon metric for each of these report column headers:\n\n${headers.map((h) => `- "${h}"`).join('\n')}\n\nReturn ONLY the JSON object with mappings.`;
+}
 
 /** System instruction for CXO narrative / presentation (generate-insights API). */
 export const NARRATIVE_SYSTEM_INSTRUCTION =

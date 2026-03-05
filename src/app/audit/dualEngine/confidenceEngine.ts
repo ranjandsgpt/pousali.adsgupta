@@ -128,8 +128,9 @@ export function computeConfidence(
   };
 }
 
+/** Phase 7: Choose artifact with highest confidence; if below threshold, suppress (return []). */
 function selectSource<T>(slm: T[], gemini: T[] | null, confidence: number, source: 'slm' | 'gemini'): T[] {
-  if (confidence < CONFIDENCE_THRESHOLD) return slm.length > 0 ? slm : (gemini || []);
+  if (confidence < CONFIDENCE_THRESHOLD) return [];
   return source === 'gemini' && gemini && gemini.length > 0 ? gemini : slm;
 }
 

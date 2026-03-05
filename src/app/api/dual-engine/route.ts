@@ -6,6 +6,8 @@ import {
   STRUCTURED_FROM_RAW_SYSTEM,
   STRUCTURED_FROM_RAW_USER_PREFIX,
   STRUCTURED_FROM_JSON_USER_PREFIX,
+  SCHEMA_INFER_SYSTEM,
+  buildSchemaInferUserMessage,
 } from '@/app/audit/utils/geminiPromptRegistry';
 
 /**
@@ -35,6 +37,10 @@ interface VerifySlmPayload {
     charts: unknown[];
     insights: unknown[];
   };
+}
+
+interface InferSchemaPayload {
+  headers: string[];
 }
 
 function parseJsonScores(text: string): Record<string, number> | null {
@@ -73,7 +79,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 503 });
   }
   const contentType = request.headers.get('content-type') || '';
-  let body: { mode: 'structured' | 'verify_slm'; payload: StructuredPayload | VerifySlmPayload };
+  let body: { mode: 'structured' | 'verify_slm' | 'infer_schema'; payload: StructuredPayload | VerifySlmPayload | InferSchemaPayload };
   let rawFiles: Blob[] = [];
 
   if (contentType.includes('multipart/form-data')) {
@@ -100,6 +106,30 @@ export async function POST(request: NextRequest) {
 
   const ai = new GoogleGenAI({ apiKey });
   const { mode, payload } = body;
+
+  if (mode === 'infer_schema') {
+    const { headers } = payload as InferSchemaPayload;
+    if (!Array.isArray(headers) || headers.length === 0) {
+      return NextResponse.json({ error: 'Missing or empty headers' }, { status: 400 });
+    }
+    const prompt = buildSchemaInferUserMessage(headers);
+    try {
+      const result = await ai.models.generateContent({
+        model,
+        config: { systemInstruction: SCHEMA_INFER_SYSTEM },
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      });
+      const text = result.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() || '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const raw = jsonMatch ? jsonMatch[0] : text;
+      const parsed = JSON.parse(raw) as { mappings?: { rawHeader: string; inferred_metric: string; confidence_score: number }[] };
+      const mappings = Array.isArray(parsed.mappings) ? parsed.mappings : [];
+      return NextResponse.json({ mappings });
+    } catch (e) {
+      console.error('dual-engine infer_schema', e);
+      return NextResponse.json({ mappings: [] });
+    }
+  }
 
   if (mode === 'verify_slm') {
     const { datasetSummary, slmArtifacts } = payload as VerifySlmPayload;
@@ -194,6 +224,7 @@ export async function POST(request: NextRequest) {
         charts?: unknown[];
         insights?: unknown[];
         recovered_fields?: Record<string, number>;
+        schema_inferences?: Record<string, { canonical: string; confidence: number }>;
       };
       return NextResponse.json({
         metrics_gemini: Array.isArray(parsed.metrics) ? parsed.metrics : [],
@@ -201,6 +232,7 @@ export async function POST(request: NextRequest) {
         charts_gemini: Array.isArray(parsed.charts) ? parsed.charts : [],
         insights_gemini: Array.isArray(parsed.insights) ? parsed.insights : [],
         recovered_fields: parsed.recovered_fields || {},
+        schema_inferences: parsed.schema_inferences || {},
       });
     } catch (e) {
       console.error('dual-engine structured', e);

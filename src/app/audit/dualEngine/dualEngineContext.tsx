@@ -26,6 +26,7 @@ import type {
   ChartArtifact,
   InsightArtifact,
 } from './types';
+import { runMultiAgentPipeline } from '../agents/multiAgentPipeline';
 
 /** Merge recovered fields into store for display (e.g. sessions, buyBox from Gemini when SLM missed). */
 export function mergeRecoveredIntoStore(store: MemoryStore, recovered: RecoveredFields): MemoryStore {
@@ -52,6 +53,7 @@ const EMPTY_RESULT: DualEngineResult = {
   validated: { metrics: [], tables: [], charts: [], insights: [] },
   auditConfidenceScore: 0,
   recoveredFields: {},
+  multiAgentResult: null,
   ready: false,
 };
 
@@ -126,10 +128,12 @@ interface StructuredPayload {
   asins: unknown[];
 }
 
+export type SchemaInferenceMap = Record<string, { canonical: string; confidence: number }>;
+
 async function fetchGeminiStructured(
   store: MemoryStore,
   rawFiles?: File[]
-): Promise<{ artifacts: EngineArtifacts; recovered_fields: RecoveredFields } | null> {
+): Promise<{ artifacts: EngineArtifacts; recovered_fields: RecoveredFields; schema_inferences: SchemaInferenceMap } | null> {
   const payload = buildStructuredPayload(store);
   let res: Response;
   if (rawFiles != null && rawFiles.length > 0) {
@@ -151,9 +155,11 @@ async function fetchGeminiStructured(
   const charts = (data.charts_gemini || []) as ChartArtifact[];
   const insights = (data.insights_gemini || []) as InsightArtifact[];
   const recovered_fields = (data.recovered_fields || {}) as RecoveredFields;
+  const schema_inferences = (data.schema_inferences || {}) as SchemaInferenceMap;
   return {
     artifacts: { metrics, tables, charts, insights },
     recovered_fields,
+    schema_inferences,
   };
 }
 
@@ -174,6 +180,24 @@ async function fetchVerifySlm(slmArtifacts: EngineArtifacts, datasetSummary: Rec
     charts_score: data.charts_score ?? 0.9,
     insights_score: data.insights_score ?? 0.9,
   };
+}
+
+/** Escalation: when schema confidence < 80%, ask Gemini to infer column mappings from raw headers. */
+async function fetchSchemaInference(headers: string[]): Promise<SchemaInferenceMap> {
+  if (headers.length === 0) return {};
+  const res = await fetch('/api/dual-engine', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: 'infer_schema', payload: { headers } }),
+  });
+  const data = await res.json();
+  const mappings = Array.isArray(data.mappings) ? data.mappings : [];
+  const out: SchemaInferenceMap = {};
+  for (const m of mappings) {
+    if (m.rawHeader != null && m.inferred_metric != null && typeof m.confidence_score === 'number')
+      out[String(m.rawHeader)] = { canonical: String(m.inferred_metric), confidence: m.confidence_score };
+  }
+  return out;
 }
 
 export function DualEngineProvider({ children }: { children: ReactNode }) {
@@ -214,11 +238,13 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
           validated: selectArtifacts(slmArtifacts, null, confidence),
           auditConfidenceScore: 90,
           recoveredFields: {},
+          multiAgentResult: null,
           ready: true,
         };
         setResult(slmOnly);
         return slmOnly;
       };
+
 
       if (deferGemini) {
         setSlmOnlyResult();
@@ -228,14 +254,16 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
           .then((geminiResult) => {
             const geminiArtifacts = geminiResult?.artifacts ?? null;
             const recovered_fields = geminiResult?.recovered_fields ?? {};
+            const schema_inferences = geminiResult?.schema_inferences ?? {};
             return Promise.all([
               Promise.resolve(geminiResult),
               fetchVerifySlm(slmArtifacts, datasetSummary),
               Promise.resolve(geminiArtifacts),
               Promise.resolve(recovered_fields),
+              Promise.resolve(schema_inferences),
             ]);
           })
-          .then(([, verificationSlmByGemini, geminiArtifacts, recovered_fields]) => {
+          .then(async ([, verificationSlmByGemini, geminiArtifacts, recovered_fields, schema_inferences]) => {
             const verificationGeminiBySlm =
               geminiArtifacts != null
                 ? verifyGeminiBySlm(geminiArtifacts, {
@@ -252,7 +280,7 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
             );
             const validated = selectArtifacts(slmArtifacts, geminiArtifacts, confidence);
             const auditConfidenceScore = computeAuditConfidenceScore(confidence);
-            const recoveredFields = mergeRecoveredFields(
+            const recoveredFieldsRaw = mergeRecoveredFields(
               store.totalSessions,
               store.buyBoxPercent,
               store.totalUnitsOrdered,
@@ -260,6 +288,14 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
               (confidence.metrics.score + confidence.tables.score + confidence.charts.score + confidence.insights.score) / 4,
               0.9
             );
+            let multiAgent = runMultiAgentPipeline(store, slmArtifacts, geminiArtifacts, recoveredFieldsRaw, schema_inferences);
+            let recoveredFields = multiAgent.recoveredFieldsApproved;
+            if (!multiAgent.schema.passed && multiAgent.schemaUnmappedHeaders.length > 0) {
+              const escalationInferences = await fetchSchemaInference(multiAgent.schemaUnmappedHeaders);
+              const mergedInferences = { ...schema_inferences, ...escalationInferences };
+              multiAgent = runMultiAgentPipeline(store, slmArtifacts, geminiArtifacts, recoveredFieldsRaw, mergedInferences);
+              recoveredFields = multiAgent.recoveredFieldsApproved;
+            }
             const next: DualEngineResult = {
               slmArtifacts,
               geminiArtifacts,
@@ -269,6 +305,11 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
               validated,
               auditConfidenceScore,
               recoveredFields,
+              multiAgentResult: {
+                gatePassed: multiAgent.gatePassed,
+                minConfidence: multiAgent.minConfidence,
+                financialMetricsAllowed: multiAgent.financialMetricsAllowed,
+              },
               ready: true,
             };
             setResult(next);
@@ -312,7 +353,7 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
         );
         const validated = selectArtifacts(slmArtifacts, geminiArtifacts, confidence);
         const auditConfidenceScore = computeAuditConfidenceScore(confidence);
-        const recoveredFields = mergeRecoveredFields(
+        const recoveredFieldsRaw = mergeRecoveredFields(
           store.totalSessions,
           store.buyBoxPercent,
           store.totalUnitsOrdered,
@@ -320,6 +361,9 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
           (confidence.metrics.score + confidence.tables.score + confidence.charts.score + confidence.insights.score) / 4,
           0.9
         );
+        const schema_inferences = geminiResult?.schema_inferences ?? {};
+        const multiAgent = runMultiAgentPipeline(store, slmArtifacts, geminiArtifacts, recoveredFieldsRaw, schema_inferences);
+        const recoveredFields = multiAgent.recoveredFieldsApproved;
 
         const next: DualEngineResult = {
           slmArtifacts,
@@ -330,6 +374,11 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
           validated,
           auditConfidenceScore,
           recoveredFields,
+          multiAgentResult: {
+            gatePassed: multiAgent.gatePassed,
+            minConfidence: multiAgent.minConfidence,
+            financialMetricsAllowed: multiAgent.financialMetricsAllowed,
+          },
           ready: true,
         };
         setResult(next);

@@ -188,6 +188,15 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
           )}
         </div>
       )}
+
+      {dualEngine.ready && dualEngine.multiAgentResult && !dualEngine.multiAgentResult.financialMetricsAllowed && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2 mb-4">
+          <p className="text-sm font-semibold text-amber-400">Financial metrics withheld</p>
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">
+            Reconciliation or consistency checks did not meet the 80% confidence threshold. Financial figures are hidden until validation passes.
+          </p>
+        </div>
+      )}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {/* Health & Risk */}
         <div>
@@ -217,31 +226,35 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
           </div>
         </div>
 
-        {/* Revenue & Spend */}
-        <div>
-          <p className="text-xs font-semibold text-[var(--color-text-muted)] mb-1">Revenue &amp; Spend</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {byLabels(['Total Sales', 'Total Ad Sales', 'Total Ad Spend']).map((c) => (
-              <div key={c.label} className={`rounded-xl border p-3 ${cardStatusClass[c.status]}`}>
-                <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">{c.label}</p>
-                <p className="text-lg font-bold tabular-nums">{c.value}</p>
-              </div>
-            ))}
+        {/* Revenue & Spend — hidden until reconciliation/consistency confidence ≥ 80% */}
+        {dualEngine.multiAgentResult?.financialMetricsAllowed !== false && (
+          <div>
+            <p className="text-xs font-semibold text-[var(--color-text-muted)] mb-1">Revenue &amp; Spend</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {byLabels(['Total Sales', 'Total Ad Sales', 'Total Ad Spend']).map((c) => (
+                <div key={c.label} className={`rounded-xl border p-3 ${cardStatusClass[c.status]}`}>
+                  <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">{c.label}</p>
+                  <p className="text-lg font-bold tabular-nums">{c.value}</p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Efficiency */}
-        <div>
-          <p className="text-xs font-semibold text-[var(--color-text-muted)] mb-1">Efficiency</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {byLabels(['ROAS', 'ACOS', 'TACOS']).map((c) => (
-              <div key={c.label} className={`rounded-xl border p-3 ${cardStatusClass[c.status]}`}>
-                <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">{c.label}</p>
-                <p className="text-lg font-bold tabular-nums">{c.value}</p>
-              </div>
-            ))}
+        {/* Efficiency — hidden until reconciliation/consistency confidence ≥ 80% */}
+        {dualEngine.multiAgentResult?.financialMetricsAllowed !== false && (
+          <div>
+            <p className="text-xs font-semibold text-[var(--color-text-muted)] mb-1">Efficiency</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {byLabels(['ROAS', 'ACOS', 'TACOS']).map((c) => (
+                <div key={c.label} className={`rounded-xl border p-3 ${cardStatusClass[c.status]}`}>
+                  <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-1">{c.label}</p>
+                  <p className="text-lg font-bold tabular-nums">{c.value}</p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Traffic & Conversion */}
         <div>
