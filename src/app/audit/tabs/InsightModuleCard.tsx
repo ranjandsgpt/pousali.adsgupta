@@ -47,7 +47,7 @@ export function InsightModuleCard({
           className="flex shrink-0 items-center gap-1 rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-cyan-400 hover:bg-white/10"
         >
           {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          Deep Dive
+          Show Details
         </button>
       </div>
       {isOpen && children && <div className="mt-4 border-t border-white/10 pt-4">{children}</div>}

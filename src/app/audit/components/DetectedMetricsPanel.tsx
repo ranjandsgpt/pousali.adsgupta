@@ -4,24 +4,33 @@ import { useAuditStore } from '../context/AuditStoreContext';
 
 /** Section 25: Tag cloud of all metrics detected in uploaded reports (data schema preview). */
 const DISPLAY_NAMES: Record<string, string> = {
-  spend: 'spend',
-  sales: 'sales',
-  clicks: 'clicks',
-  impressions: 'impressions',
-  orders: 'orders',
-  units: 'units',
-  searchTerm: 'searchTerm',
-  campaignName: 'campaignName',
-  adGroup: 'adGroup',
-  matchType: 'matchType',
-  asin: 'asin',
-  sku: 'sku',
-  sessions: 'sessions',
-  orderedProductSales: 'orderedProductSales',
-  date: 'date',
-  budget: 'budget',
-  pageViews: 'pageViews',
-  other: 'other',
+  spend: 'Spend',
+  sales: 'Sales',
+  clicks: 'Clicks',
+  impressions: 'Impressions',
+  orders: 'Orders',
+  units: 'Units',
+  searchTerm: 'Keyword',
+  campaignName: 'Campaign',
+  adGroup: 'Ad Group',
+  matchType: 'Match Type',
+  asin: 'ASIN',
+  sku: 'SKU',
+  sessions: 'Sessions',
+  orderedProductSales: 'Ordered Product Sales',
+  date: 'Date',
+  budget: 'Daily Budget',
+  pageViews: 'Page Views',
+  acos: 'ACOS',
+  roas: 'ROAS',
+  tacos: 'TACOS',
+  ctr: 'CTR',
+  cvr: 'CVR',
+  conversion: 'Conversion',
+  buybox: 'Buy Box %',
+  currency: 'Currency',
+  profitMargin: 'Profit Margin',
+  other: 'Other',
 };
 
 export default function DetectedMetricsPanel() {
@@ -35,7 +44,7 @@ export default function DetectedMetricsPanel() {
       className="rounded-2xl border border-white/10 bg-[var(--color-surface-elevated)] p-4 sm:p-6"
     >
       <h2 id="detected-metrics-heading" className="text-sm font-semibold text-[var(--color-text)] mb-3">
-        Detected Metrics
+        2. Detected metrics ({tags.length})
       </h2>
       <div className="flex flex-wrap gap-2">
         {tags.map((tag) => (

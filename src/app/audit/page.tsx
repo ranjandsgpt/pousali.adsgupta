@@ -4,14 +4,16 @@ import { useRef, useState } from 'react';
 import Header from './components/Header';
 import UploadPanel from './components/UploadPanel';
 import ProtocolsActiveDrawer from './components/ProtocolsActiveDrawer';
-import KPIGrid from './components/KPIGrid';
+import KPISummarySection from './components/KPISummarySection';
 import AuditTabs from './components/AuditTabs';
 import ExportBar from './components/ExportBar';
 import PrivacyNote from './components/PrivacyNote';
 import DashboardTitleBar from './components/DashboardTitleBar';
 import DetectedMetricsPanel from './components/DetectedMetricsPanel';
-import CriticalIssuesEngine from './components/CriticalIssuesEngine';
-import GrowthOpportunitiesEngine from './components/GrowthOpportunitiesEngine';
+import MissingMetricsPanel from './components/MissingMetricsPanel';
+import CriticalIssuesSection from './components/CriticalIssuesSection';
+import OptimizationOpportunitiesSection from './components/OptimizationOpportunitiesSection';
+import DiagnosticModulesSection from './components/DiagnosticModulesSection';
 import { AuditStoreProvider, useAuditStore } from './context/AuditStoreContext';
 import { LearningProvider, useLearning } from './learning/LearningContext';
 import { parseReportsStreaming } from './utils/reportParser';
@@ -73,13 +75,18 @@ function AuditPageContent() {
         {step === 'dashboard' && (
           <>
             <DashboardTitleBar onRerunAnalysis={handleRerunAnalysis} />
-            <KPIGrid />
-            <DetectedMetricsPanel />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <CriticalIssuesEngine />
-              <GrowthOpportunitiesEngine />
+            <div className="flex flex-col gap-6">
+              <KPISummarySection />
+              <DetectedMetricsPanel />
+              <MissingMetricsPanel />
+              <CriticalIssuesSection />
+              <OptimizationOpportunitiesSection />
+              <DiagnosticModulesSection />
+              <section aria-labelledby="charts-deeper-heading">
+                <h2 id="charts-deeper-heading" className="text-sm font-semibold text-[var(--color-text)] mb-3">7. Charts and deeper analysis</h2>
+                <AuditTabs />
+              </section>
             </div>
-            <AuditTabs />
             <ExportBar />
           </>
         )}
