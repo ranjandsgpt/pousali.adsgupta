@@ -7,6 +7,7 @@ import type { TabConfig, KPIMetric, PatternDetection, OpportunityDetection, TabT
 import type { MemoryStore } from '../utils/reportParser';
 import type { DetectedCurrency } from '../utils/currencyDetector';
 import { runDiagnosticEngines, type DiagnosticEnginesResult } from '../engines';
+import { runSanityChecks, type SanityCheckResults } from '../utils/sanityChecks';
 
 /** 7 primary tabs: distributed analysis, deep-dive modules, reference UX. */
 export type TabId =
@@ -263,7 +264,12 @@ function negativeKeywordTable(store: MemoryStore): TabTableConfig[] {
   ];
 }
 
-function buildInsightModules(store: MemoryStore, tabId: TabId, diagnostics?: DiagnosticEnginesResult | null): InsightModule[] {
+function buildInsightModules(
+  store: MemoryStore,
+  tabId: TabId,
+  diagnostics?: DiagnosticEnginesResult | null,
+  sanity?: SanityCheckResults | null
+): InsightModule[] {
   const sym = store.currency ? formatCurrency(0, store.currency).replace('0.00', '') : '$';
   const modules: InsightModule[] = [];
   const kws = Object.values(store.keywordMetrics);
@@ -353,7 +359,101 @@ function buildInsightModules(store: MemoryStore, tabId: TabId, diagnostics?: Dia
         ...oppCamp.sort((a, b) => (b.sales / b.spend) - (a.sales / a.spend)).map((c) => ({ type: 'Campaign', name: c.campaignName, spend: c.spend, sales: c.sales, roas: (c.sales / c.spend).toFixed(2), action: 'Increase budget' })),
       ],
     };
-    if (critical > 0) modules.push({ id: 'critical', title: 'Critical Issues', description: 'High ACOS campaigns and bleeding keywords eating into profit.', count: critical, impact: wasteTotal > 0 ? `${sym}${wasteTotal.toFixed(0)} at risk` : undefined, severity: 'critical', tableRef: 'critical', deepDiveTable: criticalDeepDive });
+    if (critical > 0)
+      modules.push({
+        id: 'critical',
+        title: 'Critical Issues',
+        description: 'High ACOS campaigns and bleeding keywords eating into profit.',
+        count: critical,
+        impact: wasteTotal > 0 ? `${sym}${wasteTotal.toFixed(0)} at risk` : undefined,
+        severity: 'critical',
+        tableRef: 'critical',
+        deepDiveTable: criticalDeepDive,
+      });
+
+    // Phase 4: additional critical-issue tables using sanity checks.
+    if (sanity && sanity.highACOSCampaigns.length > 0) {
+      const worst = [...sanity.highACOSCampaigns].sort((a, b) => b.acos - a.acos).slice(0, 25);
+      const worstAcosDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'campaignName', label: 'Campaign' },
+          { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+          { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+          { key: 'acos', label: 'ACOS', align: 'right', format: 'percent' },
+        ],
+        rows: worst.map((c) => ({
+          campaignName: c.campaignName,
+          spend: c.spend,
+          sales: c.sales,
+          acos: c.acos,
+        })),
+      };
+      modules.push({
+        id: 'worst-acos-campaigns',
+        title: 'Worst ACOS campaigns',
+        description: 'Campaigns with ACOS well above target — likely loss-driving.',
+        count: worst.length,
+        severity: 'critical',
+        tableRef: 'worst-acos-campaigns',
+        deepDiveTable: worstAcosDeepDive,
+      });
+    }
+
+    if (sanity && sanity.wastedKeywords.length > 0) {
+      const wasted = [...sanity.wastedKeywords].sort((a, b) => b.spend - a.spend).slice(0, 50);
+      const wastedDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'keyword', label: 'Keyword' },
+          { key: 'campaign', label: 'Campaign' },
+          { key: 'clicks', label: 'Clicks', align: 'right' },
+          { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+          { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        ],
+        rows: wasted.map((k) => ({
+          keyword: k.searchTerm,
+          campaign: k.campaign,
+          clicks: k.clicks,
+          spend: k.spend,
+          sales: k.sales,
+        })),
+      };
+      modules.push({
+        id: 'highest-waste-keywords',
+        title: 'Highest wasted spend keywords',
+        description: 'Keywords with meaningful clicks and spend but zero sales.',
+        count: wasted.length,
+        severity: 'critical',
+        tableRef: 'highest-waste-keywords',
+        deepDiveTable: wastedDeepDive,
+      });
+    }
+
+    if (sanity && sanity.budgetCappedCampaigns.length > 0) {
+      const capped = [...sanity.budgetCappedCampaigns].sort((a, b) => b.spend - a.spend).slice(0, 25);
+      const cappedDeepDive: DeepDiveTableConfig = {
+        columns: [
+          { key: 'campaignName', label: 'Campaign' },
+          { key: 'budget', label: 'Budget', align: 'right', format: 'currency' },
+          { key: 'spend', label: 'Spend', align: 'right', format: 'currency' },
+          { key: 'sales', label: 'Sales', align: 'right', format: 'currency' },
+        ],
+        rows: capped.map((c) => ({
+          campaignName: c.campaignName,
+          budget: c.budget,
+          spend: c.spend,
+          sales: c.sales,
+        })),
+      };
+      modules.push({
+        id: 'budget-capped-critical',
+        title: 'Budget capped campaigns',
+        description: 'Strong ROAS campaigns consistently hitting their daily budgets.',
+        count: capped.length,
+        severity: 'warning',
+        tableRef: 'budget-capped-critical',
+        deepDiveTable: cappedDeepDive,
+      });
+    }
     if (oppCount > 0) modules.push({ id: 'opportunities', title: 'Growth Opportunities', description: 'High ROAS keywords and campaigns ready to scale.', count: oppCount, severity: 'opportunity', tableRef: 'opportunities', deepDiveTable: opportunitiesDeepDive });
   }
 
@@ -642,7 +742,8 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
     const opportunities = buildOpportunities(store);
     const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
     const diagnostics = hasData ? runDiagnosticEngines(store) : null;
-    const insightModules = buildInsightModules(store, tabId, diagnostics);
+    const sanity = hasData ? runSanityChecks(store) : null;
+    const insightModules = buildInsightModules(store, tabId, diagnostics, sanity);
 
     const emptyTables: TabTableConfig[] = [];
     let tables: TabTableConfig[] = emptyTables;
