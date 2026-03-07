@@ -8,11 +8,14 @@ import { MAX_FILES } from '../utils/constants';
 interface UploadPanelProps {
   onUploadComplete?: (files: File[]) => void;
   disabled?: boolean;
+  /** Phase 8: When true, show collapsed view (file icons + remove only), ~70% height reduction. */
+  collapsed?: boolean;
 }
 
 export default function UploadPanel({
   onUploadComplete,
   disabled = false,
+  collapsed = false,
 }: UploadPanelProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -90,6 +93,42 @@ export default function UploadPanel({
       return next;
     });
   }, []);
+
+  if (collapsed && files.length > 0) {
+    return (
+      <section
+        aria-labelledby="upload-heading"
+        className="rounded-xl border border-dashed border-white/20 bg-[var(--color-surface-elevated)] px-3 py-2 transition-colors"
+      >
+        <div className="flex items-center gap-2 flex-wrap">
+          <span id="upload-heading" className="text-xs font-medium text-[var(--color-text-muted)] shrink-0">
+            Uploaded
+          </span>
+          <ul className="flex flex-wrap gap-1.5 overflow-x-auto max-w-full" role="list">
+            {files.map((f, i) => (
+              <li
+                key={`${f.name}-${f.size}-${i}`}
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 text-xs text-[var(--color-text)] shrink-0"
+              >
+                <FileSpreadsheet size={14} className="text-cyan-500 shrink-0" aria-hidden />
+                <span className="truncate max-w-[120px]" title={f.name}>{f.name}</span>
+                {!disabled && (
+                  <button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    className="text-[var(--color-text-muted)] hover:text-red-400 focus:outline-none rounded"
+                    aria-label={`Remove ${f.name}`}
+                  >
+                    ×
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section
