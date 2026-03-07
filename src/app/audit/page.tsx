@@ -10,6 +10,7 @@ import ExportBar from './components/ExportBar';
 import PrivacyNote from './components/PrivacyNote';
 import { AuditStoreProvider, useAuditStore } from './context/AuditStoreContext';
 import { GeminiReportProvider, useGeminiReport } from './context/GeminiReportContext';
+import { ValidatedArtifactsProvider } from './store/ValidatedArtifactsContext';
 import { DualEngineProvider, useDualEngine } from './dualEngine/dualEngineContext';
 import { PipelineProvider, usePipeline, type PipelineStageId } from './context/PipelineContext';
 import { LearningProvider, useLearning } from './learning/LearningContext';
@@ -157,11 +158,13 @@ export default function AuditPage() {
     <AuditStoreProvider>
       <LearningProvider>
         <PipelineProvider>
-          <DualEngineProvider>
-            <GeminiReportProvider>
-              <AuditPageContent />
-            </GeminiReportProvider>
-          </DualEngineProvider>
+          <ValidatedArtifactsProvider>
+            <DualEngineProvider>
+              <GeminiReportProvider>
+                <AuditPageContent />
+              </GeminiReportProvider>
+            </DualEngineProvider>
+          </ValidatedArtifactsProvider>
         </PipelineProvider>
       </LearningProvider>
     </AuditStoreProvider>

@@ -153,7 +153,14 @@ export async function POST(request: NextRequest) {
 
   if (mode === 'verify_slm') {
     const { datasetSummary, slmArtifacts } = payload as VerifySlmPayload;
-    const prompt = buildVerifySlmUserMessage(datasetSummary, slmArtifacts);
+    let feedbackContext = '';
+    try {
+      const { getFeedbackContextForEngines } = await import('@/app/audit/agents/humanFeedbackAgent');
+      feedbackContext = getFeedbackContextForEngines();
+    } catch {
+      // optional: feedback not available
+    }
+    const prompt = buildVerifySlmUserMessage(datasetSummary, slmArtifacts, feedbackContext);
     try {
       const result = await ai.models.generateContent({
         model,

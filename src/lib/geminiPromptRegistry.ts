@@ -31,12 +31,18 @@ Output format exactly:
 - disagreements: list of short descriptions of any discrepancies (e.g. "ACOS mismatch: SLM 24.5%, expected 23.1%").
 - correctedMetrics: optional object of metric label to corrected numeric value when you disagree; empty {} when agree.`;
 
-/** Build verify-SLM user message (dataset + SLM artifacts). */
+/** Build verify-SLM user message (dataset + SLM artifacts). Optional feedbackContext from HumanFeedbackAgent. */
 export function buildVerifySlmUserMessage(
   datasetSummary: Record<string, unknown>,
-  slmArtifacts: unknown
+  slmArtifacts: unknown,
+  feedbackContext?: string
 ): string {
-  return `Dataset summary:\n${JSON.stringify(datasetSummary, null, 2)}\n\nSLM artifacts:\n${JSON.stringify(slmArtifacts, null, 2)}\n\nReturn ONLY the JSON object. No other text.`;
+  let msg = `Dataset summary:\n${JSON.stringify(datasetSummary, null, 2)}\n\nSLM artifacts:\n${JSON.stringify(slmArtifacts, null, 2)}`;
+  if (feedbackContext && feedbackContext.trim()) {
+    msg += `\n\nUser feedback (consider when verifying):\n${feedbackContext.trim()}\n\nRecalculate and verify the above metrics where user indicated incorrect.`;
+  }
+  msg += `\n\nReturn ONLY the JSON object. No other text.`;
+  return msg;
 }
 
 // ─── Mode 2: Insight Narrative (Human Readable) ───────────────────────────

@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { TabKPISummary, TabPatternDetection, TabOpportunityDetection, TabDataTablesSection, TabVisualization } from './TabSections';
 import { InsightModuleCard } from './InsightModuleCard';
 import { DeepDivePanel } from './DeepDivePanel';
@@ -7,9 +8,29 @@ import { ChartRegistry, ChartsLabGrid } from './ChartRegistry';
 import FunnelOverviewChart from '../charts/FunnelOverviewChart';
 import KeywordProfitabilityMapChart from '../charts/KeywordProfitabilityMapChart';
 import { useTabData, type TabId } from './useTabData';
+import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
+import { formatCurrency, formatPercent } from '../utils/formatNumber';
+import type { DetectedCurrency } from '../utils/currencyDetector';
+import type { KPIMetric } from './types';
 
 import LearningIntelligencePanel from '../components/LearningIntelligencePanel';
 import GeminiInsightsPanel from '../components/GeminiInsightsPanel';
+
+function validatedMetricsToKPIs(
+  metrics: { label: string; value: string | number; status?: string }[],
+  currency: DetectedCurrency
+): KPIMetric[] {
+  return metrics.map((m) => {
+    let value: string | number = m.value;
+    if (typeof m.value === 'number') {
+      const label = m.label.toLowerCase();
+      if (label.includes('acos') || label.includes('tacos') || label.includes('cvr') || label.includes('conversion') || label.includes('buy box')) value = formatPercent(m.value);
+      else if (label.includes('spend') || label.includes('sales') || label.includes('cpc')) value = formatCurrency(m.value, currency);
+      else value = m.value;
+    }
+    return { label: m.label, value, status: (m.status as KPIMetric['status']) ?? 'neutral' };
+  });
+}
 
 export interface TabContentProps {
   tabId: TabId;
@@ -18,6 +39,23 @@ export interface TabContentProps {
 
 export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
   const { kpis, patterns, opportunities, insightModules, tables, chartIds, currency } = useTabData(tabId);
+  const { validated } = useValidatedArtifacts();
+
+  const overviewKpis = useMemo(() => {
+    if (tabId !== 'overview') return kpis;
+    if (validated.passed && validated.metrics.length > 0) {
+      return validatedMetricsToKPIs(validated.metrics, currency);
+    }
+    return kpis;
+  }, [tabId, kpis, validated.passed, validated.metrics, currency]);
+
+  const overviewVerificationMeta = useMemo(() => {
+    if (tabId !== 'overview' || !validated.passed || !validated.artifactConfidence) return undefined;
+    const score = validated.artifactConfidence.metrics?.score ?? validated.confidence / 100;
+    const percent = Math.round((score > 1 ? score : score * 100));
+    const source = validated.artifactConfidence.metrics?.source ?? 'slm';
+    return { confidencePercent: percent, source };
+  }, [tabId, validated.passed, validated.artifactConfidence, validated.confidence]);
 
   if (tabId === 'insights-reports') {
     return (
@@ -57,7 +95,12 @@ export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
     <div className="space-y-4">
       {tabId === 'overview' && (
         <>
-          <TabKPISummary metrics={kpis} currency={currency} />
+          <TabKPISummary
+            metrics={overviewKpis}
+            currency={currency}
+            verificationMeta={overviewVerificationMeta}
+            showFeedback={validated.passed}
+          />
           <section className="rounded-xl border border-white/10 bg-white/5 p-4">
             <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Funnel</h3>
             <FunnelOverviewChart />

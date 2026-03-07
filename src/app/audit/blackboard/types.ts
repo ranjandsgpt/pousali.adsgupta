@@ -11,8 +11,15 @@ export type RawReports = Record<string, unknown>;
 /** Sanitized report rows/keyed data after Ingestion Agent. */
 export type SanitizedReports = Record<string, unknown>;
 
-/** Schema map: report type / header alias → normalized field name. */
-export type SchemaMap = Record<string, { reportType: string; requiredFields: string[]; headerToCanonical: Record<string, string> }>;
+/** Schema map: report type / header alias → normalized field name. Phase 3: confidence and unmapped for Gemini fallback. */
+export type SchemaMap = Record<string, {
+  reportType: string;
+  requiredFields: string[];
+  headerToCanonical: Record<string, string>;
+  /** 0–1; when < 0.8 caller may use Gemini infer_schema for unmapped headers. */
+  confidence?: number;
+  unmappedHeaders?: string[];
+}>;
 
 /** Derived metrics (e.g. intentGraph from Traffic & Intent Agent). */
 export interface DerivedMetrics {

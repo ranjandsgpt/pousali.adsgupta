@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { InsightModule } from './types';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { MetricFeedbackButtons } from '../components/MetricFeedbackButtons';
 
 const severityStyles = {
   critical: 'border-red-500/60 bg-red-500/10',
@@ -42,6 +43,13 @@ export function InsightModuleCard({
             {module.impact && (
               <span className="text-xs font-medium text-[var(--color-text)]">{module.impact}</span>
             )}
+          </div>
+          <div className="mt-2">
+            <MetricFeedbackButtons
+              metricId={`insight-${module.id}`}
+              value={module.title}
+              artifactType="insights"
+            />
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">

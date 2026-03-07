@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
 import { useDualEngine } from '../dualEngine/dualEngineContext';
+import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
 import { FileDown, FileText, RotateCcw } from 'lucide-react';
 import { exportAuditPdf } from '../utils/exportPdf';
@@ -38,6 +39,7 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
   const { state } = useAuditStore();
   const { store } = state;
   const dualEngine = useDualEngine();
+  const { validated } = useValidatedArtifacts();
 
   const { healthScore, healthLabel, criticalCount, summaryCards, confidenceScore, wastedSpendEstimate, statisticalValidation } = useMemo<{
       healthScore: number;
@@ -176,14 +178,19 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
       </div>
 
       {dualEngine.ready && (
-        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 mb-4 flex items-center gap-2">
+        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 mb-4 flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-cyan-300">Audit Confidence</span>
           {dualEngine.geminiVerificationPending ? (
             <span className="text-sm text-cyan-200">AI verification in progress…</span>
           ) : (
             <>
               <span className="text-xl font-bold tabular-nums text-cyan-200">{dualEngine.auditConfidenceScore}%</span>
-              <span className="text-xs text-[var(--color-text-muted)]">AI verified – confidence {dualEngine.auditConfidenceScore}%</span>
+              <span className="text-xs text-[var(--color-text-muted)]">
+                {validated.passed ? 'Validated' : 'AI verified'} – confidence {dualEngine.auditConfidenceScore}%
+                {validated.passed && validated.artifactConfidence?.metrics && (
+                  <> · Source: {validated.artifactConfidence.metrics.source.toUpperCase()}</>
+                )}
+              </span>
             </>
           )}
         </div>

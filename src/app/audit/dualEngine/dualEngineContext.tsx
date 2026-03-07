@@ -28,6 +28,7 @@ import type {
 } from './types';
 import { runMultiAgentPipeline } from '../agents/multiAgentPipeline';
 import { buildBlackboardRunVerification } from '../blackboard';
+import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
 
 /** Merge recovered fields into store for display (e.g. sessions, buyBox from Gemini when SLM missed). */
 export function mergeRecoveredIntoStore(store: MemoryStore, recovered: RecoveredFields): MemoryStore {
@@ -206,12 +207,14 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [geminiVerificationPending, setGeminiVerificationPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { setValidated, reset: resetValidated } = useValidatedArtifacts();
 
   const reset = useCallback(() => {
     setResult(EMPTY_RESULT);
     setError(null);
     setGeminiVerificationPending(false);
-  }, []);
+    resetValidated();
+  }, [resetValidated]);
 
   const runDualEngine = useCallback(
     async (store: MemoryStore, options?: RunDualEngineOptions): Promise<DualEngineResult> => {
@@ -243,6 +246,17 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
           ready: true,
         };
         setResult(slmOnly);
+        if (slmOnly.auditConfidenceScore >= 80) {
+          setValidated({
+            metrics: slmOnly.validated.metrics,
+            tables: slmOnly.validated.tables,
+            charts: slmOnly.validated.charts,
+            insights: slmOnly.validated.insights,
+            confidence: slmOnly.auditConfidenceScore,
+            artifactConfidence: slmOnly.confidence,
+            verificationScores: slmOnly.verificationSlmByGemini,
+          });
+        }
         return slmOnly;
       };
 
@@ -318,6 +332,19 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
               ready: true,
             };
             setResult(next);
+            if (next.auditConfidenceScore >= 80) {
+              setValidated({
+                metrics: next.validated.metrics,
+                tables: next.validated.tables,
+                charts: next.validated.charts,
+                insights: next.validated.insights,
+                confidence: next.auditConfidenceScore,
+                artifactConfidence: next.confidence,
+                verificationScores: next.verificationSlmByGemini,
+              });
+            } else {
+              setValidated(null);
+            }
             setGeminiVerificationPending(false);
             const merged =
               Object.keys(recoveredFields).length > 0
@@ -391,6 +418,19 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
           ready: true,
         };
         setResult(next);
+        if (next.auditConfidenceScore >= 80) {
+          setValidated({
+            metrics: next.validated.metrics,
+            tables: next.validated.tables,
+            charts: next.validated.charts,
+            insights: next.validated.insights,
+            confidence: next.auditConfidenceScore,
+            artifactConfidence: next.confidence,
+            verificationScores: next.verificationSlmByGemini,
+          });
+        } else {
+          setValidated(null);
+        }
         return next;
       } catch (e) {
         const next = setSlmOnlyResult();
@@ -400,7 +440,7 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     },
-    []
+    [setValidated]
   );
 
   return (

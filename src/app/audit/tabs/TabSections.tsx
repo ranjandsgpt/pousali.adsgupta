@@ -4,6 +4,12 @@ import { useState } from 'react';
 import type { KPIMetric, PatternDetection, OpportunityDetection, TabTableConfig, RowActionType } from './types';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
 import type { DetectedCurrency } from '../utils/currencyDetector';
+import { MetricFeedbackButtons } from '../components/MetricFeedbackButtons';
+
+export interface VerificationMeta {
+  confidencePercent: number;
+  source: 'slm' | 'gemini';
+}
 
 const actionLabels: Record<RowActionType, string> = {
   negative: 'Add as Negative',
@@ -29,14 +35,23 @@ function actionButtonClass(type: RowActionType): string {
 export function TabKPISummary({
   metrics,
   currency,
+  verificationMeta,
+  showFeedback = false,
 }: {
   metrics: KPIMetric[];
   currency: DetectedCurrency;
+  verificationMeta?: VerificationMeta;
+  showFeedback?: boolean;
 }) {
   if (metrics.length === 0) return null;
   return (
     <section className="border border-[#1f2937] rounded-xl p-3 sm:p-4 bg-[#111827]">
       <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">KPI Summary</h3>
+      {verificationMeta && (
+        <p className="text-xs text-[var(--color-text-muted)] mb-2">
+          Confidence: {verificationMeta.confidencePercent}% · Source: {verificationMeta.source.toUpperCase()} · Validated
+        </p>
+      )}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {metrics.map((k, i) => {
           const statusCls =
@@ -47,11 +62,19 @@ export function TabKPISummary({
                 : k.status === 'bad'
                   ? 'text-red-400'
                   : 'text-[var(--color-text)]';
+          const metricId = `kpi-${String(k.label).replace(/\s+/g, '-').toLowerCase()}-${i}`;
           return (
             <div key={i} className="rounded-lg border border-[#1f2937] p-2 bg-[#020617]">
               <p className="text-xs text-[var(--color-text-muted)]">{k.label}</p>
               <p className={`text-sm font-semibold tabular-nums ${statusCls}`}>{k.value}</p>
               {k.sub && <p className="text-xs text-[var(--color-text-muted)]">{k.sub}</p>}
+              {(showFeedback || verificationMeta) && (
+                <MetricFeedbackButtons
+                  metricId={metricId}
+                  value={k.value}
+                  artifactType="metrics"
+                />
+              )}
             </div>
           );
         })}
