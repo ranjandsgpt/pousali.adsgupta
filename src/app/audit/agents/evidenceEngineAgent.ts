@@ -66,7 +66,7 @@ export function verifyInsightWithEvidence(
   let rows_supporting = 0;
   let total_spend = 0;
   let total_sales = 0;
-  let dataset_source = source === 'mixed' ? 'SearchTermReport' : source;
+  let dataset_source: string = source === 'mixed' ? 'SearchTermReport' : source;
   let verified = false;
 
   if (isWastedSpendInsight(insight)) {
