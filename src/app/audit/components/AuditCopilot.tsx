@@ -3,11 +3,21 @@
 import { useState, useRef, useCallback } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
 import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
+import { useDualEngine } from '../dualEngine/dualEngineContext';
 import { useTabData } from '../tabs/useTabData';
 import type { MemoryStore } from '../utils/reportParser';
-import type { AuditContextInput, StoreSummarySnapshot } from '@/lib/copilot/contextBuilder';
+import type {
+  AuditContextInput,
+  StoreSummarySnapshot,
+  AgentSignalsSnapshot,
+  VerifiedInsightSnapshot,
+  ChartSignalsSnapshot,
+} from '@/lib/copilot/contextBuilder';
+import { appendTurn, createEmptyMemory, type ConversationMemory } from '@/lib/copilot/conversationMemory';
 import type { CopilotResponseBody } from '@/app/api/copilot/route';
-import { MessageCircle, Send, Loader2 } from 'lucide-react';
+import { MessageCircle, Send, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { runDiagnosticEngines } from '../engines';
+import { runProfitabilityAgent } from '../agents/profitabilityAgent';
 
 const SUGGESTED_QUESTIONS = [
   'Why is ACOS so high?',
@@ -22,6 +32,8 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   validated?: boolean;
+  suggestedFollowUps?: string[];
+  feedbackSent?: 'like' | 'dislike';
 }
 
 function buildStoreSummarySnapshot(store: MemoryStore): StoreSummarySnapshot {
@@ -72,11 +84,64 @@ function buildStoreSummarySnapshot(store: MemoryStore): StoreSummarySnapshot {
   };
 }
 
+function buildAgentSignalsFromStore(store: MemoryStore): AgentSignalsSnapshot {
+  const diagnostics = runDiagnosticEngines(store);
+  const profit = runProfitabilityAgent(store);
+  const sym = store.currency === 'EUR' ? '€' : store.currency === 'GBP' ? '£' : '$';
+  return {
+    wasteSignals: {
+      totalWasteSpend: diagnostics.waste.totalWasteSpend,
+      wastePctOfTotalAdSpend: diagnostics.waste.wastePctOfTotalAdSpend,
+      bleedingKeywordCount: diagnostics.waste.bleedingKeywords.length,
+      summary: `${sym}${diagnostics.waste.totalWasteSpend.toFixed(2)} wasted spend across ${diagnostics.waste.bleedingKeywords.length} keywords with zero sales.`,
+    },
+    scalingSignals: {
+      scalingKeywordCount: diagnostics.opportunity.scalingKeywords.length,
+      scalingCampaignCount: diagnostics.opportunity.scalingCampaigns.length,
+      avgRoas: diagnostics.opportunity.avgRoas,
+      summary: `${diagnostics.opportunity.scalingKeywords.length} keywords and ${diagnostics.opportunity.scalingCampaigns.length} campaigns with ROAS above average ready to scale.`,
+    },
+    profitSignals: {
+      breakEvenACOS: profit.metrics.breakEvenACOS,
+      targetROAS: profit.metrics.targetROAS,
+      lossCampaignCount: profit.losses.length,
+      summary: `Break-even ACOS ${profit.metrics.breakEvenACOS.toFixed(1)}%; ${profit.losses.length} campaigns below target ROAS.`,
+    },
+  };
+}
+
+function buildVerifiedInsightsFromValidated(
+  insights: { id: string; title: string; description: string }[],
+  confidence: { insights: { score: number; source: 'slm' | 'gemini' } } | null
+): VerifiedInsightSnapshot[] {
+  if (!insights.length) return [];
+  return insights.map((i) => ({
+    insight: `${i.title}: ${i.description}`,
+    verificationScore: confidence?.insights?.score ?? 0.9,
+    sourceEngine: (confidence?.insights?.source ?? 'slm') as 'slm' | 'gemini',
+  }));
+}
+
+function buildChartSignalsFromStore(store: MemoryStore): ChartSignalsSnapshot {
+  const campaigns = Object.values(store.campaignMetrics).filter((c) => c.spend > 0);
+  const kws = Object.values(store.keywordMetrics).filter((k) => k.sales > 0);
+  const avgRoas = store.totalAdSpend > 0 ? store.totalAdSales / store.totalAdSpend : 0;
+  const lowRoasCount = kws.filter((k) => k.roas < avgRoas * 0.5).length;
+  const highRoasCampaigns = campaigns.filter((c) => c.sales / c.spend > avgRoas).length;
+  return {
+    keywordScatter: `Most keywords in low-ROAS territory; ${lowRoasCount} below half of account ROAS.`,
+    campaignROASDistribution: `${highRoasCampaigns} campaigns above account ROAS; use for scaling.`,
+    salesBreakdown: `Total ad sales ${store.totalAdSales.toFixed(0)}; store sales ${(store.totalStoreSales || store.storeMetrics.totalSales).toFixed(0)}.`,
+  };
+}
+
 export default function AuditCopilot() {
   const { state } = useAuditStore();
   const { validated } = useValidatedArtifacts();
+  const dualEngine = useDualEngine();
   const { patterns, opportunities } = useTabData('gemini-insights');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [conversationMemory, setConversationMemory] = useState<ConversationMemory>(createEmptyMemory());
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -94,8 +159,12 @@ export default function AuditCopilot() {
       storeSummary,
       patterns,
       opportunities,
+      agentSignals: buildAgentSignalsFromStore(store),
+      verifiedInsights: buildVerifiedInsightsFromValidated(validated.insights, validated.artifactConfidence),
+      chartSignals: buildChartSignalsFromStore(store),
+      conversationMemory: conversationMemory.turns.length > 0 ? conversationMemory : undefined,
     };
-  }, [store, validated, patterns, opportunities]);
+  }, [store, validated, patterns, opportunities, conversationMemory]);
 
   const sendMessage = useCallback(
     async (question: string) => {
@@ -130,15 +199,20 @@ export default function AuditCopilot() {
           return;
         }
 
+        const answer = data.answer || 'No response.';
         setMessages((prev) => [
           ...prev,
           {
             id: crypto.randomUUID(),
             role: 'assistant',
-            content: data.answer || 'No response.',
+            content: answer,
             validated: data.validated,
+            suggestedFollowUps: data.suggestedFollowUps,
           },
         ]);
+        setConversationMemory((mem) =>
+          appendTurn(mem, q, answer, { campaigns: [], keywords: [] })
+        );
       } catch (e) {
         setMessages((prev) => [
           ...prev,
@@ -164,6 +238,29 @@ export default function AuditCopilot() {
   const handleSuggestion = (q: string) => {
     sendMessage(q);
   };
+
+  const sendFeedback = useCallback(
+    async (messageId: string, content: string, feedbackType: 'like' | 'dislike') => {
+      try {
+        await fetch('/api/audit-feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            artifactType: 'copilot_response',
+            artifactId: messageId,
+            value: content.slice(0, 500),
+            feedbackType,
+          }),
+        });
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, feedbackSent: feedbackType } : m))
+        );
+      } catch {
+        // ignore
+      }
+    },
+    []
+  );
 
   if (!hasData) {
     return (
@@ -225,6 +322,43 @@ export default function AuditCopilot() {
               <div className="whitespace-pre-wrap">{msg.content}</div>
               {msg.role === 'assistant' && msg.validated === false && (
                 <p className="text-xs text-amber-400 mt-1">Response could not be verified against audit data.</p>
+              )}
+              {msg.role === 'assistant' && (
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <span className="text-xs text-[var(--color-text-muted)]">Helpful?</span>
+                  <button
+                    type="button"
+                    onClick={() => sendFeedback(msg.id, msg.content, 'like')}
+                    disabled={msg.feedbackSent !== undefined}
+                    className={`p-1 rounded ${msg.feedbackSent === 'like' ? 'bg-emerald-500/30 text-emerald-400' : 'hover:bg-white/10'} disabled:opacity-50`}
+                    aria-label="Like"
+                  >
+                    <ThumbsUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => sendFeedback(msg.id, msg.content, 'dislike')}
+                    disabled={msg.feedbackSent !== undefined}
+                    className={`p-1 rounded ${msg.feedbackSent === 'dislike' ? 'bg-red-500/30 text-red-400' : 'hover:bg-white/10'} disabled:opacity-50`}
+                    aria-label="Dislike"
+                  >
+                    <ThumbsDown className="w-3.5 h-3.5" />
+                  </button>
+                  {msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0 && (
+                    <div className="flex flex-wrap gap-1 w-full mt-1">
+                      {msg.suggestedFollowUps.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => handleSuggestion(s)}
+                          className="px-2 py-0.5 rounded bg-white/5 border border-[var(--color-border)] text-xs hover:bg-white/10"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

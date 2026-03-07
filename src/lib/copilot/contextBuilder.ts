@@ -1,10 +1,51 @@
 /**
  * Context Builder — Assemble audit context for the Copilot from validated artifacts and SLM data.
  * Gemini only receives this context (no raw reports).
+ * Includes: agentSignals, verifiedInsights, chartSignals, conversationMemory.
  */
 
 import type { MetricItem, TableArtifact, ChartArtifact, InsightArtifact } from '@/app/audit/dualEngine/types';
 import type { PatternDetection, OpportunityDetection } from '@/app/audit/tabs/types';
+import { formatMemoryForPrompt, type ConversationMemory } from './conversationMemory';
+
+/** Agent signals (Waste, Scaling, Profit, Trend, Anomaly) — deterministic SLM/engine outputs. */
+export interface AgentSignalsSnapshot {
+  wasteSignals?: {
+    totalWasteSpend: number;
+    wastePctOfTotalAdSpend: number;
+    bleedingKeywordCount: number;
+    summary: string;
+  };
+  scalingSignals?: {
+    scalingKeywordCount: number;
+    scalingCampaignCount: number;
+    avgRoas: number;
+    summary: string;
+  };
+  profitSignals?: {
+    breakEvenACOS: number;
+    targetROAS: number;
+    lossCampaignCount: number;
+    summary: string;
+  };
+  trendSignals?: { trendSlope: number; growthRate: number; summary: string };
+  anomalySignals?: { count: number; summary: string };
+}
+
+/** Verified insight with verification metadata. */
+export interface VerifiedInsightSnapshot {
+  insight: string;
+  verificationScore: number;
+  sourceEngine: 'slm' | 'gemini';
+}
+
+/** Chart-derived signals for Copilot reasoning. */
+export interface ChartSignalsSnapshot {
+  keywordScatter?: string;
+  campaignROASDistribution?: string;
+  salesBreakdown?: string;
+  funnelSignals?: string;
+}
 
 /** Serializable store summary for API (no Set, no functions). */
 export interface StoreSummarySnapshot {
@@ -50,6 +91,10 @@ export interface AuditContextInput {
   storeSummary: StoreSummarySnapshot;
   patterns: PatternDetection[];
   opportunities: OpportunityDetection[];
+  agentSignals?: AgentSignalsSnapshot;
+  verifiedInsights?: VerifiedInsightSnapshot[];
+  chartSignals?: ChartSignalsSnapshot;
+  conversationMemory?: ConversationMemory;
 }
 
 export interface AuditContext {
@@ -59,6 +104,10 @@ export interface AuditContext {
   charts: string;
   profit: string;
   trends: string;
+  agentSignals: string;
+  verifiedInsights: string;
+  chartSignals: string;
+  conversationMemory: string;
   /** Full text for Gemini prompt */
   summary: string;
 }
@@ -141,10 +190,45 @@ function formatOpportunities(opps: OpportunityDetection[]): string {
     .join('\n');
 }
 
-/**
- * Build structured audit context for the Copilot.
- * Used by the API to build the Gemini prompt.
- */
+function formatAgentSignals(signals: AgentSignalsSnapshot | undefined): string {
+  if (!signals) return 'No agent signals available.';
+  const parts: string[] = [];
+  if (signals.wasteSignals) {
+    parts.push(`Waste (deterministic): ${signals.wasteSignals.summary}`);
+  }
+  if (signals.scalingSignals) {
+    parts.push(`Scaling (deterministic): ${signals.scalingSignals.summary}`);
+  }
+  if (signals.profitSignals) {
+    parts.push(`Profit (deterministic): ${signals.profitSignals.summary}`);
+  }
+  if (signals.trendSignals) {
+    parts.push(`Trend: ${signals.trendSignals.summary}`);
+  }
+  if (signals.anomalySignals) {
+    parts.push(`Anomalies: ${signals.anomalySignals.summary}`);
+  }
+  return parts.length > 0 ? parts.join('\n') : 'No agent signals available.';
+}
+
+function formatVerifiedInsights(verified: VerifiedInsightSnapshot[] | undefined): string {
+  if (!verified?.length) return 'No verified insights.';
+  return verified
+    .map((v) => `[${v.sourceEngine}] (score ${Math.round(v.verificationScore * 100)}%) ${v.insight}`)
+    .join('\n');
+}
+
+function formatChartSignals(chartSignals: ChartSignalsSnapshot | undefined): string {
+  if (!chartSignals) return 'No chart signals.';
+  const parts: string[] = [];
+  if (chartSignals.keywordScatter) parts.push(`Keyword scatter: ${chartSignals.keywordScatter}`);
+  if (chartSignals.campaignROASDistribution) parts.push(`Campaign ROAS: ${chartSignals.campaignROASDistribution}`);
+  if (chartSignals.salesBreakdown) parts.push(`Sales breakdown: ${chartSignals.salesBreakdown}`);
+  if (chartSignals.funnelSignals) parts.push(`Funnel: ${chartSignals.funnelSignals}`);
+  return parts.length > 0 ? parts.join('\n') : 'No chart signals.';
+}
+
+/** Build structured audit context for the Copilot. */
 export function buildAuditContext(input: AuditContextInput): AuditContext {
   const metrics = formatMetrics(input.metrics);
   const tables = formatTables(input.tables);
@@ -155,21 +239,33 @@ export function buildAuditContext(input: AuditContextInput): AuditContext {
     formatPatterns(input.patterns),
     formatOpportunities(input.opportunities),
   ].filter(Boolean).join('\n\n');
+  const agentSignals = formatAgentSignals(input.agentSignals);
+  const verifiedInsights = formatVerifiedInsights(input.verifiedInsights);
+  const chartSignals = formatChartSignals(input.chartSignals);
+  const conversationMemory = input.conversationMemory ? formatMemoryForPrompt(input.conversationMemory) : '';
 
-  const summary = [
+  const summaryParts = [
     '--- Metrics ---',
     metrics,
     '--- Account summary (profit/totals) ---',
     profit,
+    '--- Agent signals (deterministic) ---',
+    agentSignals,
     '--- Detected issues (patterns) ---',
     trends,
+    '--- Verified insights ---',
+    verifiedInsights,
     '--- Insights ---',
     insights,
+    '--- Chart signals ---',
+    chartSignals,
     '--- Tables (sample) ---',
     tables,
     '--- Charts (data) ---',
     charts,
-  ].join('\n\n');
+  ];
+  if (conversationMemory) summaryParts.push('--- Conversation context ---', conversationMemory);
+  const summary = summaryParts.join('\n\n');
 
   return {
     metrics,
@@ -178,6 +274,10 @@ export function buildAuditContext(input: AuditContextInput): AuditContext {
     charts,
     profit,
     trends,
+    agentSignals,
+    verifiedInsights,
+    chartSignals,
+    conversationMemory,
     summary,
   };
 }

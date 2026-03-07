@@ -5,7 +5,7 @@ import { useAuditStore } from '../context/AuditStoreContext';
 import { useDualEngine } from '../dualEngine/dualEngineContext';
 import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
-import { FileDown, FileText, RotateCcw } from 'lucide-react';
+import { FileDown, FileText, RotateCcw, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { exportAuditPdf } from '../utils/exportPdf';
 import { exportAuditDocx } from '../utils/exportDocx';
 import { computeHealthScore } from '../utils/healthScoreEngine';
@@ -130,6 +130,26 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
   const handleWord = async () => await exportAuditDocx(store);
   const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
 
+  const sendKpiFeedback = async (label: string, value: string, feedbackType: 'like' | 'dislike') => {
+    try {
+      await fetch('/api/audit-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          artifactType: 'metrics',
+          artifactId: label,
+          value,
+          feedbackType,
+        }),
+      });
+      if (feedbackType === 'dislike') {
+        onRerunAnalysis?.();
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const cardStatusClass: Record<SummaryStatus, string> = {
     red: 'bg-red-500/20 text-red-400 border-red-500/40',
     orange: 'bg-amber-500/20 text-amber-400 border-amber-500/40',
@@ -209,10 +229,30 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
             const hideFinancialMetric = !showFinancial && ['Total Store Sales', 'Total Ad Spend', 'Total Ad Sales', 'ROAS', 'ACOS', 'TACOS'].includes(c.label);
             const content = (
               <>
-                <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-0.5">
-                  {c.label}
-                  {isLowConfidence && confidenceBelow80 ? '*' : ''}
-                </p>
+                <div className="flex items-start justify-between gap-1">
+                  <p className="text-xs font-medium uppercase tracking-wider opacity-90 mb-0.5">
+                    {c.label}
+                    {isLowConfidence && confidenceBelow80 ? '*' : ''}
+                  </p>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); sendKpiFeedback(c.label, c.value, 'like'); }}
+                      className="p-0.5 rounded hover:bg-white/10 opacity-70 hover:opacity-100"
+                      aria-label="Like"
+                    >
+                      <ThumbsUp className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); sendKpiFeedback(c.label, c.value, 'dislike'); }}
+                      className="p-0.5 rounded hover:bg-white/10 opacity-70 hover:opacity-100"
+                      aria-label="Dislike"
+                    >
+                      <ThumbsDown className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
                 <p className="text-base font-bold tabular-nums">{hideFinancialMetric ? '—' : c.value}</p>
                 {c.sub && <p className="text-xs mt-0.5 opacity-80">{c.sub}</p>}
               </>

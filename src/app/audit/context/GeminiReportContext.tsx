@@ -207,23 +207,11 @@ export function GeminiReportProvider({ children }: { children: ReactNode }) {
       let success = false;
       try {
         const payload = buildPayload(store);
-        const rawFiles = opts?.rawFiles ?? [];
-        let res: Response;
-        if (rawFiles.length > 0) {
-          const formData = new FormData();
-          formData.set('payload', JSON.stringify(payload));
-          rawFiles.forEach((f) => formData.append('files', f));
-          res = await fetch('/api/generate-insights', {
-            method: 'POST',
-            body: formData,
-          });
-        } else {
-          res = await fetch('/api/generate-insights', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-        }
+        const res = await fetch('/api/generate-insights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
         const data = await res.json() as { report?: string; narrative?: string; error?: string; errorCode?: string; errorDetail?: string };
         if (!res.ok) {
           const msg = data.error || 'AI analysis temporarily unavailable. Please rerun analysis.';

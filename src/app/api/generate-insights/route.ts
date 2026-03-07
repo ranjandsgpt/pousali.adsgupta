@@ -7,12 +7,13 @@ import {
 import { validateNarrativeResponse } from '@/lib/geminiResponseValidation';
 import { logGeminiResponse } from '@/lib/geminiResponseLogger';
 import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
+import { assertNoFileReferences } from '@/lib/geminiRequestGuard';
+import { logGeminiRequest } from '@/lib/geminiRequestLogger';
 
 /**
- * Mode 2 — Insight Narrative.
- * Request: normalized dataset + optional raw files (multipart).
- * Response: PLAIN TEXT only for "AI Audit Narrative — Gemini" section.
- * No JSON, no code. Raw files are passed to Gemini unmodified.
+ * Mode 2 — Executive Narrative (Insight Narrative).
+ * Request: structured audit context only (JSON). No raw CSV/XLSX files.
+ * Response: PLAIN TEXT for "AI Audit Narrative — Gemini" section.
  */
 export interface InsightNarrativePayload {
   accountSummary: Record<string, unknown>;
@@ -30,50 +31,18 @@ const FAILSAFE_MESSAGE =
 const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const MAX_RETRIES = 1;
 
-function getMimeType(fileName: string): string {
-  const lower = fileName.toLowerCase();
-  if (lower.endsWith('.xlsx')) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  if (lower.endsWith('.xls')) return 'application/vnd.ms-excel';
-  return 'text/csv';
-}
-
+/** Call Gemini with text-only content. No file references. */
 async function callGeminiNarrative(
   ai: GoogleGenAI,
   systemInstruction: string,
-  userText: string,
-  rawFiles: { blob: Blob; name: string }[]
+  userText: string
 ): Promise<string> {
-  let parts: { text?: string; fileData?: { fileUri?: string; mimeType?: string } }[] = [];
-  if (rawFiles.length > 0) {
-    const uploaded: { name?: string; mimeType?: string }[] = [];
-    for (const { blob, name } of rawFiles) {
-      const mimeType = getMimeType(name);
-      const file = await ai.files.upload({
-        file: blob as globalThis.Blob,
-        config: { mimeType },
-      });
-      uploaded.push({ name: (file as { name?: string }).name, mimeType });
-    }
-    parts = [
-      ...uploaded.map((u) => ({ fileData: { fileUri: u.name, mimeType: u.mimeType } })),
-      { text: userText },
-    ];
-  } else {
-    parts = [{ text: userText }];
-  }
-  const fileParts = parts.filter((x) => x.fileData?.fileUri);
+  const contents = [{ role: 'user' as const, parts: [{ text: userText }] }];
+  assertNoFileReferences(contents);
   const result = await ai.models.generateContent({
     model,
     config: { systemInstruction },
-    contents: [
-      {
-        role: 'user',
-        parts:
-          fileParts.length > 0
-            ? ([...fileParts.map((x) => ({ fileData: x.fileData })), { text: userText }] as const)
-            : [{ text: userText }],
-      },
-    ],
+    contents,
   });
   return extractTextFromGenerateContentResponse(result);
 }
@@ -87,44 +56,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const contentType = request.headers.get('content-type') || '';
   let payload: InsightNarrativePayload;
-  const rawFiles: { blob: Blob; name: string }[] = [];
-
-  if (contentType.includes('multipart/form-data')) {
-    try {
-      const formData = await request.formData();
-      const payloadStr = formData.get('payload') as string | null;
-      if (!payloadStr) {
-        return NextResponse.json(
-          { error: 'Missing payload in form data', report: FAILSAFE_MESSAGE },
-          { status: 400 }
-        );
-      }
-      payload = JSON.parse(payloadStr) as InsightNarrativePayload;
-      const files = formData.getAll('files') as (Blob | File)[];
-      for (const f of files) {
-        if (f != null && typeof (f as Blob).arrayBuffer === 'function') {
-          const name = f instanceof File ? f.name : 'report.csv';
-          rawFiles.push({ blob: f as Blob, name });
-        }
-      }
-    } catch (e) {
-      console.error('generate-insights multipart parse', e);
-      return NextResponse.json(
-        { error: 'Invalid multipart/form-data', report: FAILSAFE_MESSAGE },
-        { status: 400 }
-      );
-    }
-  } else {
-    try {
-      payload = await request.json() as InsightNarrativePayload;
-    } catch {
-      return NextResponse.json(
-        { error: 'Invalid JSON body', report: FAILSAFE_MESSAGE },
-        { status: 400 }
-      );
-    }
+  try {
+    payload = (await request.json()) as InsightNarrativePayload;
+  } catch {
+    return NextResponse.json(
+      { error: 'Invalid JSON body', report: FAILSAFE_MESSAGE },
+      { status: 400 }
+    );
   }
 
   const dataJson = JSON.stringify(
@@ -139,10 +78,7 @@ export async function POST(request: NextRequest) {
     null,
     2
   );
-  const userText =
-    rawFiles.length > 0
-      ? `${INSIGHT_NARRATIVE_USER_PREFIX}\n${dataJson}`
-      : `No raw files attached. Use the normalized dataset below.\n\n${INSIGHT_NARRATIVE_USER_PREFIX}\n${dataJson}`;
+  const userText = `${INSIGHT_NARRATIVE_USER_PREFIX}\n\nUse the following verified audit data (structured context only).\n\n${dataJson}`;
 
   const metricsReferenceContext =
     typeof payload.metricsReferenceContext === 'string'
@@ -158,19 +94,25 @@ export async function POST(request: NextRequest) {
   let errorCode: string | undefined;
   let errorDetail: string | undefined;
 
+  const contextSize = userText.length;
+  const startMs = Date.now();
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      lastRaw = await callGeminiNarrative(
-        ai,
-        systemInstruction,
-        userText,
-        rawFiles
-      );
+      lastRaw = await callGeminiNarrative(ai, systemInstruction, userText);
+      const latencyMs = Date.now() - startMs;
       await logGeminiResponse({
         mode: 'insight_narrative',
         rawResponse: lastRaw.slice(0, 10000),
         outcome: lastRaw ? 'plain_text' : 'empty',
         ...(attempt > 0 ? { error: `retry ${attempt}` } : {}),
+      });
+      await logGeminiRequest({
+        mode: 'insight_narrative',
+        promptLength: userText.length,
+        contextSize,
+        responseLatencyMs: latencyMs,
+        validationResult: lastRaw ? 'ok' : 'empty',
       });
       if (!lastRaw) {
         errorCode = 'gemini_empty';
@@ -200,6 +142,14 @@ export async function POST(request: NextRequest) {
         rawResponse: lastRaw || '(no response)',
         outcome: 'error',
         error: errMsg,
+      });
+      await logGeminiRequest({
+        mode: 'insight_narrative',
+        promptLength: userText.length,
+        contextSize,
+        responseLatencyMs: Date.now() - startMs,
+        validationResult: 'error',
+        error: errMsg.slice(0, 200),
       });
       errorCode = 'gemini_error';
       errorDetail = errMsg.slice(0, 200);

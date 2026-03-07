@@ -8,6 +8,46 @@ import { validateCopilotResponse } from '@/lib/copilot/validateResponse';
 
 const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
+const sym = (c: string | null) => (c === 'EUR' ? '€' : c === 'GBP' ? '£' : '$');
+
+/** SLM deterministic path: answer metric questions from storeSummary only. No Gemini. */
+function answerWithSlm(question: string, storeSummary: StoreSummarySnapshot): string | null {
+  const q = question.toLowerCase().trim();
+  const m = storeSummary.metrics;
+  const sign = sym(m.currency);
+  if (/\b(total )?ad spend|total spend|spend\b/.test(q) && !/\bsales\b/.test(q)) {
+    return `Total ad spend: ${sign}${m.totalAdSpend.toLocaleString('en-US', { minimumFractionDigits: 2 })}.`;
+  }
+  if (/\b(total )?ad sales|total sales|sales\b/.test(q) && !/\bspend\b/.test(q)) {
+    return `Total ad sales: ${sign}${m.totalAdSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}.`;
+  }
+  if (/\b(total )?store sales\b/.test(q)) {
+    return `Total store sales: ${sign}${m.totalStoreSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}.`;
+  }
+  if (/\broas\b/.test(q)) {
+    return `ROAS (return on ad spend): ${m.roas.toFixed(2)}×.`;
+  }
+  if (/\bacos\b/.test(q)) {
+    return `ACOS (ad cost of sales): ${m.acos.toFixed(1)}%.`;
+  }
+  if (/\btacos\b/.test(q)) {
+    return `TACOS: ${m.tacos.toFixed(1)}%.`;
+  }
+  if (/\bcpc\b|cost per click/.test(q)) {
+    return `CPC: ${sign}${m.cpc.toFixed(2)}.`;
+  }
+  if (/\bconversions?|orders\b/.test(q)) {
+    return `Orders (conversions): ${m.totalOrders.toLocaleString()}.`;
+  }
+  if (/\bclicks\b/.test(q)) {
+    return `Total clicks: ${m.totalClicks.toLocaleString()}.`;
+  }
+  if (/\bsessions\b/.test(q)) {
+    return `Sessions: ${m.totalSessions.toLocaleString()}.`;
+  }
+  return null;
+}
+
 export interface CopilotRequestBody {
   question: string;
   auditContextInput: AuditContextInput;
@@ -57,17 +97,49 @@ export async function POST(request: NextRequest) {
     } as CopilotResponseBody);
   }
 
+  const storeSummary = auditContextInput.storeSummary as StoreSummarySnapshot;
+
+  if (route.engine === 'slm') {
+    const slmAnswer = answerWithSlm(route.normalizedQuery, storeSummary);
+    if (slmAnswer) {
+      return NextResponse.json({
+        answer: slmAnswer,
+        validated: true,
+        suggestedFollowUps: ['Why is ACOS high?', 'Which campaigns should I pause?', 'View wasted keywords'],
+      } as CopilotResponseBody);
+    }
+  }
+
   const context = buildAuditContext({
     metrics: auditContextInput.metrics ?? [],
     tables: auditContextInput.tables ?? [],
     charts: auditContextInput.charts ?? [],
     insights: auditContextInput.insights ?? [],
-    storeSummary: auditContextInput.storeSummary as StoreSummarySnapshot,
+    storeSummary,
     patterns: auditContextInput.patterns ?? [],
     opportunities: auditContextInput.opportunities ?? [],
+    agentSignals: auditContextInput.agentSignals,
+    verifiedInsights: auditContextInput.verifiedInsights,
+    chartSignals: auditContextInput.chartSignals,
+    conversationMemory: auditContextInput.conversationMemory,
   });
 
-  const userMessage = buildCopilotUserMessage(context.summary, route.normalizedQuery);
+  let feedbackContext = '';
+  try {
+    const { getFeedbackContextForEngines } = await import('@/app/audit/agents/humanFeedbackAgent');
+    feedbackContext = getFeedbackContextForEngines();
+    const { runCentralFeedbackAgent } = await import('@/app/audit/agents/centralFeedbackAgent');
+    const central = runCentralFeedbackAgent();
+    if (central.promptContextSnippet) {
+      feedbackContext = feedbackContext
+        ? `${feedbackContext}\n\n${central.promptContextSnippet}`
+        : central.promptContextSnippet;
+    }
+  } catch {
+    // optional
+  }
+
+  const userMessage = buildCopilotUserMessage(context.summary, route.normalizedQuery, feedbackContext);
 
   const ai = new GoogleGenAI({ apiKey });
   let rawText: string;

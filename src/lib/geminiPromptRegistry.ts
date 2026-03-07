@@ -158,6 +158,15 @@ export function buildSchemaInferUserMessage(headers: string[]): string {
 // ─── Audit Copilot ────────────────────────────────────────────────────────
 export const COPILOT_SYSTEM = `You are an Amazon Advertising Audit Analyst. You answer questions about an Amazon advertising account using ONLY the audit data provided. Never invent numbers, campaigns, or keywords. If information is missing, say: "The uploaded reports do not contain this data." Structure: Answer, Reason, Recommended Action, Confidence.`;
 
-export function buildCopilotUserMessage(auditContextSummary: string, userQuery: string): string {
-  return `Audit Context (use only this data):\n\n${auditContextSummary}\n\n---\n\nUser Question: ${userQuery}\n\nProvide a clear answer using only the audit context. Structure: Answer, Reason, Recommended Action, Confidence.`;
+export function buildCopilotUserMessage(
+  auditContextSummary: string,
+  userQuery: string,
+  feedbackContext?: string
+): string {
+  let out = `Audit Context (use only this data):\n\n${auditContextSummary}\n\n---\n\nUser Question: ${userQuery}`;
+  if (feedbackContext && feedbackContext.trim()) {
+    out += `\n\n--- Feedback (re-evaluate if relevant) ---\n${feedbackContext.trim()}`;
+  }
+  out += `\n\nProvide a clear answer using only the audit context. Structure: Answer, Reason, Recommended Action, Confidence.`;
+  return out;
 }

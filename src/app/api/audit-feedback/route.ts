@@ -2,28 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 import { addFeedback, getFeedback } from '@/app/audit/db/feedback';
 
 /**
- * POST: submit metric/artifact feedback (Correct / Incorrect).
- * Body: { metricId | artifact_id, value, userFeedback | feedback: 'correct'|'incorrect', comment?, artifactType?, audit_id? }
+ * POST: submit feedback (like/dislike or correct/incorrect).
+ * Body: { artifactType, artifactId | artifact_id | metricId, value?, feedbackType: 'like'|'dislike' | feedback: 'correct'|'incorrect', comment?, audit_id?, sessionId? }
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const artifactId = body.artifact_id ?? body.metricId;
+    const artifactId = body.artifactId ?? body.artifact_id ?? body.metricId;
+    const feedbackType = body.feedbackType as string | undefined;
     const userFeedback = body.feedback ?? body.userFeedback;
-    const { value, comment, artifactType, audit_id } = body;
-    if (!artifactId || !userFeedback || !['correct', 'incorrect'].includes(userFeedback)) {
+    const { value, comment, artifactType, audit_id, sessionId } = body;
+    const hasVerdict = userFeedback && ['correct', 'incorrect'].includes(userFeedback);
+    const hasLikeDislike = feedbackType && ['like', 'dislike'].includes(feedbackType);
+    if (!artifactId || (!hasVerdict && !hasLikeDislike)) {
       return NextResponse.json(
-        { error: 'Missing or invalid metricId/artifact_id, userFeedback/feedback (must be correct|incorrect)' },
+        { error: 'Missing artifactId/artifact_id/metricId and feedback (correct|incorrect) or feedbackType (like|dislike)' },
         { status: 400 }
       );
     }
-    const type = artifactType ? String(artifactType) as 'metrics' | 'tables' | 'charts' | 'insights' | 'recommendations' : 'metrics';
+    const type = (artifactType ? String(artifactType) : 'metrics') as
+      | 'metrics'
+      | 'tables'
+      | 'charts'
+      | 'insights'
+      | 'recommendations'
+      | 'copilot_response';
     const record = addFeedback({
-      metricId: String(artifactId),
+      audit_id: audit_id ?? 'session',
+      artifact_type: type,
+      artifact_id: String(artifactId),
       value: value ?? '',
-      userFeedback,
+      feedback: hasVerdict ? userFeedback : feedbackType === 'like' ? 'correct' : 'incorrect',
+      feedbackType: hasLikeDislike ? (feedbackType as 'like' | 'dislike') : undefined,
       comment: comment ? String(comment) : undefined,
-      artifactType: type,
+      sessionId: sessionId ? String(sessionId) : undefined,
     });
     return NextResponse.json({ ok: true, id: record.timestamp });
   } catch (e) {

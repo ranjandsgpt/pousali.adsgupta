@@ -4,7 +4,15 @@
 
 export type FeedbackVerdict = 'correct' | 'incorrect';
 
-export type AuditFeedbackArtifactType = 'metrics' | 'tables' | 'charts' | 'insights' | 'recommendations';
+export type FeedbackType = 'like' | 'dislike' | 'correction';
+
+export type AuditFeedbackArtifactType =
+  | 'metrics'
+  | 'tables'
+  | 'charts'
+  | 'insights'
+  | 'recommendations'
+  | 'copilot_response';
 
 /** audit_feedback table row (in-memory representation). */
 export interface AuditFeedbackRecord {
@@ -13,8 +21,10 @@ export interface AuditFeedbackRecord {
   artifact_id: string;
   value: string | number;
   feedback: FeedbackVerdict;
+  feedbackType?: FeedbackType;
   comment?: string;
   timestamp: string; // ISO
+  sessionId?: string;
 }
 
 /** Legacy shape for Phase 1 (metricId, userFeedback); mapped to AuditFeedbackRecord internally. */
@@ -30,28 +40,39 @@ export interface MetricFeedbackRecord {
 const inMemoryStore: AuditFeedbackRecord[] = [];
 const DEFAULT_AUDIT_ID = 'session';
 
+function toFeedbackVerdict(feedbackType?: string, feedback?: FeedbackVerdict): FeedbackVerdict {
+  if (feedback === 'correct' || feedback === 'incorrect') return feedback;
+  if (feedbackType === 'like') return 'correct';
+  if (feedbackType === 'dislike' || feedbackType === 'correction') return 'incorrect';
+  return 'correct';
+}
+
 function toAuditRecord(
-  input: Omit<MetricFeedbackRecord, 'timestamp'> | Omit<AuditFeedbackRecord, 'timestamp'>,
+  input: Omit<MetricFeedbackRecord, 'timestamp'> | Omit<AuditFeedbackRecord, 'timestamp'> | (Omit<AuditFeedbackRecord, 'timestamp'> & { feedbackType?: FeedbackType }),
   timestamp: string
 ): AuditFeedbackRecord {
-  if ('artifact_id' in input && 'feedback' in input && 'audit_id' in input) {
+  if ('artifact_id' in input && ('feedback' in input || 'feedbackType' in input) && 'audit_id' in input) {
+    const feedback = toFeedbackVerdict((input as { feedbackType?: string }).feedbackType, (input as { feedback?: FeedbackVerdict }).feedback);
     return {
-      audit_id: input.audit_id,
-      artifact_type: input.artifact_type,
-      artifact_id: input.artifact_id,
-      value: input.value,
-      feedback: input.feedback,
-      comment: input.comment,
+      audit_id: (input as AuditFeedbackRecord).audit_id,
+      artifact_type: (input as AuditFeedbackRecord).artifact_type,
+      artifact_id: (input as AuditFeedbackRecord).artifact_id,
+      value: (input as AuditFeedbackRecord).value,
+      feedback,
+      feedbackType: (input as { feedbackType?: FeedbackType }).feedbackType,
+      comment: (input as AuditFeedbackRecord).comment,
       timestamp,
+      sessionId: (input as { sessionId?: string }).sessionId,
     };
   }
-  const r = input as Omit<MetricFeedbackRecord, 'timestamp'>;
+  const r = input as Omit<MetricFeedbackRecord, 'timestamp'> & { feedbackType?: string };
+  const feedback = toFeedbackVerdict(r.feedbackType, r.userFeedback);
   return {
     audit_id: DEFAULT_AUDIT_ID,
     artifact_type: r.artifactType ?? 'metrics',
     artifact_id: r.metricId,
     value: r.value,
-    feedback: r.userFeedback,
+    feedback,
     comment: r.comment,
     timestamp,
   };
