@@ -5,23 +5,17 @@ import {
   PRESENTATION_GENERATION_USER_PREFIX,
 } from '@/lib/geminiPromptRegistry';
 import { logGeminiResponse } from '@/lib/geminiResponseLogger';
+import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
+import { assertNoFileReferences } from '@/lib/geminiRequestGuard';
+import { logGeminiRequest } from '@/lib/geminiRequestLogger';
 
 /**
  * Mode 3 — Presentation Generation.
- * Input: raw report files + optional normalized summary.
- * Output: Python code only. No JSON, no markdown, no explanation.
- * Backend may execute the script (e.g. in a sandbox) and store generated files;
- * for now this route returns the generated script and logs the response.
+ * Input: structured summary only (JSON). No raw files sent to Gemini.
+ * Output: Python code only.
  */
 
 const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-
-function getMimeType(fileName: string): string {
-  const lower = fileName.toLowerCase();
-  if (lower.endsWith('.xlsx')) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  if (lower.endsWith('.xls')) return 'application/vnd.ms-excel';
-  return 'text/csv';
-}
 
 export async function POST(request: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -32,79 +26,41 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const contentType = request.headers.get('content-type') || '';
   let payload: { summary?: string; fileNames?: string[] } = {};
-  const rawFiles: { blob: Blob; name: string }[] = [];
-
-  if (contentType.includes('multipart/form-data')) {
-    try {
-      const formData = await request.formData();
-      const payloadStr = formData.get('payload') as string | null;
-      if (payloadStr) payload = JSON.parse(payloadStr) as { summary?: string; fileNames?: string[] };
-      const files = formData.getAll('files') as (Blob | File)[];
-      for (const f of files) {
-        if (f != null && typeof (f as Blob).arrayBuffer === 'function') {
-          const name = f instanceof File ? f.name : 'report.csv';
-          rawFiles.push({ blob: f as Blob, name });
-        }
-      }
-    } catch {
-      return NextResponse.json({ error: 'Invalid multipart/form-data', script: null }, { status: 400 });
-    }
-  } else {
-    try {
-      payload = await request.json();
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON body', script: null }, { status: 400 });
-    }
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body', script: null }, { status: 400 });
   }
 
-  const fileNames = rawFiles.length > 0 ? rawFiles.map((f) => f.name).join(', ') : payload.fileNames?.join(', ') ?? 'none';
+  const fileNames = payload.fileNames?.join(', ') ?? 'none (structured context only)';
   const userText = `${PRESENTATION_GENERATION_USER_PREFIX}${fileNames}.\n\n${payload.summary ?? 'No summary provided.'}`;
 
+  const contents = [{ role: 'user' as const, parts: [{ text: userText }] }];
+  assertNoFileReferences(contents);
+
+  const startMs = Date.now();
   try {
     const ai = new GoogleGenAI({ apiKey });
-    let parts: { text?: string; fileData?: { fileUri?: string; mimeType?: string } }[] = [];
-
-    if (rawFiles.length > 0) {
-      for (const { blob, name } of rawFiles) {
-        const mimeType = getMimeType(name);
-        const file = await ai.files.upload({
-          file: blob as globalThis.Blob,
-          config: { mimeType },
-        });
-        parts.push({ fileData: { fileUri: (file as { name?: string }).name, mimeType } });
-      }
-      parts.push({ text: userText });
-    } else {
-      parts = [{ text: userText }];
-    }
-
-    const fileParts = parts.filter((x) => x.fileData?.fileUri);
     const result = await ai.models.generateContent({
       model,
       config: { systemInstruction: PRESENTATION_GENERATION_PROMPT },
-      contents: [
-        {
-          role: 'user',
-          parts:
-            fileParts.length > 0
-              ? ([...fileParts.map((x) => ({ fileData: x.fileData })), { text: userText }] as const)
-              : [{ text: userText }],
-        },
-      ],
+      contents,
     });
 
-    const text =
-      result.candidates?.[0]?.content?.parts
-        ?.map((p) => p.text ?? '')
-        .join('\n')
-        .trim() || '';
+    const text = extractTextFromGenerateContentResponse(result);
 
     await logGeminiResponse({
       mode: 'presentation',
       rawResponse: text.slice(0, 8000),
       outcome: text ? 'python_script' : 'empty',
+    });
+    await logGeminiRequest({
+      mode: 'presentation',
+      promptLength: userText.length,
+      contextSize: userText.length,
+      responseLatencyMs: Date.now() - startMs,
+      validationResult: text ? 'ok' : 'empty',
     });
 
     if (!text) {
@@ -120,6 +76,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ script, executed: false }, { status: 200 });
   } catch (e) {
     console.error('generate-presentation error', e);
+    await logGeminiRequest({
+      mode: 'presentation',
+      promptLength: userText.length,
+      contextSize: userText.length,
+      responseLatencyMs: Date.now() - startMs,
+      validationResult: 'error',
+      error: e instanceof Error ? e.message : String(e),
+    });
     return NextResponse.json(
       { script: null, error: e instanceof Error ? e.message : 'Generation failed' },
       { status: 200 }

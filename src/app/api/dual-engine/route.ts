@@ -11,6 +11,8 @@ import {
 } from '@/lib/geminiPromptRegistry';
 import { logGeminiResponse } from '@/lib/geminiResponseLogger';
 import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
+import { assertNoFileReferences } from '@/lib/geminiRequestGuard';
+import { logGeminiRequest } from '@/lib/geminiRequestLogger';
 
 /**
  * Dual Engine API:
@@ -205,60 +207,29 @@ export async function POST(request: NextRequest) {
   if (mode === 'structured') {
     const p = payload as StructuredPayload;
     const datasetJson = JSON.stringify(p, null, 2);
-    let parts: { text?: string; fileData?: { fileUri?: string; mimeType?: string } }[] = [];
+    const userText = STRUCTURED_FROM_JSON_USER_PREFIX + datasetJson;
+    const contents = [{ role: 'user' as const, parts: [{ text: userText }] }];
+    assertNoFileReferences(contents);
 
-    if (rawFiles.length > 0) {
-      try {
-        const uploaded: { name?: string; mimeType?: string }[] = [];
-        for (const blob of rawFiles) {
-          const name = blob instanceof File ? blob.name : 'report.csv';
-          const mimeType = blob instanceof File ? (blob.type || getMimeType(name)) : getMimeType(name);
-          const file = await ai.files.upload({
-            file: blob as globalThis.Blob,
-            config: { mimeType },
-          });
-          uploaded.push({ name: (file as { name?: string }).name, mimeType });
-        }
-        const prompt =
-          STRUCTURED_FROM_RAW_USER_PREFIX +
-          '\n' +
-          datasetJson +
-          '\n\nReturn ONLY valid JSON in the exact shape specified in the system instruction.';
-        parts = [
-          ...uploaded.map((u) => ({ fileData: { fileUri: u.name, mimeType: u.mimeType } })),
-          { text: prompt },
-        ];
-      } catch (uploadErr) {
-        console.error('dual-engine file upload', uploadErr);
-        parts = [{ text: STRUCTURED_FROM_JSON_USER_PREFIX + datasetJson }];
-      }
-    } else {
-      parts = [{ text: STRUCTURED_FROM_JSON_USER_PREFIX + datasetJson }];
-    }
-
-    const userText =
-      parts.find((x) => x.text)?.text ?? STRUCTURED_FROM_JSON_USER_PREFIX + datasetJson;
-    const fileParts = parts.filter((x) => x.fileData?.fileUri);
-
+    const startMs = Date.now();
     try {
       const result = await ai.models.generateContent({
         model,
         config: { systemInstruction: STRUCTURED_FROM_RAW_SYSTEM },
-        contents: [
-          {
-            role: 'user',
-            parts:
-              fileParts.length > 0
-                ? ([...fileParts.map((x) => ({ fileData: x.fileData })), { text: userText }] as const)
-                : [{ text: userText }],
-          },
-        ],
+        contents,
       });
       const text = extractTextFromGenerateContentResponse(result);
       await logGeminiResponse({
         mode: 'structured',
         rawResponse: text.slice(0, 8000),
         outcome: text ? 'json' : 'empty',
+      });
+      await logGeminiRequest({
+        mode: 'structured',
+        promptLength: userText.length,
+        contextSize: userText.length,
+        responseLatencyMs: Date.now() - startMs,
+        validationResult: text ? 'ok' : 'empty',
       });
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       const raw = jsonMatch ? jsonMatch[0] : text;
