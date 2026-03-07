@@ -1,0 +1,511 @@
+#,Calculation Name,Description,Formula,Example Fields
+1,Impressions,Total number of ad impressions,Impressions,Impressions
+2,Clicks,Total number of ad clicks,Clicks,Clicks
+3,Click-Through Rate (CTR),Percentage of impressions that resulted in clicks,"Clicks / Impressions * 100",Clicks, Impressions
+4,Cost Per Click (CPC),Average cost per click,"Spend / Clicks",Spend, Clicks
+5,Total Spend,Total advertising cost,Spend,Spend
+6,Total Sales (7 Day),Total attributed sales in 7 days after click,"Sales (7 Day Total)",7 Day Total Sales
+7,Total Orders (7 Day),Total attributed orders in 7 days,"Orders (7 Day Total)",7 Day Total Orders (#)
+8,Total Units (7 Day),Total attributed units sold in 7 days,"Units (7 Day Total)",7 Day Total Units (#)
+9,Advertising Cost of Sales (ACOS),Percentage of spend to sales,"Spend / Sales (7 Day Total) * 100",Spend, 7 Day Total Sales
+10,Return on Ad Spend (ROAS),Sales per dollar spent,"Sales (7 Day Total) / Spend",7 Day Total Sales, Spend
+11,Conversion Rate (CVR),Percentage of clicks that resulted in orders,"Orders (7 Day Total) / Clicks * 100",7 Day Total Orders (#), Clicks
+12,Cost Per Order,Average advertising cost per order,"Spend / Orders (7 Day Total)",Spend, 7 Day Total Orders (#)
+13,Cost Per Unit,Average advertising cost per unit sold,"Spend / Units (7 Day Total)",Spend, 7 Day Total Units (#)
+14,Average Selling Price (ASP),Average price per unit sold,"Sales (7 Day Total) / Units (7 Day Total)",7 Day Total Sales, 7 Day Total Units (#)
+15,Sales Per Click,Average sales generated per click,"Sales (7 Day Total) / Clicks",7 Day Total Sales, Clicks
+16,Orders Per Click,Average orders per click,"Orders (7 Day Total) / Clicks",7 Day Total Orders (#), Clicks
+17,Units Per Click,Average units sold per click,"Units (7 Day Total) / Clicks",7 Day Total Units (#), Clicks
+18,Sales Per Impression,Sales per thousand impressions (RPM),"(Sales (7 Day Total) / Impressions) * 1000",7 Day Total Sales, Impressions
+19,Orders Per Impression,Orders per thousand impressions,"(Orders (7 Day Total) / Impressions) * 1000",7 Day Total Orders (#), Impressions
+20,Units Per Impression,Units per thousand impressions,"(Units (7 Day Total) / Impressions) * 1000",7 Day Total Units (#), Impressions
+21,Effective CPC,Sales-weighted CPC (alternative),"Spend / Clicks",Spend, Clicks
+22,Profit (simple),Sales minus spend (ignoring COGS),"Sales (7 Day Total) - Spend",7 Day Total Sales, Spend
+23,Break-Even ACOS,The ACOS at which profit is zero (given margin),Margin %,Margin %
+24,Target ACOS,Desired ACOS based on business goals,User-defined,
+25,Spend Ratio to Sales,Same as ACOS,"Spend / Sales (7 Day Total)",Spend, 7 Day Total Sales
+26,Click Share,Percentage of clicks attributed to a campaign/ad group/keyword,"Clicks (segment) / Total Clicks * 100",Clicks
+27,Impression Share,Percentage of impressions attributed,"Impressions (segment) / Total Impressions * 100",Impressions
+28,Sales Share,Percentage of sales attributed,"Sales (segment) / Total Sales * 100",7 Day Total Sales
+29,Order Share,Percentage of orders attributed,"Orders (segment) / Total Orders * 100",7 Day Total Orders (#)
+30,Unit Share,Percentage of units attributed,"Units (segment) / Total Units * 100",7 Day Total Units (#)
+31,Weighted Average CPC,CPC weighted by clicks across segments,"SUM(Spend) / SUM(Clicks)",Spend, Clicks
+32,Weighted Average ACOS,ACOS weighted by sales,"SUM(Spend) / SUM(Sales)",Spend, Sales
+33,Portfolio ACOS,ACOS for a portfolio of campaigns,"SUM(Spend) / SUM(Sales)",Spend, Sales
+34,Daily Average Spend,Average spend per day over period,"Spend / Days in range",Spend, Date range
+35,Daily Average Sales,Average sales per day,"Sales / Days in range",Sales, Date range
+36,Daily Average Orders,Average orders per day,"Orders / Days in range",Orders, Date range
+37,Daily Average CPC,Average CPC per day,"SUM(Spend per day) / SUM(Clicks per day)",Spend, Clicks, Date
+38,Cost Per Thousand Impressions (CPM),Advertising cost per 1000 impressions,"(Spend / Impressions) * 1000",Spend, Impressions
+39,Revenue Per Thousand Impressions (RPM),Sales per 1000 impressions,"(Sales / Impressions) * 1000",Sales, Impressions
+40,Profit Per Click (PPC),Profit (sales - spend) per click,"(Sales - Spend) / Clicks",Sales, Spend, Clicks
+41,Profit Per Order,Profit per order,"(Sales - Spend) / Orders",Sales, Spend, Orders
+42,Profit Per Unit,Profit per unit,"(Sales - Spend) / Units",Sales, Spend, Units
+43,Return on Investment (ROI),(Sales - Spend) / Spend * 100,"(Sales - Spend) / Spend * 100",Sales, Spend
+44,Contribution Margin,Sales * Margin - Spend,"Sales * Margin% - Spend",Sales, Margin%, Spend
+45,Break-Even CPC,Maximum CPC to break even given CVR and ASP,"ASP * CVR",ASP, CVR
+46,Required Clicks for Target Sales,Clicks needed to achieve target sales,"Target Sales / (ASP * CVR)",ASP, CVR
+47,Required Impressions for Target Sales,Impressions needed,"Target Sales / (ASP * CVR * CTR)",ASP, CVR, CTR
+48,Estimated Sales from Clicks,Based on historical CVR and ASP,"Clicks * CVR * ASP",Clicks, CVR, ASP
+49,Estimated Orders from Impressions,"Impressions * CTR * CVR",Impressions, CTR, CVR
+50,Estimated Spend from Clicks,"Clicks * CPC",Clicks, CPC
+51,Marginal ACOS,ACOS for incremental spend,"ΔSpend / ΔSales",Spend, Sales
+52,Marginal ROAS,ROAS for incremental spend,"ΔSales / ΔSpend",Spend, Sales
+53,Efficiency Index,(Sales / Spend) compared to benchmark,"ROAS / Benchmark ROAS",ROAS
+54,Cost Per Acquisition (CPA),Same as Cost Per Order,"Spend / Orders",Spend, Orders
+55,Customer Acquisition Cost (CAC),Same as CPA for first-time buyers,"Spend / New-to-brand orders",Spend, New orders
+56,Lifetime Value to CAC Ratio,"LTV / CAC",LTV / CPA,LTV, CPA
+57,Advertised SKU ACOS,ACOS for advertised SKU only,"Spend / Advertised SKU Sales",Spend, 7 Day Advertised SKU Sales
+58,Other SKU ACOS,ACOS for other SKUs (cross-sell),"Spend / Other SKU Sales",Spend, 7 Day Other SKU Sales
+59,Advertised SKU ROAS,ROAS for advertised SKU,"Advertised SKU Sales / Spend",Advertised SKU Sales, Spend
+60,Other SKU ROAS,ROAS for other SKUs,"Other SKU Sales / Spend",Other SKU Sales, Spend
+61,Total Revenue (any period),Sum of sales,Sales,7 Day Total Sales
+62,Revenue by SKU,Sales per SKU,Sales per SKU,Ordered Product Sales
+63,Revenue by ASIN,Sales per ASIN,Sales per ASIN,Ordered Product Sales
+64,Revenue by Campaign,Sales per campaign,Sales per Campaign,7 Day Total Sales (campaign)
+65,Revenue by Ad Group,Sales per ad group,Sales per Ad Group,7 Day Total Sales (ad group)
+66,Revenue by Keyword,Sales per keyword/search term,Sales per Keyword,7 Day Total Sales (search term)
+67,Revenue by Targeting,Sales per targeting type,Sales per Targeting,7 Day Total Sales (targeting)
+68,Revenue by Match Type,Sales per match type,Sales per Match Type,7 Day Total Sales (match type)
+69,Revenue by Date,Daily sales,Sales per Date,Sales by day
+70,Revenue by Week,Weekly sales,SUM(Sales per day over week),Sales by day
+71,Revenue by Month,Monthly sales,SUM(Sales per day over month),Sales by day
+72,Revenue by Quarter,Quarterly sales,SUM(Sales per day over quarter),Sales by day
+73,Revenue Year-to-Date (YTD),Cumulative sales from Jan 1 to current,SUM(Sales from Jan 1 to now),Sales, Date
+74,Revenue Last Year Same Period,Comparison,Sales in same period last year,Sales, Date
+75,Revenue Growth %,"(Current Period - Previous Period) / Previous Period * 100","(Sales2 - Sales1) / Sales1 * 100",Sales
+76,Compound Monthly Growth Rate (CMGR),"(Last Month Sales / First Month Sales)^(1/n) - 1",Monthly sales
+77,Average Order Value (AOV),Revenue per order,"Sales / Orders",Sales, Orders
+78,Average Units Per Order,Units per order,"Units / Orders",Units, Orders
+79,Revenue Per Unit,Same as ASP,"Sales / Units",Sales, Units
+80,Revenue Per Session,Conversion value per session,"Sales / Sessions",Sales, Sessions
+81,Revenue Per Page View,Sales per page view,"Sales / Page Views",Sales, Page Views
+82,B2B Revenue,Sales from B2B customers,"Ordered product sales – B2B",B2B Sales
+83,B2B Revenue Share,% of revenue from B2B,"B2B Sales / Total Sales * 100",B2B Sales, Total Sales
+84,B2B Average Order Value,AOV for B2B,"B2B Sales / B2B Orders",B2B Sales, B2B Orders
+85,B2B Units Ordered,Units from B2B,"Units ordered – B2B",B2B Units
+86,B2B Unit Share,% of units from B2B,"B2B Units / Total Units * 100",B2B Units, Total Units
+87,Revenue from Advertised SKU,Sales of directly advertised product,"7 Day Advertised SKU Sales",7 Day Advertised SKU Sales
+88,Revenue from Other SKU,Sales of other products (cross-sell),"7 Day Other SKU Sales",7 Day Other SKU Sales
+89,Cross-Sell Ratio,Other SKU Sales / Advertised SKU Sales,"Other SKU Sales / Advertised SKU Sales",7 Day Other SKU Sales, 7 Day Advertised SKU Sales
+90,Advertised SKU Share of Total Sales,% of total sales from advertised SKU,"Advertised SKU Sales / Total Sales * 100",7 Day Advertised SKU Sales, 7 Day Total Sales
+91,Other SKU Share of Total Sales,% of total sales from other SKUs,"Other SKU Sales / Total Sales * 100",7 Day Other SKU Sales, 7 Day Total Sales
+92,Sales Attribution to Ads,% of total sales that came from ads,"Attributed Sales / Total Business Sales * 100",Attributed Sales, Business Sales
+93,Organic Sales,Total sales minus attributed ad sales,"Total Business Sales - Attributed Ad Sales",Business Sales, Ad Sales
+94,Organic Share,Organic Sales / Total Sales * 100,"(Total Sales - Ad Sales) / Total Sales * 100",Business Sales, Ad Sales
+95,Pre-order Revenue,Sales from pre-orders,Custom,
+96,Refund Rate,Refunds / Sales * 100,Refunds, Sales
+97,Net Sales,Sales minus refunds,"Sales - Refunds",Sales, Refunds
+98,Gross Profit (Sales - COGS),Revenue minus cost of goods sold,"Sales - COGS",Sales, COGS
+99,Gross Margin %,Gross Profit / Sales * 100,"Gross Profit / Sales * 100",Sales, COGS
+100,Net Profit (after ad spend),Gross Profit - Ad Spend,"Gross Profit - Ad Spend",Gross Profit, Ad Spend
+101,Sessions,Total visits to product detail pages,"Sessions – Total",Sessions
+102,Page Views,Total page views,"Page views – Total",Page Views
+103,Unique Sessions,Sessions from unique users (approximated),Sessions,
+104,B2B Sessions,Sessions from B2B customers,"Sessions – Total – B2B",B2B Sessions
+105,B2B Session Share,% of sessions from B2B,"B2B Sessions / Total Sessions * 100",B2B Sessions, Total Sessions
+106,Page Views per Session,Average page views per session,"Page Views / Sessions",Page Views, Sessions
+107,B2B Page Views per Session,"B2B Page Views / B2B Sessions",B2B Page Views, B2B Sessions
+108,Buy Box Percentage,% of time product had Buy Box,"Featured Offer (Buy Box) percentage",Buy Box %
+109,B2B Buy Box Percentage,Buy Box % for B2B,"Featured Offer (Buy Box) percentage – B2B",B2B Buy Box %
+110,Unit Session Percentage (Conversion Rate),Orders per session,"Units ordered / Sessions * 100",Units ordered, Sessions
+111,B2B Unit Session Percentage,B2B conversion rate,"Units ordered – B2B / Sessions – Total – B2B * 100",B2B Units, B2B Sessions
+112,Conversion Rate (Orders),Orders per session,"Total order items / Sessions * 100",Total order items, Sessions
+113,B2B Conversion Rate (Orders),B2B orders per B2B session,"Total order items – B2B / Sessions – Total – B2B * 100",B2B Orders, B2B Sessions
+114,Page View Conversion Rate,Orders per page view,"Total order items / Page views * 100",Total order items, Page Views
+115,Session to Click Ratio,Clicks per session (for products with ads),"Clicks / Sessions",Clicks, Sessions
+116,Click to Session Attribution,% of sessions that came from ads,"Ad Clicks / Total Sessions",Clicks, Sessions
+117,Organic Sessions,Sessions not from ads,"Total Sessions - Attributed Ad Sessions",Sessions, Ad Sessions
+118,Organic Conversion Rate,Organic orders / organic sessions,"Organic Orders / Organic Sessions",Organic Orders, Organic Sessions
+119,Traffic Share by SKU,% of total traffic to each SKU,"Sessions per SKU / Total Sessions * 100",Sessions per SKU
+120,Traffic Share by ASIN,% of total traffic to each ASIN,"Sessions per ASIN / Total Sessions * 100",Sessions per ASIN
+121,Mobile vs Desktop Sessions,If available,Sessions by device,
+122,Traffic Source Breakdown,Share by source (ad, organic, external),Custom,
+123,Average Session Duration,If available,,
+124,Bounce Rate,% of sessions that left without action,If available,
+125,Exit Rate,% of exits on a page,If available,
+126,New-to-Brand Sessions,Sessions from new customers,If available,
+127,Returning Customer Sessions,Sessions from returning customers,If available,
+128,Repeat Purchase Rate,% of customers who bought again,Custom,
+129,Top-of-Search Impression Share,% of possible top-of-search impressions received,"Top-of-search impression share",Top-of-search impression share
+130,Top-of-Search Bid Adjustment,Current bid adjustment for top placement,"Top-of-search bid adjustment",Top-of-search bid adjustment
+131,Estimated Top-of-Search Impressions,"Impressions * Top-of-search impression share",Impressions, Top-of-search impression share
+132,Top-of-Search Clicks,Estimated clicks from top placement,Top-of-Search Impressions * CTR,
+133,Top-of-Search Spend,"Top-of-Search Clicks * CPC",,
+134,Top-of-Search Sales,Estimated sales from top placement,"Top-of-Search Clicks * CVR * ASP",,
+135,Top-of-Search ACOS,ACOS for top placement,"Top-of-Search Spend / Top-of-Search Sales",,
+136,Units Ordered by SKU,Total units per SKU,"Units ordered",Units ordered
+137,Units Ordered by ASIN,Total units per ASIN,"Units ordered (by ASIN)",Units ordered
+138,Parent ASIN Units,Sum of child SKU units,"SUM(Units of children)",Units ordered
+139,Revenue by SKU,Sales per SKU,"Ordered Product Sales",Ordered Product Sales
+140,Revenue by ASIN,Sales per ASIN,"Ordered Product Sales (by ASIN)",Ordered Product Sales
+141,Parent ASIN Revenue,Sum of child SKU revenue,"SUM(Revenue of children)",Ordered Product Sales
+142,SKU Contribution to Parent,% of parent revenue,"SKU Revenue / Parent Revenue * 100",SKU Revenue, Parent Revenue
+143,SKU Conversion Rate,Units ordered / Sessions for SKU,"Units ordered / Sessions – Total (per SKU)",Units, Sessions
+144,SKU Average Selling Price,Revenue / Units,"Ordered Product Sales / Units ordered",Sales, Units
+145,SKU B2B Conversion Rate,B2B Units / B2B Sessions,"Units ordered – B2B / Sessions – Total – B2B",B2B Units, B2B Sessions
+146,SKU B2B Revenue Share,B2B Sales / Total Sales for SKU,"Ordered product sales – B2B / Ordered Product Sales",B2B Sales, Total Sales
+147,SKU Buy Box Percentage,% of time SKU had Buy Box,"Featured Offer (Buy Box) percentage",Buy Box %
+148,SKU Page Views,Total page views for SKU,"Page views – Total",Page Views
+149,SKU Sessions,Total sessions for SKU,"Sessions – Total",Sessions
+150,SKU Page Views per Session,"Page Views / Sessions",Page Views, Sessions
+151,SKU Impression (from ads),Ad impressions for SKU,"Impressions (in Advertised Product report)",Impressions
+152,SKU Ad Clicks,Ad clicks for SKU,Clicks,Clicks
+153,SKU Ad Spend,Ad spend for SKU,Spend,Spend
+154,SKU Ad Sales,Ad-attributed sales for SKU,"7 Day Total Sales (in Advertised Product report)",Sales
+155,SKU Ad ACOS,"Spend / Ad Sales",Spend, Ad Sales
+156,SKU Ad ROAS,"Ad Sales / Spend",Ad Sales, Spend
+157,SKU Organic Sales,"Total SKU Sales - Ad Sales",Total SKU Sales, Ad Sales
+158,SKU Organic Share,Organic Sales / Total Sales,"(Total - Ad) / Total",Total, Ad
+159,SKU Organic Conversion Rate,Organic Units / Organic Sessions,,
+160,SKU Contribution to Portfolio,% of total portfolio sales,"SKU Sales / Total Portfolio Sales * 100",SKU Sales, Total Portfolio Sales
+161,Top-Selling SKUs,Rank by sales,"ORDER BY Sales DESC",Sales
+162,Top-Converting SKUs,Rank by conversion rate,"ORDER BY CVR DESC",CVR
+163,Bottom-Performing SKUs,Low sales or high ACOS,Custom,
+164,SKU Velocity,Units sold per day,"Units / Days",Units, Date
+165,SKU Inventory Turnover,Units sold / Average inventory,Units, Inventory
+166,SKU Days of Cover,Current inventory / Daily units sold,Inventory, Daily units
+167,SKU Stockout Days,Days product was out of stock,Custom,
+168,SKU New Product Indicator,If launch date < 30 days,Launch date,
+169,SKU Seasonality Index,Sales compared to average,"Sales in period / Average Sales",Sales, Date
+170,SKU Price Elasticity,% change in sales / % change in price,Sales, Price
+171,Campaign Impressions,Total impressions for campaign,"Impressions (by campaign)",Impressions
+172,Campaign Clicks,Total clicks for campaign,Clicks,Clicks
+173,Campaign CTR,"Clicks / Impressions",Clicks, Impressions
+174,Campaign CPC,"Spend / Clicks",Spend, Clicks
+175,Campaign Spend,Total spend for campaign,Spend,Spend
+176,Campaign Sales,Total sales attributed to campaign,"7 Day Total Sales",Sales
+177,Campaign Orders,Total orders attributed,"7 Day Total Orders",Orders
+178,Campaign ACOS,"Spend / Sales",Spend, Sales
+179,Campaign ROAS,"Sales / Spend",Sales, Spend
+180,Campaign Conversion Rate,"Orders / Clicks",Orders, Clicks
+181,Campaign Budget Utilization,"Spend / Budget * 100",Spend, Budget
+182,Campaign Remaining Budget,"Budget - Spend",Budget, Spend
+183,Campaign Days Active,Number of days campaign ran,"End Date - Start Date",Start Date, End Date
+184,Campaign Daily Spend,"Spend / Days Active",Spend, Days Active
+185,Campaign Daily Sales,"Sales / Days Active",Sales, Days Active
+186,Campaign ROI,"(Sales - Spend) / Spend * 100",Sales, Spend
+187,Campaign Profit,"Sales - Spend",Sales, Spend
+188,Campaign Contribution to Total,% of total sales,"Campaign Sales / Total Sales * 100",Campaign Sales, Total Sales
+189,Ad Group Performance,Similar metrics at ad group level,,
+190,Targeting Type Performance,By targeting type (auto, manual),,
+191,Match Type Performance,By match type (broad, phrase, exact),,
+192,Keyword Performance,Metrics per keyword,,
+193,Negative Keyword Impact,Reduction in spend/impressions due to negatives,,
+194,Campaign Efficiency Rank,Rank campaigns by ROAS,,
+195,Campaign with Highest ACOS,Worst performing by ACOS,,
+196,Campaign with Lowest ACOS,Best performing by ACOS,,
+197,Campaign Trend (Weekly),Sales/spend trend over weeks,,
+198,Campaign Pacing,Spend vs. time to budget,"Spend / (Budget * (days elapsed / total days))",Spend, Budget, Days
+199,Campaign Forecasted Spend,Projected spend by end of period,"Daily Spend * Remaining Days",Daily Spend, Remaining Days
+200,Campaign Forecasted Sales,"Daily Sales * Remaining Days",Daily Sales, Remaining Days
+201,Cost of Goods Sold (COGS),Product cost per unit * units sold,"Unit Cost * Units",Unit Cost, Units
+202,Total COGS,Sum of COGS for all products,"SUM(Unit Cost * Units)",Unit Cost, Units
+203,Gross Profit,"Sales - COGS",Sales, COGS
+204,Gross Margin,"Gross Profit / Sales * 100",Gross Profit, Sales
+205,Net Profit (after ads),"Gross Profit - Ad Spend",Gross Profit, Ad Spend
+206,Net Margin,"Net Profit / Sales * 100",Net Profit, Sales
+207,Contribution Margin,"Sales - COGS - Ad Spend (if variable)",Sales, COGS, Ad Spend
+208,Break-Even Sales Point,Fixed Costs / (1 - (COGS+Ad)/Sales),Fixed Costs, COGS, Ad
+209,Profit Per Order,"Net Profit / Orders",Net Profit, Orders
+210,Profit Per Unit,"Net Profit / Units",Net Profit, Units
+211,Profit Per Click,"Net Profit / Clicks",Net Profit, Clicks
+212,Return on Investment (ROI),"(Sales - COGS - Ad Spend) / (COGS + Ad Spend) * 100",Sales, COGS, Ad Spend
+213,Customer Lifetime Value (LTV),Estimated total profit from a customer,Custom,
+214,LTV / CAC Ratio,"LTV / Cost Per Acquisition",LTV, CPA
+215,Break-Even ACOS with Margin,"Margin %",Margin %
+216,Target ROAS based on Margin,"1 / Margin %",Margin %
+217,Margin-Adjusted ACOS,"ACOS / Margin %",ACOS, Margin %
+218,Profit-Adjusted ROAS,"ROAS * Margin %",ROAS, Margin %
+219,Unit Economics,Revenue, COGS, Ad per unit,,
+220,Total Cost (COGS + Ad),"COGS + Ad Spend",COGS, Ad Spend
+221,Cost Per Unit (including COGS),"(COGS + Ad Spend) / Units",COGS, Ad Spend, Units
+222,Profit Margin by SKU,"(SKU Sales - SKU COGS - SKU Ad Spend) / SKU Sales",SKU Sales, SKU COGS, SKU Ad Spend
+223,SKU Profit Contribution,Profit from SKU as % of total profit,"SKU Profit / Total Profit",SKU Profit, Total Profit
+224,Fixed Costs Allocation,e.g., overhead per product,Custom,
+225,Total Cost of Sales,COGS + Ad Spend + Other costs,,
+226,Operating Profit,Net Profit - Fixed Costs,Net Profit, Fixed Costs
+227,EBITDA,Earnings before interest, taxes, depreciation, amortization,Operating Profit,
+228,Cash Flow from Sales,Sales - COGS - Ad Spend,,
+229,Inventory Carrying Cost,Cost of holding inventory,Inventory * Holding rate,
+230,Storage Fees,Amazon FBA fees,,
+231,Referral Fees,Amazon commission,"Sales * Referral Rate",Sales, Referral Rate
+232,FBA Fees,Per-unit fulfillment fees,"Units * FBA Fee",Units, FBA Fee
+233,Total Amazon Fees,Referral + FBA + other,,
+234,Net Revenue after Amazon Fees,"Sales - Amazon Fees",Sales, Amazon Fees
+235,Net Profit after All Fees,"Net Revenue - COGS - Ad Spend",Net Revenue, COGS, Ad Spend
+236,Daily Sales,Sales per date,Sales by date,
+237,Daily Spend,Spend per date,Spend by date,
+238,Daily Orders,Orders per date,Orders by date,
+239,Daily Units,Units per date,Units by date,
+240,Daily Clicks,Clicks per date,Clicks by date,
+241,Daily Impressions,Impressions per date,Impressions by date,
+242,Daily ACOS,ACOS per day,"Spend / Sales (per day)",
+243,Daily ROAS,ROAS per day,"Sales / Spend",
+244,7-Day Moving Average Sales,Smoothing,"AVG(Sales over last 7 days)",
+245,7-Day Moving Average Spend,Smoothing,"AVG(Spend over last 7 days)",
+246,Week-over-Week Growth,"(This Week - Last Week) / Last Week * 100",Weekly Sales
+247,Month-over-Month Growth,"(This Month - Last Month) / Last Month * 100",Monthly Sales
+248,Year-over-Year Growth,"(This Year - Last Year) / Last Year * 100",Yearly Sales
+249,Trend Line Slope,Linear regression of sales over time,Sales, Date
+250,Seasonality Index,Ratio of actual to average,Sales, Date
+251,Day of Week Performance,Average sales by day of week,Sales, Weekday
+252,Hour of Day Performance,If available,,
+253,Peak Sales Period,Time of day/year with highest sales,,
+254,Sales Velocity,Units per day,Units / Days,
+255,Spend Velocity,Spend per day,Spend / Days,
+256,Cumulative Sales Over Period,Running total,Sales,
+257,Cumulative Spend Over Period,Running total,Spend,
+258,Remaining Days in Campaign,"Campaign End Date - Today",Dates,
+259,Days Since Launch,"Today - Product Launch Date",Launch Date,
+260,New Product Performance (First 30 Days),Sales in first 30 days,Sales, Launch Date
+261,Holiday Performance,Sales during holiday season,Sales, Holiday dates
+262,Pre-Holiday Lift,Sales before holiday vs average,,
+263,Post-Holiday Drop,Sales after holiday,,
+264,Weekend vs Weekday,Compare average sales,,
+265,Time to First Order,Days from launch to first order,Launch Date, First Order Date
+266,Order Recency,Last order date,,
+267,Frequency of Orders,Orders per time unit,,
+268,Time Between Orders,Average days between orders,,
+269,Customer Retention Rate,% of customers ordering again,,
+270,Cohort Analysis,Sales by customer cohort,,
+271,Forecasted Sales Next Month,Based on historical trend,"Linear regression or moving average",Historical Sales
+272,Forecasted Sales Next Week,Short-term forecast,"Moving average",Sales
+273,Forecasted Orders Next Period,"Forecasted Sales / ASP",Forecasted Sales, ASP
+274,Forecasted Units Next Period,"Forecasted Sales / ASP (same)",
+275,Forecasted Spend at Current ROAS,"Forecasted Sales / Target ROAS",Forecasted Sales, Target ROAS
+276,Required Impressions for Forecasted Sales,"Forecasted Sales / (CTR * CVR * ASP)",CTR, CVR, ASP
+277,Required Clicks for Forecasted Sales,"Forecasted Sales / (CVR * ASP)",CVR, ASP
+278,Required Budget for Forecasted Sales,"Forecasted Sales / Target ROAS",Forecasted Sales, Target ROAS
+279,Predicted ACOS at Current CPC and CVR,"CPC / (CVR * ASP)",CPC, CVR, ASP
+280,Predicted ROAS at Current CPC and CVR,"CVR * ASP / CPC",CVR, ASP, CPC
+281,Predicted Sales from Planned Spend,"Planned Spend * Historical ROAS",Planned Spend, ROAS
+282,Predicted Orders from Planned Clicks,"Planned Clicks * CVR",Planned Clicks, CVR
+283,Break-Even CPC Forecast,"CVR * ASP",CVR, ASP
+284,Max CPC to Achieve Target ACOS,"Target ACOS * CVR * ASP",Target ACOS, CVR, ASP
+285,Bid Recommendation,Based on target ACOS and predicted CVR,"Target ACOS * CVR * ASP",
+286,Seasonally Adjusted Forecast,Multiply by seasonality index,Forecast * Seasonality Index
+287,Trend-Based Forecast,Using exponential smoothing,,
+288,Confidence Interval for Forecast,Statistical range,"Mean ± 1.96 * (STDEV/√n)",
+289,Monte Carlo Simulation for Sales,Random sampling from historical,,
+290,Probability of Achieving Sales Target,Based on historical variance,,
+291,Inventory Requirement Forecast,Forecasted Units + Safety Stock,Forecasted Units, Safety Stock
+292,Reorder Point,"Daily Sales * Lead Time + Safety Stock",Daily Sales, Lead Time
+293,Economic Order Quantity (EOQ),"√(2DS/H)",Demand, Order Cost, Holding Cost
+294,Safety Stock Calculation,"Z * σ * √LT",Z-score, Std Dev, Lead Time
+295,Days of Cover Forecast,"Current Inventory / Forecasted Daily Sales",Inventory, Forecasted Daily Sales
+296,Stockout Risk,Probability of stockout given forecast,,
+297,Future ACOS based on Bid Changes,Simulate,,
+298,Impact of Price Change on Sales,Elasticity,,
+299,Impact of Seasonality on Conversion,,
+300,Predictive LTV,Estimate future profit from new customers,,
+301,Current Inventory Level,Units in stock,Inventory,
+302,Inbound Inventory,Units in transit,Inbound,
+303,Total Available Inventory,Current + Inbound,"Current + Inbound",
+304,Days of Cover (Current),Current Inventory / Average Daily Units,Inventory, Daily Units
+305,Days of Cover (Total),Total Available / Daily Units,Total Available, Daily Units
+306,Sell-Through Rate,Units sold / (Beginning Inventory + Inbound),Sold, Inventory, Inbound
+307,Inventory Turnover,COGS / Average Inventory,COGS, Average Inventory
+308,Weeks of Cover,Days of Cover / 7,,
+309,Months of Cover,Days of Cover / 30,,
+310,Reorder Point (Units),"Daily Sales * Lead Time + Safety Stock",Daily Sales, Lead Time, Safety Stock
+311,Safety Stock Units,Based on demand variability,,
+312,Excess Inventory,Inventory > forecasted demand,Inventory, Forecast
+313,Obsolete Inventory,Inventory with low sales velocity,,
+314,Inventory Valuation,Units * Cost,Units, Cost
+315,Storage Cost,Estimated FBA storage fee,Units, Rate
+316,Long-Term Storage Fee,If inventory > 365 days,,
+317,Inventory Shrinkage,Lost/damaged units,,
+318,Inventory Accuracy,Physical vs system,,
+319,Lead Time (days),Time from order to arrival,,
+320,Supplier Performance,On-time delivery rate,,
+321,Backorder Units,Units ordered but not shipped,,
+322,Fulfillment Rate,Orders fulfilled / Orders placed,,
+323,Out-of-Stock Rate,Days out of stock / Total days,,
+324,Lost Sales Due to Stockout,Estimated,,
+325,Inventory Turnover by SKU,COGS / Average Inventory per SKU,,
+326,B2B Orders,Orders from business customers,"Total order items – B2B",B2B Orders
+327,B2B Units,Units from business customers,"Units ordered – B2B",B2B Units
+328,B2B Sales,Sales from business customers,"Ordered product sales – B2B",B2B Sales
+329,B2B Sessions,Sessions from business customers,"Sessions – Total – B2B",B2B Sessions
+330,B2B Conversion Rate (Units),"B2B Units / B2B Sessions",B2B Units, B2B Sessions
+331,B2B Average Order Value,"B2B Sales / B2B Orders",B2B Sales, B2B Orders
+332,B2B Average Units Per Order,"B2B Units / B2B Orders",B2B Units, B2B Orders
+333,B2B Share of Orders,"B2B Orders / Total Orders * 100",B2B Orders, Total Orders
+334,B2B Share of Units,"B2B Units / Total Units * 100",B2B Units, Total Units
+335,B2B Share of Sales,"B2B Sales / Total Sales * 100",B2B Sales, Total Sales
+336,B2B Share of Sessions,"B2B Sessions / Total Sessions * 100",B2B Sessions, Total Sessions
+337,B2B ACOS,Ad spend attributed to B2B? (if available),"Spend (B2B) / B2B Sales",
+338,B2B ROAS,"B2B Sales / Spend (B2B)",
+339,New-to-Brand Orders,Orders from first-time buyers,If available,
+340,New-to-Brand Sales,Sales from first-time buyers,If available,
+341,Repeat Customer Orders,Orders from returning buyers,,
+342,Repeat Purchase Rate,% of customers who buy again,,
+343,Customer Acquisition Cost (CAC),Ad Spend / New-to-Brand Orders,Ad Spend, New Orders
+344,Customer Lifetime Value (LTV),Average profit per customer over time,,
+345,LTV/CAC Ratio,>3 is good,,
+346,Customer Churn Rate,% of customers lost,,
+347,Average Customer Age,Time since first purchase,,
+348,Customer Segment Performance,By geography, etc.,,
+349,Prime vs Non-Prime Orders,If available,,
+350,Gift Orders,If available,,
+351,This Period vs Last Period Sales,"Sales2 - Sales1",Sales
+352,Percentage Change Sales,"(Sales2 - Sales1) / Sales1 * 100",Sales
+353,This Period vs Same Period Last Year,"Sales - Sales(LY)",Sales
+354,Year-over-Year Growth %,"(Sales - Sales(LY)) / Sales(LY) * 100",Sales
+355,Month-to-Date vs Previous Month,Compare partial month,,
+356,Quarter-to-Date vs Previous Quarter,,
+357,Campaign A vs Campaign B ROAS,"ROAS(A) - ROAS(B)",ROAS
+358,SKU A vs SKU B Conversion,"CVR(A) - CVR(B)",CVR
+359,Benchmark vs Actual,e.g., ACOS vs target,"ACOS - Target",ACOS, Target
+360,Efficiency Ratio,"Actual ACOS / Target ACOS",ACOS, Target
+361,Performance Index,"ROAS / Average ROAS",ROAS, Avg ROAS
+362,Relative Market Share,Sales / Total Market (if known),,
+363,Competitor Comparison,If available,,
+364,Category Growth vs Your Growth,,
+365,Price Competitiveness,Your Price / Average Price,Price
+366,Review Score Comparison,Your rating vs competitors,,
+367,Best Seller Rank Change,Change in BSR,BSR
+368,Ranking vs Competitors,,
+369,Share of Voice,Ad impressions / Total category impressions,,
+370,Click Share vs Impression Share,"Clicks / Total Clicks vs Impressions / Total Impressions",,
+371,Search Term Impressions,Impressions for a search term,Impressions,
+372,Search Term Clicks,Clicks for a search term,Clicks,
+373,Search Term CTR,"Clicks / Impressions",Clicks, Impressions
+374,Search Term CPC,"Spend / Clicks",Spend, Clicks
+375,Search Term Spend,Spend for term,Spend,
+376,Search Term Sales,Sales from term,"7 Day Total Sales",
+377,Search Term Orders,Orders from term,"7 Day Total Orders",
+378,Search Term ACOS,"Spend / Sales",Spend, Sales
+379,Search Term ROAS,"Sales / Spend",Sales, Spend
+380,Search Term Conversion Rate,"Orders / Clicks",Orders, Clicks
+381,Search Term Units,Units from term,"7 Day Total Units",
+382,Search Term ASP,"Sales / Units",Sales, Units
+383,Search Term Cost Per Order,"Spend / Orders",Spend, Orders
+384,Search Term Cost Per Unit,"Spend / Units",Spend, Units
+385,Search Term Efficiency,"Sales - Spend",Sales, Spend
+386,Search Term Profit (with margin),"(Sales * Margin%) - Spend",Sales, Margin%, Spend
+387,Search Term Share of Total Sales,"Term Sales / Total Sales * 100",Term Sales, Total Sales
+388,Search Term Share of Spend,"Term Spend / Total Spend * 100",Term Spend, Total Spend
+389,Search Term Share of Clicks,"Term Clicks / Total Clicks * 100",Term Clicks, Total Clicks
+390,Search Term Share of Impressions,"Term Impressions / Total Impressions * 100",Term Impressions, Total Impressions
+391,Keyword Match Type Performance,By match type,,
+392,Search Term Relevance Score,"CVR * ASP / CPC",CVR, ASP, CPC
+393,High-Performing Search Terms,ROAS > target,,
+394,Low-Performing Search Terms,ACOS > threshold,,
+395,Negative Keyword Candidates,High spend, low sales,,
+396,Search Term Trend Over Time,Weekly sales for term,,
+397,Search Term Seasonality,,
+398,Search Term vs Broad Match,Compare,,
+399,Search Term vs Phrase Match,Compare,,
+400,Search Term vs Exact Match,Compare,,
+401,New Search Terms Discovered,Terms with new impressions,,
+402,Search Term Concentration,% of sales from top N terms,,
+403,Long-Tail Search Terms,Low volume but high conversion,,
+404,Search Term Click-Through Rate Trend,CTR over time,,
+405,Search Term Conversion Rate Trend,CVR over time,,
+406,Targeting Type Performance (Auto),Metrics for automatic targeting,,
+407,Targeting Type Performance (Manual),Metrics for manual targeting,,
+408,Close Match Performance,Auto targeting: close match,"CTR, ACOS, etc.",Targeting field
+409,Loose Match Performance,Auto targeting: loose match,,
+410,Complements Performance,Auto targeting: complements,,
+411,Substitutes Performance,Auto targeting: substitutes,,
+412,Category Targeting Performance,Manual category targeting,,
+413,ASIN Targeting Performance,Manual product targeting,,
+414,Keyword Targeting Performance,Manual keyword targeting,,
+415,Placement: Top of Search Performance,If placement data available,,
+416,Placement: Product Pages Performance,,
+417,Placement: Rest of Search Performance,,
+418,Top-of-Search Impression Share,% of possible top impressions,"Top-of-search impression share",
+419,Top-of-Search Bid Adjustment,Current adjustment,"Top-of-search bid adjustment",
+420,Estimated Top-of-Search Clicks,"Impressions * Top-of-search share * CTR",,
+421,Estimated Top-of-Search Spend,"Estimated Clicks * CPC",,
+422,Estimated Top-of-Search Sales,"Estimated Clicks * CVR * ASP",,
+423,Placement Efficiency,ROAS by placement,,
+424,Bid Adjustment Impact,Change in ROAS after bid adj,,
+425,Targeting Match Type (Broad),Performance for broad match,,
+426,Targeting Match Type (Phrase),Performance for phrase match,,
+427,Targeting Match Type (Exact),Performance for exact match,,
+428,Negative Targeting,Impact of negatives,,
+429,Advertised SKU Units,Units of advertised SKU,"7 Day Advertised SKU Units (#)",
+430,Other SKU Units,Units of other SKUs,"7 Day Other SKU Units (#)",
+431,Advertised SKU Sales,Sales of advertised SKU,"7 Day Advertised SKU Sales",
+432,Other SKU Sales,Sales of other SKUs,"7 Day Other SKU Sales",
+433,Total Attributed Units,Advertised + Other,"Advertised Units + Other Units",
+434,Total Attributed Sales,Advertised + Other,"Advertised Sales + Other Sales",
+435,Halo Ratio (Units),Other Units / Advertised Units,Other Units, Advertised Units
+436,Halo Ratio (Sales),Other Sales / Advertised Sales,Other Sales, Advertised Sales
+437,Advertised SKU Share of Attributed,Advertised Sales / Total Attributed,,
+438,Other SKU Share of Attributed,Other Sales / Total Attributed,,
+439,Cross-Sell Revenue,Revenue from other SKUs,Other Sales,
+440,Cross-Sell Units,Units from other SKUs,Other Units,
+441,Top Cross-Sold SKUs,Other SKUs with highest sales,,
+442,Advertised SKU ACOS (attributed),"Spend / Advertised Sales",Spend, Advertised Sales
+443,Other SKU ACOS (attributed),"Spend / Other Sales",Spend, Other Sales
+444,Blended ACOS,"Spend / Total Attributed Sales",Spend, Total Attributed Sales
+445,Advertised SKU ROAS,"Advertised Sales / Spend",,
+446,Other SKU ROAS,"Other Sales / Spend",,
+447,Blended ROAS,"Total Attributed Sales / Spend",,
+448,Incremental Sales from Ads,Total Attributed Sales,,
+449,Incremental Units from Ads,Total Attributed Units,,
+450,Organic Lift,Increase in organic sales due to ads (if measurable),,
+451,Mean Sales per Day,Average daily sales,"AVG(Daily Sales)",Daily Sales
+452,Median Sales per Day,Median,"MEDIAN(Daily Sales)",Daily Sales
+453,Standard Deviation of Sales,Volatility,"STDEV(Daily Sales)",Daily Sales
+454,Coefficient of Variation,"STDEV / Mean",STDEV, Mean
+455,Confidence Interval (95%) for Sales,"Mean ± 1.96 * (STDEV/√n)",Mean, STDEV, n
+456,Correlation between Spend and Sales,Pearson correlation,Spend, Sales
+457,Regression: Sales vs Spend,Linear model,Sales ~ Spend,
+458,R-squared of Model,Fit,,
+459,Seasonality Decomposition,"Trend, seasonal, residual",,
+460,Outlier Detection,Sales > 3σ from mean,,
+461,Pareto Analysis (80/20),Top 20% products contribute 80% sales,,
+462,ABC Analysis,Classify SKUs by sales,,
+463,RFM Analysis,"Recency, Frequency, Monetary",,
+464,Customer Segmentation,Clustering,,
+465,Price Elasticity,%Δ Sales / %Δ Price,,
+466,Ad Elasticity,%Δ Sales / %Δ Spend,,
+467,Diminishing Returns,Marginal ACOS increases,,
+468,Optimal Spend Level,Where marginal profit = 0,,
+469,Break-Even Analysis,Find sales needed to cover costs,,
+470,Monte Carlo Simulation,Simulate various outcomes,,
+471,Time Series Decomposition,STL decomposition,,
+472,ARIMA Forecast,Advanced forecasting,,
+473,Prophet Model,Facebook Prophet,,
+474,A/B Test Significance,p-value for test vs control,,
+475,Lift Calculation,(Test - Control) / Control,,
+476,Confidence in ROAS,Bayesian posterior,,
+477,Probability of Achieving Target,Based on historical distribution,,
+478,Value at Risk (VaR),Worst-case loss,,
+479,Expected Shortfall,Average loss beyond VaR,,
+480,Sharpe Ratio,(Return - Risk-free) / Volatility,,
+481,Campaign to Business Sales Ratio,Attributed sales / total business sales,,
+482,Ad Spend to Total Revenue,"Ad Spend / Total Revenue",Ad Spend, Total Revenue
+483,Revenue per Impression (all),"Total Revenue / Total Impressions",Revenue, Impressions
+484,Revenue per Click (all),"Total Revenue / Total Clicks",Revenue, Clicks
+485,Cost per Session (ad),"Ad Spend / Sessions",Ad Spend, Sessions
+486,Sales per Session (ad),"Attributed Sales / Sessions",Attributed Sales, Sessions
+487,Ad Contribution to Buy Box,Correlation?,,
+488,Ad Impact on Organic Conversion,,
+489,Cross-Device Performance,If available,,
+490,Time of Day Performance,If available,,
+491,Geographic Performance,If available,,
+492,Currency Conversion,If multi-currency,,
+493,Exchange Rate Impact,,
+494,Tax Impact,Sales tax,,
+495,Promo Code Usage,If available,,
+496,Lightning Deal Performance,,
+497,Coupon Redemption Rate,,
+498,Subscribe & Save Orders,If available,,
+499,Warranty Sales,If available,,
+500,Gift Wrap Revenue,If available,,
+501,Return Rate,Returns / Units sold,Returns, Units
+502,Refund Rate,Refunds / Sales,Refunds, Sales
+503,Claim Rate,Claims / Orders,,
+504,Feedback Score,Average rating,,
+505,Review Count,Number of reviews,,
+506,Review Velocity,Reviews per month,,
+507,Q&A Activity,Number of questions,,
+508,Brand Analytics Data,If available,,
+509,Amazon Attribution (external),If integrated,,
+510,DSP Data,If using Amazon DSP,,

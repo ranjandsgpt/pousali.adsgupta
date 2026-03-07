@@ -1,13 +1,19 @@
 /**
- * Amazon Metrics Knowledge Base.
- * Step 1: Parsed metric definitions (from CSV or built-in).
- * Step 2–7: Calculation resolution, validation, dependency graph, lazy computation.
- * CSV schema: id, name, description, formula, exampleFields → dependencies extracted from formula.
+ * Amazon Seller Central Metrics Knowledge Base — Fallback Calculation Library.
  *
- * To load the 510-metric CSV (e.g. deepseek_csv_20260305_e7cc3a):
- * 1. Place the CSV in public/ or fetch from your API.
- * 2. Call loadMetricsFromCsv(csvText) at app init or when the file is available.
- * 3. Core metrics (ACOS, ROAS, TACOS, CTR, CPC, CVR, Buy Box %) are always registered as fallback.
+ * Priority order (never compute all 510 metrics automatically):
+ * 1. Existing system logic (amazonMetricsLibrary + MemoryStore) — first priority.
+ * 2. SLM + Gemini decide which metric to compute next → only then do we look up.
+ * 3. CSV library → fallback knowledge base when the system doesn't already provide the metric.
+ *
+ * The CSV acts as a metrics dictionary + formula repository. Use it only when:
+ * - A calculation is not already implemented in the system
+ * - SLM or Gemini determines that a derived metric is required
+ * - A validation rule requires the formula
+ * - An insight engine requires supporting metrics
+ *
+ * CSV schema: id, name, description, formula, exampleFields → dependencies from formula.
+ * To load the 510-metric CSV: loadMetricsFromCsv(csvText) at app init or when file is available.
  */
 
 export interface MetricDefinition {
@@ -174,10 +180,21 @@ export function getComputeOrder(requestedMetrics: string[]): string[] {
   return order;
 }
 
-/** Resolution: system value map (e.g. from MemoryStore). Compute only when requested and dependencies exist. */
+/** Resolution: system value map (e.g. from MemoryStore / existing analytics). */
 export type SystemMetricSource = Record<string, number>;
 
 export type ResolvedMetric = { value: number; source: 'system' | 'computed' } | { available: false; reason: string };
+
+/** Why the metric was requested — CSV is used only when one of these applies. */
+export type MetricRequestSource = 'slm' | 'gemini' | 'validation' | 'insight' | 'chart';
+
+/** Metric names that the existing system already computes (amazonMetricsLibrary + aggregates). Do not use CSV for these when system value exists. */
+const SYSTEM_COMPUTED_METRIC_NAMES = new Set([
+  'acos', 'roas', 'tacos', 'ctr', 'cpc', 'cvr', 'buy box percentage', 'buy_box_percentage',
+  'ad sales', 'ad spend', 'total sales', 'total ad sales', 'total ad spend', 'organic sales',
+  'conversion rate', 'wasted spend', 'contribution margin', 'session conversion rate',
+  'ad sales percent', 'lost revenue estimate', 'impressions', 'clicks', 'orders', 'sessions',
+]);
 
 /** Simple formula evaluator for known patterns (Spend, Sales, Clicks, Impressions, Orders, Total Sales). */
 function evaluateFormula(formula: string, data: SystemMetricSource): number | null {
@@ -199,21 +216,30 @@ function evaluateFormula(formula: string, data: SystemMetricSource): number | nu
 }
 
 /**
- * Step 3: Resolution logic.
- * If metric exists in system → use it. Else if in KB and dependencies exist → compute. Else unavailable.
+ * Resolution: existing system first, then CSV fallback only when requested by SLM/Gemini/validation/insight/chart.
+ * Never iterates the full CSV — lookup by metric name only when needed.
  */
 export function resolveMetric(
   metricName: string,
   systemValues: SystemMetricSource,
-  requestedBy?: 'ai' | 'validation' | 'chart'
+  requestedBy?: MetricRequestSource
 ): ResolvedMetric {
   const normalized = metricName.replace(/\s+/g, '_').toLowerCase();
+  const normalizedSpaces = metricName.replace(/_/g, ' ').toLowerCase().trim();
+
+  // Priority 1: Existing system — use system value if present (system always wins)
   const systemKey = Object.keys(systemValues).find((k) => k.replace(/\s+/g, '_').toLowerCase() === normalized);
   if (systemKey != null && typeof systemValues[systemKey] === 'number') {
     return { value: systemValues[systemKey], source: 'system' };
   }
+  const altKey = Object.keys(systemValues).find((k) => k.replace(/\s+/g, ' ').toLowerCase() === normalizedSpaces);
+  if (altKey != null && typeof systemValues[altKey] === 'number') {
+    return { value: systemValues[altKey], source: 'system' };
+  }
+
+  // Priority 2 & 3: CSV fallback — only when explicitly requested (SLM, Gemini, validation, insight, chart)
   const entry = getKnowledgeBaseEntry(metricName);
-  if (!entry) return { available: false, reason: 'Metric not in knowledge base' };
+  if (!entry) return { available: false, reason: 'Metric not in knowledge base (CSV fallback)' };
   const hasDeps = entry.dependencies.every((d) => {
     const dk = Object.keys(systemValues).find((k) => k.replace(/\s+/g, '') === d.replace(/\s+/g, ''));
     return dk != null || entry.dependencies.some((dep) => systemValues[dep] !== undefined);
@@ -229,6 +255,25 @@ export function resolveMetric(
   const computed = evaluateFormula(entry.formula, data);
   if (computed != null) return { value: computed, source: 'computed' };
   return { available: false, reason: 'Could not evaluate formula' };
+}
+
+/** True if the existing system already computes this metric (do not use CSV when system value is provided). */
+export function isSystemComputedMetric(metricName: string): boolean {
+  const n = metricName.replace(/\s+/g, ' ').toLowerCase().trim();
+  const u = metricName.replace(/\s+/g, '_').toLowerCase();
+  return SYSTEM_COMPUTED_METRIC_NAMES.has(n) || SYSTEM_COMPUTED_METRIC_NAMES.has(u);
+}
+
+/**
+ * Resolve with explicit priority: system first, then CSV dictionary only when requested.
+ * Use this when SLM/Gemini/validation/insight requests a specific metric — never batch-compute all CSV metrics.
+ */
+export function resolveMetricWithPriority(
+  metricName: string,
+  systemValues: SystemMetricSource,
+  requestedBy: MetricRequestSource
+): ResolvedMetric {
+  return resolveMetric(metricName, systemValues, requestedBy);
 }
 
 /** Step 5: Validation – compare computed vs reported; flag if difference > tolerance (e.g. 3%). */
@@ -264,11 +309,28 @@ export function getMetricDefinitionsContext(metricNames: string[]): string {
   return lines.join('\n');
 }
 
-/** Lazy compute: only compute when requested (AI, validation, or chart). */
+/**
+ * Lazy compute: only when SLM/Gemini/validation/insight/chart requests this metric.
+ * Never compute the full 510-metric CSV — lookup by name and compute only this one when requested.
+ */
 export function computeMetricWhenRequested(
   metricName: string,
   systemValues: SystemMetricSource,
-  requestedBy: 'ai' | 'validation' | 'chart'
+  requestedBy: MetricRequestSource
 ): ResolvedMetric {
   return resolveMetric(metricName, systemValues, requestedBy);
+}
+
+/**
+ * Get formula for a metric from the CSV dictionary (for validation or AI context).
+ * Does not compute the metric — use resolveMetric / computeMetricWhenRequested for values.
+ */
+export function getFormulaForMetric(metricName: string): string | null {
+  const entry = getKnowledgeBaseEntry(metricName);
+  return entry?.formula ?? null;
+}
+
+/** List metric names available in the CSV fallback (for SLM/Gemini to know what can be requested). */
+export function getAvailableFallbackMetricNames(): string[] {
+  return Array.from(knowledgeBase.values()).map((e) => e.metricName);
 }
