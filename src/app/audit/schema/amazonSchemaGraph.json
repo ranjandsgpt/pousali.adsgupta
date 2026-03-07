@@ -1,0 +1,23 @@
+{
+  "Buy Box %": ["buy box", "featured offer", "buy box percentage", "featured offer percentage", "buybox", "buy_box_percentage"],
+  "Sessions": ["sessions", "sessions total", "sessions – total", "total sessions", "traffic sessions"],
+  "Page Views": ["page views", "page views total", "page views – total", "page views (dpv)"],
+  "Spend": ["spend", "total cost", "cost", "ad spend", "advertising cost"],
+  "Sales": ["sales", "attributed sales", "ad sales", "ordered product sales", "total sales"],
+  "Clicks": ["clicks", "click throughs", "ad clicks"],
+  "Impressions": ["impressions", "ad impressions"],
+  "Orders": ["orders", "units ordered", "attributed units ordered", "total order items"],
+  "Units Ordered": ["units ordered", "ordered units", "units ordered - b2c", "units sold"],
+  "Search Term": ["search term", "customer search term", "keyword text", "targeting"],
+  "Campaign": ["campaign", "campaign name"],
+  "Ad Group": ["ad group", "ad group name"],
+  "Match Type": ["match type", "targeting"],
+  "ASIN": ["asin", "advertised asin", "child asin", "parent asin"],
+  "SKU": ["sku", "advertised sku"],
+  "Date": ["date", "recorded date", "reported date"],
+  "Daily Budget": ["budget", "daily budget"],
+  "7 Day Sales": ["7 day total sales", "7 day sales", "attributed sales 7d"],
+  "14 Day Sales": ["14 day total sales", "14 day sales", "attributed sales 14d"],
+  "Unit Session %": ["unit session %", "unit session percentage", "conversion rate", "unit session pct"],
+  "Revenue": ["ordered product sales", "product sales", "total sales"]
+}
