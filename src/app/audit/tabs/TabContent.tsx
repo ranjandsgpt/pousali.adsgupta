@@ -1,36 +1,15 @@
 'use client';
 
-import { useMemo } from 'react';
-import { TabKPISummary, TabPatternDetection, TabOpportunityDetection, TabDataTablesSection, TabVisualization } from './TabSections';
+import { TabPatternDetection, TabOpportunityDetection, TabDataTablesSection, TabVisualization } from './TabSections';
 import { InsightModuleCard } from './InsightModuleCard';
 import { DeepDivePanel } from './DeepDivePanel';
 import { ChartRegistry, ChartsLabGrid } from './ChartRegistry';
 import FunnelOverviewChart from '../charts/FunnelOverviewChart';
 import KeywordProfitabilityMapChart from '../charts/KeywordProfitabilityMapChart';
 import { useTabData, type TabId } from './useTabData';
-import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
-import { formatCurrency, formatPercent } from '../utils/formatNumber';
-import type { DetectedCurrency } from '../utils/currencyDetector';
-import type { KPIMetric } from './types';
 
 import LearningIntelligencePanel from '../components/LearningIntelligencePanel';
 import GeminiInsightsPanel from '../components/GeminiInsightsPanel';
-
-function validatedMetricsToKPIs(
-  metrics: { label: string; value: string | number; status?: string }[],
-  currency: DetectedCurrency
-): KPIMetric[] {
-  return metrics.map((m) => {
-    let value: string | number = m.value;
-    if (typeof m.value === 'number') {
-      const label = m.label.toLowerCase();
-      if (label.includes('acos') || label.includes('tacos') || label.includes('cvr') || label.includes('conversion') || label.includes('buy box')) value = formatPercent(m.value);
-      else if (label.includes('spend') || label.includes('sales') || label.includes('cpc')) value = formatCurrency(m.value, currency);
-      else value = m.value;
-    }
-    return { label: m.label, value, status: (m.status as KPIMetric['status']) ?? 'neutral' };
-  });
-}
 
 export interface TabContentProps {
   tabId: TabId;
@@ -38,28 +17,46 @@ export interface TabContentProps {
 }
 
 export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
-  const { kpis, patterns, opportunities, insightModules, tables, chartIds, currency } = useTabData(tabId);
-  const { validated } = useValidatedArtifacts();
+  const { patterns, opportunities, insightModules, tables, chartIds, currency } = useTabData(tabId);
 
-  const overviewKpis = useMemo(() => {
-    if (tabId !== 'overview') return kpis;
-    if (validated.passed && validated.metrics.length > 0) {
-      return validatedMetricsToKPIs(validated.metrics, currency);
-    }
-    return kpis;
-  }, [tabId, kpis, validated.passed, validated.metrics, currency]);
-
-  const overviewVerificationMeta = useMemo(() => {
-    if (tabId !== 'overview' || !validated.passed || !validated.artifactConfidence) return undefined;
-    const score = validated.artifactConfidence.metrics?.score ?? validated.confidence / 100;
-    const percent = Math.round((score > 1 ? score : score * 100));
-    const source = validated.artifactConfidence.metrics?.source ?? 'slm';
-    return { confidencePercent: percent, source };
-  }, [tabId, validated.passed, validated.artifactConfidence, validated.confidence]);
+  if (tabId === 'gemini-insights') {
+    return (
+      <div className="space-y-6">
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Executive Summary</h3>
+          <p className="text-sm text-[var(--color-text-muted)]">AI-generated account overview and key findings.</p>
+        </section>
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Top Strategic Insights</h3>
+          <GeminiInsightsPanel />
+        </section>
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Key Risks</h3>
+          <p className="text-sm text-[var(--color-text-muted)]">Risks identified from campaign and keyword performance.</p>
+        </section>
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Growth Opportunities</h3>
+          <p className="text-sm text-[var(--color-text-muted)]">Opportunities for scaling and optimization.</p>
+        </section>
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Optimization Plan</h3>
+          <p className="text-sm text-[var(--color-text-muted)]">Actionable recommendations from AI analysis.</p>
+        </section>
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">AI Narrative</h3>
+          <GeminiInsightsPanel />
+        </section>
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Learning from data</h3>
+          <LearningIntelligencePanel />
+        </section>
+      </div>
+    );
+  }
 
   if (tabId === 'insights-reports') {
     return (
-      <div className="space-y-8">
+      <div className="space-y-6">
         {insightModules.length > 0 && (
           <section>
             <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Diagnostic insights</h3>
@@ -76,14 +73,6 @@ export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
           <KeywordProfitabilityMapChart />
         </section>
         <section>
-          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Master AI analysis</h3>
-          <GeminiInsightsPanel />
-        </section>
-        <section>
-          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Learning from data</h3>
-          <LearningIntelligencePanel />
-        </section>
-        <section>
           <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Charts Lab</h3>
           <ChartsLabGrid />
         </section>
@@ -95,12 +84,6 @@ export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
     <div className="space-y-4">
       {tabId === 'overview' && (
         <>
-          <TabKPISummary
-            metrics={overviewKpis}
-            currency={currency}
-            verificationMeta={overviewVerificationMeta}
-            showFeedback={validated.passed}
-          />
           <section className="rounded-xl border border-white/10 bg-white/5 p-4">
             <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Funnel</h3>
             <FunnelOverviewChart />
@@ -137,10 +120,6 @@ export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
         </section>
       )}
 
-      {tabId !== 'overview' && (tabId === 'campaigns-budget' || tabId === 'asins-products' || tabId === 'profitability-inventory') && kpis.length > 0 && (
-        <TabKPISummary metrics={kpis.slice(0, 8)} currency={currency} />
-      )}
-
       {tabId === 'overview' && (patterns.length > 0 || opportunities.length > 0) && (
         <section>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -154,13 +133,14 @@ export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
         </section>
       )}
 
-      <TabDataTablesSection tables={tables} currency={currency} />
-
+      {/* Charts Lab before Data Tables (Phase 9) */}
       {chartIds.length > 0 && (
         <TabVisualization>
           <ChartRegistry chartIds={chartIds} />
         </TabVisualization>
       )}
+
+      <TabDataTablesSection tables={tables} currency={currency} />
     </div>
   );
 }

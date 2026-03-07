@@ -125,6 +125,7 @@ function AuditPageContent() {
         <UploadPanel
           onUploadComplete={handleUploadComplete}
           disabled={step === 'processing'}
+          collapsed={step === 'dashboard'}
         />
         <PrivacyNote />
 

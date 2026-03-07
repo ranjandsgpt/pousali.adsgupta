@@ -132,7 +132,9 @@ interface StructuredPayload {
 
 export type SchemaInferenceMap = Record<string, { canonical: string; confidence: number }>;
 
-async function fetchGeminiStructured(
+const GEMINI_FALLBACK_MESSAGE = 'AI insights temporarily unavailable — showing deterministic analysis.';
+
+async function fetchGeminiStructuredOnce(
   store: MemoryStore,
   rawFiles?: File[]
 ): Promise<{ artifacts: EngineArtifacts; recovered_fields: RecoveredFields; schema_inferences: SchemaInferenceMap } | null> {
@@ -163,6 +165,28 @@ async function fetchGeminiStructured(
     recovered_fields,
     schema_inferences,
   };
+}
+
+/** Phase 6: Retry once on failure, then return null (caller shows SLM fallback). */
+async function fetchGeminiStructured(
+  store: MemoryStore,
+  rawFiles?: File[]
+): Promise<{ artifacts: EngineArtifacts; recovered_fields: RecoveredFields; schema_inferences: SchemaInferenceMap } | null> {
+  try {
+    let result = await fetchGeminiStructuredOnce(store, rawFiles);
+    if (result == null) {
+      result = await fetchGeminiStructuredOnce(store, rawFiles);
+    }
+    return result;
+  } catch (e) {
+    console.error('[Gemini] Structured analysis failed:', e);
+    try {
+      return await fetchGeminiStructuredOnce(store, rawFiles);
+    } catch (retryErr) {
+      console.error('[Gemini] Retry failed:', retryErr);
+      return null;
+    }
+  }
 }
 
 async function fetchVerifySlm(slmArtifacts: EngineArtifacts, datasetSummary: Record<string, unknown>): Promise<VerificationScores | null> {
@@ -354,8 +378,9 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
           })
           .catch((e) => {
             setGeminiVerificationPending(false);
-            setError(e instanceof Error ? e.message : 'Gemini verification failed');
-            onGeminiComplete?.(null);
+            console.error('[Gemini] Verification failed:', e);
+            setError(GEMINI_FALLBACK_MESSAGE);
+            onGeminiComplete?.(store);
           });
         return setSlmOnlyResult();
       }

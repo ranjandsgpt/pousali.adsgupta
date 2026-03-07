@@ -5,6 +5,7 @@
 :root {
   --color-surface: #fafafa;
   --color-surface-elevated: #ffffff;
+  --color-border: #e2e8f0;
   --color-accent: #0ea5e9;
   --color-text: #0f172a;
   --color-text-muted: #64748b;
@@ -13,6 +14,7 @@
 .dark {
   --color-surface: #0a0a0a;
   --color-surface-elevated: #141414;
+  --color-border: rgba(255, 255, 255, 0.1);
   --color-accent: #22d3ee;
   --color-text: #f8fafc;
   --color-text-muted: #94a3b8;

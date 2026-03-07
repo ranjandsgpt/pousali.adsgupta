@@ -9,7 +9,7 @@ import type { DetectedCurrency } from '../utils/currencyDetector';
 import { runDiagnosticEngines, type DiagnosticEnginesResult } from '../engines';
 import { runSanityChecks, type SanityCheckResults } from '../utils/sanityChecks';
 
-/** 7 primary tabs: distributed analysis, deep-dive modules, reference UX. */
+/** Primary tabs: distributed analysis, deep-dive modules, Gemini Insights, reference UX. */
 export type TabId =
   | 'overview'
   | 'keywords-search-terms'
@@ -17,6 +17,7 @@ export type TabId =
   | 'asins-products'
   | 'waste-bleed'
   | 'profitability-inventory'
+  | 'gemini-insights'
   | 'insights-reports';
 
 function buildKPIs(store: MemoryStore): KPIMetric[] {
