@@ -1,0 +1,183 @@
+/**
+ * Context Builder — Assemble audit context for the Copilot from validated artifacts and SLM data.
+ * Gemini only receives this context (no raw reports).
+ */
+
+import type { MetricItem, TableArtifact, ChartArtifact, InsightArtifact } from '@/app/audit/dualEngine/types';
+import type { PatternDetection, OpportunityDetection } from '@/app/audit/tabs/types';
+
+/** Serializable store summary for API (no Set, no functions). */
+export interface StoreSummarySnapshot {
+  metrics: {
+    totalAdSpend: number;
+    totalAdSales: number;
+    totalStoreSales: number;
+    totalSessions: number;
+    totalClicks: number;
+    totalOrders: number;
+    buyBoxPercent: number;
+    roas: number;
+    acos: number;
+    tacos: number;
+    cpc: number;
+    currency: string | null;
+  };
+  /** Top campaigns by spend */
+  campaigns: Array<{
+    campaignName: string;
+    spend: number;
+    sales: number;
+    acos: number;
+    budget?: number;
+  }>;
+  /** Top keywords by spend */
+  keywords: Array<{
+    searchTerm: string;
+    campaign: string;
+    spend: number;
+    sales: number;
+    clicks: number;
+    acos: number;
+    roas: number;
+  }>;
+}
+
+export interface AuditContextInput {
+  metrics: MetricItem[];
+  tables: TableArtifact[];
+  charts: ChartArtifact[];
+  insights: InsightArtifact[];
+  storeSummary: StoreSummarySnapshot;
+  patterns: PatternDetection[];
+  opportunities: OpportunityDetection[];
+}
+
+export interface AuditContext {
+  metrics: string;
+  tables: string;
+  insights: string;
+  charts: string;
+  profit: string;
+  trends: string;
+  /** Full text for Gemini prompt */
+  summary: string;
+}
+
+function formatMetrics(metrics: MetricItem[]): string {
+  if (!metrics.length) return 'No metrics available.';
+  return metrics.map((m) => `${m.label}: ${m.value}`).join('\n');
+}
+
+function formatTables(tables: TableArtifact[]): string {
+  if (!tables.length) return 'No tables available.';
+  return tables
+    .map((t) => {
+      const headers = t.columns.map((c) => c.label).join(' | ');
+      const rows = (t.rows as Record<string, unknown>[]).slice(0, 15).map((r) => t.columns.map((c) => String(r[c.key] ?? '—')).join(' | '));
+      return `[${t.title}]\n${headers}\n${rows.join('\n')}`;
+    })
+    .join('\n\n');
+}
+
+function formatCharts(charts: ChartArtifact[]): string {
+  if (!charts.length) return 'No chart data available.';
+  return charts
+    .map((c) => {
+      const data = Array.isArray(c.data) ? c.data.slice(0, 10).map((d: { name?: string; value?: number }) => `${d.name}: ${d.value}`).join(', ') : '';
+      return `[${c.title}] ${data}`;
+    })
+    .join('\n');
+}
+
+function formatInsights(insights: InsightArtifact[]): string {
+  if (!insights.length) return 'No insights available.';
+  return insights
+    .map((i) => `[${i.title}] ${i.description}${i.recommendedAction ? ` Action: ${i.recommendedAction}` : ''}`)
+    .join('\n');
+}
+
+function formatStoreSummary(s: StoreSummarySnapshot): string {
+  const m = s.metrics;
+  const sym = m.currency === 'EUR' ? '€' : m.currency === 'GBP' ? '£' : '$';
+  const lines = [
+    `Total Ad Spend: ${sym}${m.totalAdSpend.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+    `Total Ad Sales: ${sym}${m.totalAdSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+    `Total Store Sales: ${sym}${m.totalStoreSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+    `ROAS: ${m.roas.toFixed(2)}`,
+    `ACOS: ${m.acos.toFixed(1)}%`,
+    `TACOS: ${m.tacos.toFixed(1)}%`,
+    `Sessions: ${m.totalSessions}`,
+    `Clicks: ${m.totalClicks}`,
+    `Orders: ${m.totalOrders}`,
+    `CPC: ${sym}${m.cpc.toFixed(2)}`,
+    `Buy Box %: ${m.buyBoxPercent}`,
+  ];
+  if (s.campaigns.length) {
+    lines.push('\nTop campaigns (spend, sales, ACOS):');
+    s.campaigns.slice(0, 20).forEach((c) => {
+      lines.push(`  ${c.campaignName}: spend ${c.spend.toFixed(0)}, sales ${c.sales.toFixed(0)}, ACOS ${c.acos.toFixed(0)}%`);
+    });
+  }
+  if (s.keywords.length) {
+    lines.push('\nTop keywords (spend, sales, clicks, ACOS, ROAS):');
+    s.keywords.slice(0, 25).forEach((k) => {
+      lines.push(`  "${k.searchTerm}" (${k.campaign}): spend ${k.spend.toFixed(0)}, sales ${k.sales.toFixed(0)}, ACOS ${k.acos.toFixed(0)}%, ROAS ${k.roas.toFixed(2)}`);
+    });
+  }
+  return lines.join('\n');
+}
+
+function formatPatterns(patterns: PatternDetection[]): string {
+  if (!patterns.length) return 'No detected issues.';
+  return patterns
+    .map((p) => `[${p.problemTitle}] ${p.entityType}: ${p.entityName}. ${p.recommendedAction}${p.metricValues && Object.keys(p.metricValues).length ? ` Metrics: ${JSON.stringify(p.metricValues)}` : ''}`)
+    .join('\n');
+}
+
+function formatOpportunities(opps: OpportunityDetection[]): string {
+  if (!opps.length) return 'No opportunities detected.';
+  return opps
+    .map((o) => `[${o.title}] ${o.entityType}: ${o.entityName}. ${o.recommendedAction}${o.metricValues && Object.keys(o.metricValues).length ? ` Metrics: ${JSON.stringify(o.metricValues)}` : ''}`)
+    .join('\n');
+}
+
+/**
+ * Build structured audit context for the Copilot.
+ * Used by the API to build the Gemini prompt.
+ */
+export function buildAuditContext(input: AuditContextInput): AuditContext {
+  const metrics = formatMetrics(input.metrics);
+  const tables = formatTables(input.tables);
+  const insights = formatInsights(input.insights);
+  const charts = formatCharts(input.charts);
+  const profit = formatStoreSummary(input.storeSummary);
+  const trends = [
+    formatPatterns(input.patterns),
+    formatOpportunities(input.opportunities),
+  ].filter(Boolean).join('\n\n');
+
+  const summary = [
+    '--- Metrics ---',
+    metrics,
+    '--- Account summary (profit/totals) ---',
+    profit,
+    '--- Detected issues (patterns) ---',
+    trends,
+    '--- Insights ---',
+    insights,
+    '--- Tables (sample) ---',
+    tables,
+    '--- Charts (data) ---',
+    charts,
+  ].join('\n\n');
+
+  return {
+    metrics,
+    tables,
+    insights,
+    charts,
+    profit,
+    trends,
+    summary,
+  };
+}

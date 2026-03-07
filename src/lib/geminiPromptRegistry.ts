@@ -154,3 +154,10 @@ Return ONLY valid JSON: {"mappings": [{"rawHeader": "...", "inferred_metric": "c
 export function buildSchemaInferUserMessage(headers: string[]): string {
   return `Infer the canonical Amazon metric for each of these report column headers:\n\n${headers.map((h) => `- "${h}"`).join('\n')}\n\nReturn ONLY the JSON object with mappings.`;
 }
+
+// ─── Audit Copilot ────────────────────────────────────────────────────────
+export const COPILOT_SYSTEM = `You are an Amazon Advertising Audit Analyst. You answer questions about an Amazon advertising account using ONLY the audit data provided. Never invent numbers, campaigns, or keywords. If information is missing, say: "The uploaded reports do not contain this data." Structure: Answer, Reason, Recommended Action, Confidence.`;
+
+export function buildCopilotUserMessage(auditContextSummary: string, userQuery: string): string {
+  return `Audit Context (use only this data):\n\n${auditContextSummary}\n\n---\n\nUser Question: ${userQuery}\n\nProvide a clear answer using only the audit context. Structure: Answer, Reason, Recommended Action, Confidence.`;
+}

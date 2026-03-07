@@ -10,6 +10,7 @@ import { useTabData, type TabId } from './useTabData';
 
 import LearningIntelligencePanel from '../components/LearningIntelligencePanel';
 import GeminiInsightsPanel from '../components/GeminiInsightsPanel';
+import AuditCopilot from '../components/AuditCopilot';
 
 export interface TabContentProps {
   tabId: TabId;
@@ -22,33 +23,23 @@ export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
   if (tabId === 'gemini-insights') {
     return (
       <div className="space-y-6">
-        <section>
-          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Executive Summary</h3>
-          <p className="text-sm text-[var(--color-text-muted)]">AI-generated account overview and key findings.</p>
+        <section className="w-full">
+          <AuditCopilot />
         </section>
         <section>
-          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Top Strategic Insights</h3>
-          <GeminiInsightsPanel />
-        </section>
-        <section>
-          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Key Risks</h3>
-          <p className="text-sm text-[var(--color-text-muted)]">Risks identified from campaign and keyword performance.</p>
-        </section>
-        <section>
-          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Growth Opportunities</h3>
-          <p className="text-sm text-[var(--color-text-muted)]">Opportunities for scaling and optimization.</p>
-        </section>
-        <section>
-          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Optimization Plan</h3>
-          <p className="text-sm text-[var(--color-text-muted)]">Actionable recommendations from AI analysis.</p>
-        </section>
-        <section>
-          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">AI Narrative</h3>
+          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Executive Narrative</h3>
           <GeminiInsightsPanel />
         </section>
         <section>
           <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Learning from data</h3>
           <LearningIntelligencePanel />
+        </section>
+        <section>
+          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2">Strategic Recommendations</h3>
+          <p className="text-sm text-[var(--color-text-muted)] mb-2">Key risks, growth opportunities, and optimization plan from campaign and keyword performance.</p>
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-sm text-[var(--color-text-muted)]">
+            Review the Executive Narrative and Learning from data above for specific risks, opportunities, and action items.
+          </div>
         </section>
       </div>
     );
