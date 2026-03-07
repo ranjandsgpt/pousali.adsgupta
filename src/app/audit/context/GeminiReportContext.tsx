@@ -224,9 +224,10 @@ export function GeminiReportProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify(payload),
           });
         }
-        const data = await res.json();
+        const data = await res.json() as { report?: string; narrative?: string; error?: string; errorCode?: string; errorDetail?: string };
         if (!res.ok) {
-          setError('AI analysis temporarily unavailable. Please rerun analysis.');
+          const msg = data.error || 'AI analysis temporarily unavailable. Please rerun analysis.';
+          setError(data.errorDetail ? `${msg} (${data.errorDetail})` : msg);
           opts?.onComplete?.(false);
           return;
         }
@@ -236,11 +237,13 @@ export function GeminiReportProvider({ children }: { children: ReactNode }) {
           setError(null);
           success = true;
         } else {
-          setError('AI analysis temporarily unavailable. Please rerun analysis.');
+          const base = 'AI analysis temporarily unavailable. Please rerun analysis.';
+          setError(data.errorDetail ? `${base} ${data.errorDetail}` : base);
         }
         opts?.onComplete?.(success);
-      } catch {
-        setError('AI analysis temporarily unavailable. Please rerun analysis.');
+      } catch (e) {
+        const detail = e instanceof Error ? e.message : String(e);
+        setError(`AI analysis temporarily unavailable. ${detail.slice(0, 100)}`);
         opts?.onComplete?.(false);
       } finally {
         setLoading(false);

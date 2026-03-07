@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { COPILOT_SYSTEM, buildCopilotUserMessage } from '@/lib/geminiPromptRegistry';
+import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
 import { routeQuery } from '@/lib/copilot/queryRouter';
 import { buildAuditContext, type AuditContextInput, type StoreSummarySnapshot } from '@/lib/copilot/contextBuilder';
 import { validateCopilotResponse } from '@/lib/copilot/validateResponse';
@@ -77,8 +78,7 @@ export async function POST(request: NextRequest) {
       config: { systemInstruction: COPILOT_SYSTEM },
       contents: [{ role: 'user', parts: [{ text: userMessage }] }],
     });
-    rawText =
-      result.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() ?? '';
+    rawText = extractTextFromGenerateContentResponse(result);
   } catch (e) {
     console.error('[copilot] Gemini error:', e);
     return NextResponse.json({

@@ -10,6 +10,7 @@ import {
   buildSchemaInferUserMessage,
 } from '@/lib/geminiPromptRegistry';
 import { logGeminiResponse } from '@/lib/geminiResponseLogger';
+import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
 
 /**
  * Dual Engine API:
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
         config: { systemInstruction: SCHEMA_INFER_SYSTEM },
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
       });
-      const text = result.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() || '';
+      const text = extractTextFromGenerateContentResponse(result);
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       const raw = jsonMatch ? jsonMatch[0] : text;
       const parsed = JSON.parse(raw) as { mappings?: { rawHeader: string; inferred_metric: string; confidence_score: number }[] };
@@ -167,7 +168,7 @@ export async function POST(request: NextRequest) {
         config: { systemInstruction: VERIFY_SLM_PROMPT },
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
       });
-      const text = result.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() || '';
+      const text = extractTextFromGenerateContentResponse(result);
       await logGeminiResponse({
         mode: 'verify_slm',
         rawResponse: text,
@@ -253,7 +254,7 @@ export async function POST(request: NextRequest) {
           },
         ],
       });
-      const text = result.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() || '';
+      const text = extractTextFromGenerateContentResponse(result);
       await logGeminiResponse({
         mode: 'structured',
         rawResponse: text.slice(0, 8000),

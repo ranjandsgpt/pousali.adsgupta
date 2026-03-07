@@ -73,6 +73,9 @@ export function validateNarrativeResponse(raw: string): {
         return { valid: true, narrative, shouldRetry: false };
       }
     }
+    if (trimmed.length > 200) {
+      return { valid: true, narrative: trimmed, shouldRetry: false, reason: 'response_was_json_used_raw' };
+    }
     return { valid: false, narrative: null, shouldRetry: true, reason: 'response_was_json_no_narrative_field' };
   }
   return { valid: true, narrative: trimmed, shouldRetry: false };

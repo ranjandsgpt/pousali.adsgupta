@@ -6,6 +6,7 @@ import {
 } from '@/lib/geminiPromptRegistry';
 import { validateNarrativeResponse } from '@/lib/geminiResponseValidation';
 import { logGeminiResponse } from '@/lib/geminiResponseLogger';
+import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
 
 /**
  * Mode 2 — Insight Narrative.
@@ -74,12 +75,7 @@ async function callGeminiNarrative(
       },
     ],
   });
-  return (
-    result.candidates?.[0]?.content?.parts
-      ?.map((p) => p.text ?? '')
-      .join('\n')
-      .trim() || ''
-  );
+  return extractTextFromGenerateContentResponse(result);
 }
 
 export async function POST(request: NextRequest) {
@@ -159,6 +155,8 @@ export async function POST(request: NextRequest) {
   const ai = new GoogleGenAI({ apiKey });
   let lastRaw = '';
   let narrative: string | null = null;
+  let errorCode: string | undefined;
+  let errorDetail: string | undefined;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -175,7 +173,9 @@ export async function POST(request: NextRequest) {
         ...(attempt > 0 ? { error: `retry ${attempt}` } : {}),
       });
       if (!lastRaw) {
-        return NextResponse.json({ report: FAILSAFE_MESSAGE }, { status: 200 });
+        errorCode = 'gemini_empty';
+        errorDetail = 'Gemini returned no text. Check model name and API quota.';
+        break;
       }
       const validation = validateNarrativeResponse(lastRaw);
       if (validation.valid && validation.narrative) {
@@ -189,18 +189,27 @@ export async function POST(request: NextRequest) {
         narrative = validation.narrative;
         break;
       }
+      errorCode = 'validation_failed';
+      errorDetail = validation.reason ?? 'Response format was not accepted.';
+      break;
     } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
       console.error('generate-insights error', e);
       await logGeminiResponse({
         mode: 'insight_narrative',
         rawResponse: lastRaw || '(no response)',
         outcome: 'error',
-        error: e instanceof Error ? e.message : String(e),
+        error: errMsg,
       });
-      return NextResponse.json({ report: FAILSAFE_MESSAGE }, { status: 200 });
+      errorCode = 'gemini_error';
+      errorDetail = errMsg.slice(0, 200);
+      break;
     }
   }
 
   const report = narrative && narrative.length > 0 ? narrative : FAILSAFE_MESSAGE;
-  return NextResponse.json({ report }, { status: 200 });
+  const body: { report: string; errorCode?: string; errorDetail?: string } = { report };
+  if (errorCode) body.errorCode = errorCode;
+  if (errorDetail) body.errorDetail = errorDetail;
+  return NextResponse.json(body, { status: 200 });
 }
