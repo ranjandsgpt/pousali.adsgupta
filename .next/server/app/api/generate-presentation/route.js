@@ -19,11 +19,16 @@ Output format exactly:
 - verification_result: "agree" if SLM outputs are consistent with the data; "disagree" if you found material errors.
 - confidence_score: 0–1 (1 = fully valid).
 - disagreements: list of short descriptions of any discrepancies (e.g. "ACOS mismatch: SLM 24.5%, expected 23.1%").
-- correctedMetrics: optional object of metric label to corrected numeric value when you disagree; empty {} when agree.`;function a(e,t){return`Dataset summary:
+- correctedMetrics: optional object of metric label to corrected numeric value when you disagree; empty {} when agree.`;function a(e,t,r){let s=`Dataset summary:
 ${JSON.stringify(e,null,2)}
 
 SLM artifacts:
-${JSON.stringify(t,null,2)}
+${JSON.stringify(t,null,2)}`;return r&&r.trim()&&(s+=`
+
+User feedback (consider when verifying):
+${r.trim()}
+
+Recalculate and verify the above metrics where user indicated incorrect.`),s+=`
 
 Return ONLY the JSON object. No other text.`}let o=`You are an Amazon PPC data analyst writing an executive audit narrative.
 
@@ -117,4 +122,4 @@ Return ONLY valid JSON: {"mappings": [{"rawHeader": "...", "inferred_metric": "c
 
 ${e.map(e=>`- "${e}"`).join("\n")}
 
-Return ONLY the JSON object with mappings.`}},9907:(e,t,r)=>{"use strict";r.d(t,{g:()=>n});var s=r(20629),a=r(55315),o=r.n(a);async function n(e){let t=new Date().toISOString().replace(/[:.]/g,"-"),r={...e,timestamp:t},a=function(){let e="undefined"!=typeof process&&process.cwd?process.cwd():".";return o().join(e,"logs/gemini-responses")}();try{await (0,s.mkdir)(a,{recursive:!0});let n=o().join(a,`gemini-${e.mode}-${t.slice(0,19)}.json`);await (0,s.writeFile)(n,JSON.stringify(r,null,2),"utf-8")}catch(e){console.error("[geminiResponseLogger]",e)}}}};var t=require("../../../webpack-runtime.js");t.C(e);var r=e=>t(t.s=e),s=t.X(0,[276,287],()=>r(179));module.exports=s})();
+Return ONLY the JSON object with mappings.`}},9907:(e,t,r)=>{"use strict";r.d(t,{g:()=>n});var s=r(20629),a=r(55315),o=r.n(a);async function n(e){let t=new Date().toISOString().replace(/[:.]/g,"-"),r={...e,timestamp:t},a=function(){let e="undefined"!=typeof process&&process.cwd?process.cwd():".";return o().join(e,"logs/gemini-responses")}();try{await (0,s.mkdir)(a,{recursive:!0});let n=o().join(a,`gemini-${e.mode}-${t.slice(0,19)}.json`);await (0,s.writeFile)(n,JSON.stringify(r,null,2),"utf-8")}catch(e){console.error("[geminiResponseLogger]",e)}}}};var t=require("../../../webpack-runtime.js");t.C(e);var r=e=>t(t.s=e),s=t.X(0,[276,972,954],()=>r(179));module.exports=s})();
