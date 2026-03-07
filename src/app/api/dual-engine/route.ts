@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import {
-  VERIFY_SLM_SYSTEM,
+  VERIFY_SLM_PROMPT,
   buildVerifySlmUserMessage,
   STRUCTURED_FROM_RAW_SYSTEM,
   STRUCTURED_FROM_RAW_USER_PREFIX,
   STRUCTURED_FROM_JSON_USER_PREFIX,
   SCHEMA_INFER_SYSTEM,
   buildSchemaInferUserMessage,
-} from '@/app/audit/utils/geminiPromptRegistry';
+} from '@/lib/geminiPromptRegistry';
+import { logGeminiResponse } from '@/lib/geminiResponseLogger';
 
 /**
  * Dual Engine API:
@@ -64,6 +65,25 @@ function parseJsonScores(text: string): Record<string, number> | null {
   } catch {
     return null;
   }
+}
+
+/** Mode 1 contract: verification_result, confidence_score, disagreements, correctedMetrics. */
+function parseVerificationResult(
+  text: string
+): {
+  verification_result?: string;
+  confidence_score?: number;
+  disagreements?: string[];
+  correctedMetrics?: Record<string, number>;
+} | null {
+  const obj = parseJsonScores(text) as Record<string, unknown> | null;
+  if (!obj || typeof obj !== 'object') return null;
+  return {
+    verification_result: typeof obj.verification_result === 'string' ? obj.verification_result : undefined,
+    confidence_score: typeof obj.confidence_score === 'number' ? obj.confidence_score : undefined,
+    disagreements: Array.isArray(obj.disagreements) ? obj.disagreements.filter((x): x is string => typeof x === 'string') : undefined,
+    correctedMetrics: obj.correctedMetrics && typeof obj.correctedMetrics === 'object' ? (obj.correctedMetrics as Record<string, number>) : undefined,
+  };
 }
 
 function getMimeType(fileName: string): string {
@@ -137,24 +157,35 @@ export async function POST(request: NextRequest) {
     try {
       const result = await ai.models.generateContent({
         model,
-        config: { systemInstruction: VERIFY_SLM_SYSTEM },
+        config: { systemInstruction: VERIFY_SLM_PROMPT },
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
       });
       const text = result.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() || '';
-      const obj = parseJsonScores(text);
-      const metrics_score = obj && typeof obj.metrics_score === 'number' ? obj.metrics_score : 0.9;
-      const tables_score = obj && typeof obj.tables_score === 'number' ? obj.tables_score : 0.9;
-      const charts_score = obj && typeof obj.charts_score === 'number' ? obj.charts_score : 0.9;
-      const insights_score = obj && typeof obj.insights_score === 'number' ? obj.insights_score : 0.9;
+      await logGeminiResponse({
+        mode: 'verify_slm',
+        rawResponse: text,
+        outcome: text ? 'json' : 'empty',
+      });
+      const obj = parseVerificationResult(text);
+      const confidence = obj?.confidence_score ?? 0.9;
+      const score = Math.max(0, Math.min(1, typeof confidence === 'number' ? confidence : 0.9));
       return NextResponse.json({
-        metrics_score: Math.max(0, Math.min(1, metrics_score)),
-        tables_score: Math.max(0, Math.min(1, tables_score)),
-        charts_score: Math.max(0, Math.min(1, charts_score)),
-        insights_score: Math.max(0, Math.min(1, insights_score)),
+        verification_result: obj?.verification_result ?? 'agree',
+        confidence_score: score,
+        disagreements: Array.isArray(obj?.disagreements) ? obj.disagreements : [],
+        correctedMetrics: obj?.correctedMetrics ?? {},
+        metrics_score: score,
+        tables_score: score,
+        charts_score: score,
+        insights_score: score,
       });
     } catch (e) {
       console.error('dual-engine verify_slm', e);
       return NextResponse.json({
+        verification_result: 'agree',
+        confidence_score: 0.85,
+        disagreements: [],
+        correctedMetrics: {},
         metrics_score: 0.85,
         tables_score: 0.85,
         charts_score: 0.85,
@@ -216,6 +247,11 @@ export async function POST(request: NextRequest) {
         ],
       });
       const text = result.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() || '';
+      await logGeminiResponse({
+        mode: 'structured',
+        rawResponse: text.slice(0, 8000),
+        outcome: text ? 'json' : 'empty',
+      });
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       const raw = jsonMatch ? jsonMatch[0] : text;
       const parsed = JSON.parse(raw) as {

@@ -27,6 +27,7 @@ import type {
   InsightArtifact,
 } from './types';
 import { runMultiAgentPipeline } from '../agents/multiAgentPipeline';
+import { buildBlackboardRunVerification } from '../blackboard';
 
 /** Merge recovered fields into store for display (e.g. sessions, buyBox from Gemini when SLM missed). */
 export function mergeRecoveredIntoStore(store: MemoryStore, recovered: RecoveredFields): MemoryStore {
@@ -278,7 +279,11 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
               slmArtifacts,
               geminiArtifacts
             );
-            const validated = selectArtifacts(slmArtifacts, geminiArtifacts, confidence);
+            let validated = selectArtifacts(slmArtifacts, geminiArtifacts, confidence);
+            const pipelineResult = buildBlackboardRunVerification(store, slmArtifacts, geminiArtifacts ?? { metrics: [], tables: [], charts: [], insights: [] });
+            if (pipelineResult.eligibleInsightCount > 0 && pipelineResult.verificationScore >= 0.9) {
+              validated = { ...validated, insights: pipelineResult.blackboard.eligibleInsights };
+            }
             const auditConfidenceScore = computeAuditConfidenceScore(confidence);
             const recoveredFieldsRaw = mergeRecoveredFields(
               store.totalSessions,
@@ -351,7 +356,11 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
           slmArtifacts,
           geminiArtifacts
         );
-        const validated = selectArtifacts(slmArtifacts, geminiArtifacts, confidence);
+        let validated = selectArtifacts(slmArtifacts, geminiArtifacts, confidence);
+        const pipelineResult = buildBlackboardRunVerification(store, slmArtifacts, geminiArtifacts ?? { metrics: [], tables: [], charts: [], insights: [] });
+        if (pipelineResult.eligibleInsightCount > 0 && pipelineResult.verificationScore >= 0.9) {
+          validated = { ...validated, insights: pipelineResult.blackboard.eligibleInsights };
+        }
         const auditConfidenceScore = computeAuditConfidenceScore(confidence);
         const recoveredFieldsRaw = mergeRecoveredFields(
           store.totalSessions,

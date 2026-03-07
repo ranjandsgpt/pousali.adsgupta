@@ -21,3 +21,8 @@ export { runStatisticalValidatorAgent } from './statisticalValidatorAgent';
 export { runDataConsistencyAgent } from './dataConsistencyAgent';
 export { runDataReconciliationEngine } from './dataReconciliationEngine';
 export { runMultiAgentPipeline } from './multiAgentPipeline';
+export { runEvidenceEngineAgent, verifyInsightWithEvidence } from './evidenceEngineAgent';
+export { runIngestionAgent } from './ingestionAgent';
+export { runSchemaGuardAgent } from './schemaGuardAgent';
+export { runMathematicalAuditorAgent } from './mathematicalAuditorAgent';
+export { runTrafficIntentAgent } from './trafficIntentAgent';

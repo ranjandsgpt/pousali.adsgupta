@@ -10,6 +10,7 @@ import {
 import type { MemoryStore } from '../utils/reportParser';
 import { runDiagnosticEngines } from '../engines';
 import { runSanityChecks } from '../utils/sanityChecks';
+import { getMetricDefinitionsContext } from '@/lib/amazonMetricsReference';
 
 export interface GeminiReportState {
   report: string | null;
@@ -24,7 +25,10 @@ const defaultState: GeminiReportState = {
 };
 
 interface GeminiReportContextValue extends GeminiReportState {
-  runGemini: (store: MemoryStore, opts?: { onComplete?: (success: boolean) => void }) => Promise<void>;
+  runGemini: (
+    store: MemoryStore,
+    opts?: { onComplete?: (success: boolean) => void; rawFiles?: File[] }
+  ) => Promise<void>;
 }
 
 const GeminiReportContext = createContext<GeminiReportContextValue>({
@@ -133,7 +137,12 @@ function buildPayload(store: MemoryStore): Record<string, unknown> {
     .filter((k) => k.clicks >= 10 && k.sales === 0)
     .reduce((s, k) => s + k.spend, 0);
 
+  const metricsReferenceContext = getMetricDefinitionsContext([
+    'ACOS', 'ROAS', 'CTR', 'CVR', 'CPC', 'TACOS',
+  ]);
+
   return {
+    metricsReferenceContext: metricsReferenceContext || undefined,
     accountSummary: {
       totalStoreSales,
       totalAdSales,
@@ -187,40 +196,58 @@ export function GeminiReportProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const runGemini = useCallback(async (store: MemoryStore, opts?: { onComplete?: (success: boolean) => void }) => {
-    setLoading(true);
-    setReport(null);
-    setError(null);
-    let success = false;
-    try {
-      const payload = buildPayload(store);
-      const res = await fetch('/api/generate-insights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok) {
+  const runGemini = useCallback(
+    async (
+      store: MemoryStore,
+      opts?: { onComplete?: (success: boolean) => void; rawFiles?: File[] }
+    ) => {
+      setLoading(true);
+      setReport(null);
+      setError(null);
+      let success = false;
+      try {
+        const payload = buildPayload(store);
+        const rawFiles = opts?.rawFiles ?? [];
+        let res: Response;
+        if (rawFiles.length > 0) {
+          const formData = new FormData();
+          formData.set('payload', JSON.stringify(payload));
+          rawFiles.forEach((f) => formData.append('files', f));
+          res = await fetch('/api/generate-insights', {
+            method: 'POST',
+            body: formData,
+          });
+        } else {
+          res = await fetch('/api/generate-insights', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        }
+        const data = await res.json();
+        if (!res.ok) {
+          setError('AI analysis temporarily unavailable. Please rerun analysis.');
+          opts?.onComplete?.(false);
+          return;
+        }
+        const text = typeof data.report === 'string' ? data.report : (data.narrative ?? '');
+        if (text && !text.includes('temporarily unavailable')) {
+          setReport(text);
+          setError(null);
+          success = true;
+        } else {
+          setError('AI analysis temporarily unavailable. Please rerun analysis.');
+        }
+        opts?.onComplete?.(success);
+      } catch {
         setError('AI analysis temporarily unavailable. Please rerun analysis.');
         opts?.onComplete?.(false);
-        return;
+      } finally {
+        setLoading(false);
       }
-      const text = typeof data.report === 'string' ? data.report : (data.narrative ?? '');
-      if (text && !text.includes('temporarily unavailable')) {
-        setReport(text);
-        setError(null);
-        success = true;
-      } else {
-        setError('AI analysis temporarily unavailable. Please rerun analysis.');
-      }
-      opts?.onComplete?.(success);
-    } catch {
-      setError('AI analysis temporarily unavailable. Please rerun analysis.');
-      opts?.onComplete?.(false);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   return (
     <GeminiReportContext.Provider

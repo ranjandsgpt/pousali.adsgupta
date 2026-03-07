@@ -1,14 +1,18 @@
 /**
  * Phase 4 — Data Consistency Agent.
  * Verifies derived metrics: recalculate independently and compare with SLM/Gemini.
- * Flag if mismatch > 5%. Confidence ≥ 80% before publishing.
+ * Uses CSV calculation reference for validation when available; tolerance 3%.
+ * Confidence ≥ 80% before publishing.
  */
 
 import type { MemoryStore } from '../utils/reportParser';
 import { acos, roas, tacos, cvr, cpc, ctr } from '../utils/amazonMetricsLibrary';
+import { getReference, validateWithReference } from '@/lib/amazonMetricsReference';
+import { evaluateReferenceFormula } from '@/lib/metricResolution';
 
 export const CONSISTENCY_CONFIDENCE_TARGET = 0.8;
-const MISMATCH_PCT_THRESHOLD = 5;
+/** Spec: validation tolerance 3% (reference and SLM/Gemini comparison). */
+const MISMATCH_PCT_THRESHOLD = 3;
 
 export interface DerivedCheck {
   metric: string;
@@ -19,6 +23,8 @@ export interface DerivedCheck {
   slmMatch: boolean;
   geminiMatch: boolean;
   mismatchPct: number;
+  /** Set when reference library formula disagrees with system (>3% deviation). */
+  referenceValidationFlag?: boolean;
 }
 
 export interface DataConsistencyResult {
@@ -81,12 +87,42 @@ export function runDataConsistencyAgent(
     { metric: 'CTR', formula: 'clicks/impressions', computed: computedCtr, slmKey: 'ctr', geminiKey: 'ctr' },
   ];
 
+  // System values for reference-library validation (CSV formulas use Spend, Sales, Clicks, etc.)
+  const systemValues: Record<string, number> = {
+    Spend: totalAdSpend,
+    'Ad Spend': totalAdSpend,
+    Sales: totalAdSales,
+    'Ad Sales': totalAdSales,
+    'Total Sales': totalSales,
+    Clicks: totalClicks,
+    Impressions: store.totalImpressions ?? 0,
+    Orders: totalOrders,
+  };
+
   for (const d of [...baseMetrics, ...derived]) {
     const slmVal = getSlm(d.slmKey);
     const geminiVal = getGemini(d.geminiKey);
     const slmMatch = withinPct(d.computed, slmVal, MISMATCH_PCT_THRESHOLD);
     const geminiMatch = geminiVal == null ? true : withinPct(d.computed, geminiVal, MISMATCH_PCT_THRESHOLD);
     const mismatchPct = slmVal !== 0 ? Math.abs(d.computed - slmVal) / Math.abs(slmVal) * 100 : 0;
+
+    // When CSV reference is loaded, validate system computed vs reference formula (3% tolerance)
+    let referenceValidationFlag = false;
+    if (getReference(d.metric)) {
+      const refResult = validateWithReference(
+        d.metric,
+        d.computed,
+        systemValues,
+        evaluateReferenceFormula
+      );
+      referenceValidationFlag = refResult.validationFlag;
+      if (referenceValidationFlag) {
+        inconsistencies.push(
+          `${d.metric}: reference formula deviation ${refResult.differencePct.toFixed(1)}% (expected ${refResult.expected?.toFixed(2) ?? '?'})`
+        );
+      }
+    }
+
     checks.push({
       metric: d.metric,
       formula: d.formula,
@@ -96,6 +132,7 @@ export function runDataConsistencyAgent(
       slmMatch,
       geminiMatch,
       mismatchPct,
+      referenceValidationFlag,
     });
     if (!slmMatch) inconsistencies.push(`${d.metric}: SLM mismatch ${mismatchPct.toFixed(1)}%`);
     if (geminiVal != null && !geminiMatch) inconsistencies.push(`${d.metric}: Gemini mismatch`);

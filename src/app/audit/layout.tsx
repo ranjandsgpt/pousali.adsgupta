@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import MetricsReferenceLoader from './components/MetricsReferenceLoader';
 
 export const metadata: Metadata = {
   title: 'Amazon Advertising Performance Audit',
@@ -11,5 +12,10 @@ export default function AuditLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <>
+      <MetricsReferenceLoader />
+      {children}
+    </>
+  );
 }

@@ -99,6 +99,7 @@ function AuditPageContent() {
           onComplete: (success) => {
             setStage('gemini_analysis', success ? 'completed' : 'failed');
           },
+          rawFiles: lastFilesRef.current,
         });
       } catch (err) {
         setStage('report_parsing', 'failed', err instanceof Error ? err.message : 'Parse failed');
