@@ -5,6 +5,8 @@ import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
 import { routeQuery } from '@/lib/copilot/queryRouter';
 import { buildAuditContext, type AuditContextInput, type StoreSummarySnapshot } from '@/lib/copilot/contextBuilder';
 import { validateCopilotResponse } from '@/lib/copilot/validateResponse';
+import { assertNoFileReferences } from '@/lib/geminiRequestGuard';
+import { logGeminiRequest } from '@/lib/geminiRequestLogger';
 
 const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -141,18 +143,37 @@ export async function POST(request: NextRequest) {
 
   const userMessage = buildCopilotUserMessage(context.summary, route.normalizedQuery, feedbackContext);
 
+  const contents = [{ role: 'user' as const, parts: [{ text: userMessage }] }];
+  assertNoFileReferences(contents);
+
   const ai = new GoogleGenAI({ apiKey });
   let rawText: string;
+  const startMs = Date.now();
 
   try {
     const result = await ai.models.generateContent({
       model,
       config: { systemInstruction: COPILOT_SYSTEM },
-      contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+      contents,
     });
     rawText = extractTextFromGenerateContentResponse(result);
+    await logGeminiRequest({
+      mode: 'copilot',
+      promptLength: userMessage.length,
+      contextSize: context.summary.length,
+      responseLatencyMs: Date.now() - startMs,
+      validationResult: rawText ? 'ok' : 'empty',
+    });
   } catch (e) {
     console.error('[copilot] Gemini error:', e);
+    await logGeminiRequest({
+      mode: 'copilot',
+      promptLength: userMessage.length,
+      contextSize: context.summary.length,
+      responseLatencyMs: Date.now() - startMs,
+      validationResult: 'error',
+      error: e instanceof Error ? e.message : String(e),
+    });
     return NextResponse.json({
       answer: 'AI insights temporarily unavailable — please try again.',
       validated: false,
