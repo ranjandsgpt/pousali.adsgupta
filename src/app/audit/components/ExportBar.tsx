@@ -3,31 +3,47 @@
 import { FileDown, Presentation, RefreshCw } from 'lucide-react';
 import { useAuditStore } from '../context/AuditStoreContext';
 
-/** Bottom export bar: PDF, PPTX, Refresh. Zenith CXO Export. */
+/** Bottom export bar: PDF, PPTX, Refresh. Phase 40: progress bar. */
 interface ExportBarProps {
   onDownloadPdf?: () => void;
   onDownloadPptx?: () => void;
   onRefreshExports?: () => void;
   exportGenerating?: boolean;
+  /** Phase 40: status for progress bar */
+  exportStatus?: 'idle' | 'queued' | 'rendering' | 'verifying' | 'ready' | 'error';
+  exportStatusMessage?: string;
 }
+
+const STATUS_PCT: Record<string, number> = {
+  idle: 0,
+  queued: 15,
+  rendering: 45,
+  verifying: 80,
+  ready: 100,
+  error: 100,
+};
 
 export default function ExportBar({
   onDownloadPdf,
   onDownloadPptx,
   onRefreshExports,
   exportGenerating = false,
+  exportStatus = 'idle',
+  exportStatusMessage = '',
 }: ExportBarProps) {
   const { state } = useAuditStore();
   const hasData = state.store.totalAdSpend > 0 || state.store.totalStoreSales > 0;
   const lock = exportGenerating;
+  const pct = STATUS_PCT[exportStatus] ?? 0;
 
   return (
     <section
       aria-label="Export report"
-      className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[var(--color-surface-elevated)] px-4 py-3"
+      className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-[var(--color-surface-elevated)] px-4 py-3"
     >
+      <div className="flex flex-wrap items-center justify-between gap-4">
       <span className="text-sm font-medium text-[var(--color-text)]">
-        {lock ? 'Generating premium report…' : 'Export Report (PDF & PPTX)'}
+        {lock ? (exportStatusMessage || 'Generating premium report…') : 'Export Report (PDF & PPTX)'}
       </span>
       <div className="flex items-center gap-2">
         {onRefreshExports && (
@@ -66,6 +82,17 @@ export default function ExportBar({
           Download PPTX
         </button>
       </div>
+      </div>
+      {lock && (
+        <div className="w-full" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+          <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+            <div
+              className="h-full bg-amber-500/80 transition-all duration-300"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+      )}
     </section>
   );
 }

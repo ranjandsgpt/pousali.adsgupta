@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import pptxgen from 'pptxgenjs';
 import { runCxoJudgeAgent } from '@/agents/cxoJudgeAgent';
 import type { PremiumState, VerifiedMetric, VerifiedInsight } from '@/agents/zenithTypes';
+import { setExportStatus } from '@/services/exportStatusStore';
+import { writeCache } from '@/services/exportCache';
 
 const SLIDE_TITLES = [
   'Amazon Advertising CXO Audit',
@@ -86,6 +88,7 @@ function buildPremiumStateFromPayload(body: {
 
 export async function POST(request: NextRequest) {
   try {
+    setExportStatus('queued', 'Preparing export…');
     const body = await request.json().catch(() => ({})) as {
       executiveNarrative?: string;
       insights?: Array<{ title: string; description?: string; recommendedAction?: string }>;
@@ -96,7 +99,9 @@ export async function POST(request: NextRequest) {
     };
 
     const premiumState = buildPremiumStateFromPayload(body);
+    const auditId = (body as { auditId?: string }).auditId ?? `audit-${Date.now()}`;
 
+    setExportStatus('rendering', 'Building deck…');
     const exportedMetrics = premiumState.verifiedMetrics
       .filter((m) => typeof m.value === 'number')
       .map((m) => ({ label: m.label, value: m.value as number }));
@@ -182,14 +187,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    setExportStatus('verifying', 'Verifying export…');
     pres.addSlide().addText(
       `Generated ${premiumState.generatedAt} | ${premiumState.modelVerificationStatus ?? 'Zenith'}${judge.status === 'PASSED' ? ' | Verified' : ''}`,
       { x: 0.5, y: 5.2, w: 9, h: 0.4, fontSize: 8, color: THEME.accent }
     );
 
     const buffer = await pres.write({ outputType: 'nodebuffer' });
-    const responseBody = buffer instanceof Buffer ? new Uint8Array(buffer) : buffer;
-    return new NextResponse(responseBody as unknown as BodyInit, {
+    const buf = buffer instanceof Buffer ? buffer : Buffer.from(buffer as ArrayBuffer);
+    setExportStatus('ready', 'Export ready');
+    await writeCache(auditId, buf, null);
+    return new NextResponse(buf as unknown as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
@@ -198,6 +206,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (e) {
     console.error('zenith-export', e);
+    setExportStatus('error', e instanceof Error ? e.message : 'Zenith export failed');
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Zenith export failed' },
       { status: 500 }

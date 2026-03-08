@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useState,
   type ReactNode,
 } from 'react';
@@ -12,8 +13,13 @@ import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
 import { useGeminiReport } from './GeminiReportContext';
 import { exportAuditPdf } from '../utils/exportPdf';
 
+export type ExportProgressStatus = 'idle' | 'queued' | 'rendering' | 'verifying' | 'ready' | 'error';
+
 interface ExportContextValue {
   exportGenerating: boolean;
+  /** Phase 40: status from /api/export-status for progress bar */
+  exportStatus: ExportProgressStatus;
+  exportStatusMessage: string;
   onDownloadPdf: () => void;
   onDownloadPptx: () => void;
   onRefreshExports: () => void;
@@ -27,9 +33,28 @@ export function useExport() {
   return ctx;
 }
 
+const POLL_INTERVAL_MS = 800;
+
 export function ExportProvider({ children }: { children: ReactNode }) {
   const [exportGenerating, setExportGenerating] = useState(false);
+  const [exportStatus, setExportStatusState] = useState<ExportProgressStatus>('idle');
+  const [exportStatusMessage, setExportStatusMessage] = useState('');
   const { state } = useAuditStore();
+
+  useEffect(() => {
+    if (!exportGenerating) return;
+    const t = setInterval(async () => {
+      try {
+        const res = await fetch('/api/export-status');
+        const data = (await res.json()) as { status: ExportProgressStatus; message?: string };
+        setExportStatusState(data.status);
+        setExportStatusMessage(data.message ?? data.status);
+      } catch {
+        //
+      }
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(t);
+  }, [exportGenerating]);
   const { validated } = useValidatedArtifacts();
   const { report } = useGeminiReport();
   const store = state.store;
@@ -135,13 +160,20 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     }
   }, [store, validated?.insights, report]);
 
-  const onRefreshExports = useCallback(() => {
+  const onRefreshExports = useCallback(async () => {
     if (exportGenerating) return;
+    try {
+      await fetch('/api/export-invalidate', { method: 'POST' });
+    } catch {
+      //
+    }
     onDownloadPptx();
   }, [exportGenerating, onDownloadPptx]);
 
   const value: ExportContextValue = {
     exportGenerating,
+    exportStatus,
+    exportStatusMessage,
     onDownloadPdf,
     onDownloadPptx,
     onRefreshExports,

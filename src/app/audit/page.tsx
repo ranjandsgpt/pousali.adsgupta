@@ -54,6 +54,8 @@ function DashboardWithExport({
         onDownloadPptx={exportCtx?.onDownloadPptx}
         onRefreshExports={exportCtx?.onRefreshExports}
         exportGenerating={exportCtx?.exportGenerating ?? false}
+        exportStatus={exportCtx?.exportStatus ?? 'idle'}
+        exportStatusMessage={exportCtx?.exportStatusMessage ?? ''}
       />
     </>
   );
