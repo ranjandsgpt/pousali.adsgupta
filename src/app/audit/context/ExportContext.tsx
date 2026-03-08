@@ -20,6 +20,8 @@ interface ExportContextValue {
   /** Phase 40: status from /api/export-status for progress bar */
   exportStatus: ExportProgressStatus;
   exportStatusMessage: string;
+  /** User-visible error when PDF/PPTX export fails */
+  exportError: string | null;
   onDownloadPdf: () => void | Promise<void>;
   onDownloadPptx: () => void | Promise<void>;
   onRefreshExports: () => void;
@@ -39,6 +41,7 @@ export function ExportProvider({ children }: { children: ReactNode }) {
   const [exportGenerating, setExportGenerating] = useState(false);
   const [exportStatus, setExportStatusState] = useState<ExportProgressStatus>('idle');
   const [exportStatusMessage, setExportStatusMessage] = useState('');
+  const [exportError, setExportError] = useState<string | null>(null);
   const { state } = useAuditStore();
 
   useEffect(() => {
@@ -98,12 +101,26 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     return { executiveNarrative: report ?? '', insights, metrics, campaigns, keywords, waste };
   }, [store, validated?.insights, report]);
 
+  const triggerDownload = useCallback((blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 200);
+  }, []);
+
+  const hasData = store.totalAdSpend > 0 || (store.totalStoreSales ?? store.storeMetrics?.totalSales ?? 0) > 0;
+
   const onDownloadPdf = useCallback(async () => {
-    const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
     if (!hasData) {
       exportAuditPdf(store);
       return;
     }
+    setExportError(null);
     setExportGenerating(true);
     try {
       const payload = buildExportPayload();
@@ -114,25 +131,22 @@ export function ExportProvider({ children }: { children: ReactNode }) {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'PDF export failed');
+        throw new Error((err as { error?: string }).error || 'PDF export failed');
       }
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'Amazon-Advertising-CXO-Audit.pdf';
-      a.click();
-      URL.revokeObjectURL(url);
+      triggerDownload(blob, 'Amazon-Advertising-CXO-Audit.pdf');
     } catch (e) {
+      const msg = e instanceof Error ? e.message : 'PDF export failed';
       console.error('Zenith PDF export', e);
+      setExportError(msg);
     } finally {
       setExportGenerating(false);
     }
-  }, [store, buildExportPayload]);
+  }, [store, buildExportPayload, hasData, triggerDownload]);
 
   const onDownloadPptx = useCallback(async () => {
-    const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
     if (!hasData) return;
+    setExportError(null);
     setExportGenerating(true);
     try {
       const payload = buildExportPayload();
@@ -141,24 +155,20 @@ export function ExportProvider({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Export failed');
+        throw new Error((err as { error?: string }).error || 'PPTX export failed');
       }
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'Amazon-Advertising-CXO-Audit.pptx';
-      a.click();
-      URL.revokeObjectURL(url);
+      triggerDownload(blob, 'Amazon-Advertising-CXO-Audit.pptx');
     } catch (e) {
+      const msg = e instanceof Error ? e.message : 'PPTX export failed';
       console.error('Zenith export', e);
+      setExportError(msg);
     } finally {
       setExportGenerating(false);
     }
-  }, [store, buildExportPayload]);
+  }, [store, buildExportPayload, hasData, triggerDownload]);
 
   const onRefreshExports = useCallback(async () => {
     if (exportGenerating) return;
@@ -174,6 +184,7 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     exportGenerating,
     exportStatus,
     exportStatusMessage,
+    exportError,
     onDownloadPdf,
     onDownloadPptx,
     onRefreshExports,

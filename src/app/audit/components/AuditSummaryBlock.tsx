@@ -137,7 +137,7 @@ export default function AuditSummaryBlock({
   }, [store]);
 
   const handlePdf = () => exportAuditPdf(store);
-  const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
+  const hasData = store.totalAdSpend > 0 || (store.totalStoreSales ?? store.storeMetrics?.totalSales ?? 0) > 0;
   const handlePdfExport = () => (onDownloadPdf ? onDownloadPdf() : exportAuditPdf(store));
   const lockExport = exportGenerating;
 

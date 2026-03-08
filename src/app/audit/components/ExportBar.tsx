@@ -12,6 +12,7 @@ interface ExportBarProps {
   /** Phase 40: status for progress bar */
   exportStatus?: 'idle' | 'queued' | 'rendering' | 'verifying' | 'ready' | 'error';
   exportStatusMessage?: string;
+  exportError?: string | null;
 }
 
 const STATUS_PCT: Record<string, number> = {
@@ -30,9 +31,11 @@ export default function ExportBar({
   exportGenerating = false,
   exportStatus = 'idle',
   exportStatusMessage = '',
+  exportError = null,
 }: ExportBarProps) {
   const { state } = useAuditStore();
-  const hasData = state.store.totalAdSpend > 0 || state.store.totalStoreSales > 0;
+  const store = state.store;
+  const hasData = store.totalAdSpend > 0 || (store.totalStoreSales ?? store.storeMetrics?.totalSales ?? 0) > 0;
   const lock = exportGenerating;
   const pct = STATUS_PCT[exportStatus] ?? 0;
 
@@ -92,6 +95,11 @@ export default function ExportBar({
             />
           </div>
         </div>
+      )}
+      {exportError && !lock && (
+        <p className="text-sm text-red-400" role="alert">
+          {exportError}
+        </p>
       )}
     </section>
   );

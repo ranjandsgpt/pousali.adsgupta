@@ -56,6 +56,7 @@ function DashboardWithExport({
         exportGenerating={exportCtx?.exportGenerating ?? false}
         exportStatus={exportCtx?.exportStatus ?? 'idle'}
         exportStatusMessage={exportCtx?.exportStatusMessage ?? ''}
+        exportError={exportCtx?.exportError ?? null}
       />
     </>
   );
