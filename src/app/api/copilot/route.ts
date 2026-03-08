@@ -93,34 +93,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing or invalid auditContextInput' }, { status: 400 });
   }
 
-  // Phase 16–17: Calculation and insight explanation (no data required)
-  const calculationAnswer = getCalculationAnswer(question);
-  if (calculationAnswer) {
-    return NextResponse.json({
-      answer: calculationAnswer,
-      validated: true,
-      suggestedFollowUps: runInsightDiscoveryAgent(question),
-    } as CopilotResponseBody);
-  }
-  const q = question.toLowerCase().trim();
-  if (/\bwhere\s+(do|are)\s+wasted\s+keyword|wasted\s+keyword.*(come\s+from|from\s+where)\b/.test(q)) {
-    return NextResponse.json({
-      answer: getWastedKeywordsExplanation(),
-      validated: true,
-      suggestedFollowUps: runInsightDiscoveryAgent(question),
-    } as CopilotResponseBody);
-  }
-
   const hasData =
     (auditContextInput.metrics?.length ?? 0) > 0 ||
     (auditContextInput.storeSummary?.metrics != null);
 
-  if (!hasData) {
-    return NextResponse.json({
-      answer: 'The uploaded reports do not contain this data. Please upload and run an audit first.',
-      validated: true,
-      confidence: 'Low',
-    } as CopilotResponseBody);
+  // Only return definitions when there is no audit data, or when the question explicitly asks for a formula/definition.
+  // When we have data, always use the insight pipeline (QI → SLM/Gemini) so users get real metrics and insights.
+  const asksForDefinition = /\b(how\s+is|how\s+are|what\s+is\s+the\s+formula|define|definition|calculated?|formula)\b/i.test(question);
+  if (!hasData || asksForDefinition) {
+    const calculationAnswer = getCalculationAnswer(question);
+    if (calculationAnswer && (!hasData || asksForDefinition)) {
+      return NextResponse.json({
+        answer: calculationAnswer,
+        validated: true,
+        suggestedFollowUps: runInsightDiscoveryAgent(question),
+      } as CopilotResponseBody);
+    }
+    const q = question.toLowerCase().trim();
+    if (/\bwhere\s+(do|are)\s+wasted\s+keyword|wasted\s+keyword.*(come\s+from|from\s+where)\b/.test(q)) {
+      return NextResponse.json({
+        answer: getWastedKeywordsExplanation(),
+        validated: true,
+        suggestedFollowUps: runInsightDiscoveryAgent(question),
+      } as CopilotResponseBody);
+    }
+    if (!hasData) {
+      return NextResponse.json({
+        answer: 'The uploaded reports do not contain this data. Please upload and run an audit first.',
+        validated: true,
+        confidence: 'Low',
+      } as CopilotResponseBody);
+    }
   }
 
   const storeSummary = auditContextInput.storeSummary as StoreSummarySnapshot;
