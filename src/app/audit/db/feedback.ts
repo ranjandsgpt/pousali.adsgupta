@@ -1,5 +1,7 @@
 /**
- * Phase 1 & 2: Feedback capture. Schema: audit_id, artifact_type, artifact_id, value, feedback, comment, timestamp.
+ * Central feedback store for Copilot, KPI metrics, insights, tables, charts.
+ * Schema: audit_id, artifact_type, artifact_id, value, feedback, feedbackType, comment, timestamp, sessionId.
+ * Used by CentralFeedbackAgent and HumanFeedbackAgent for learning loop.
  */
 
 export type FeedbackVerdict = 'correct' | 'incorrect';

@@ -6,7 +6,7 @@ import {
 } from '@/lib/geminiPromptRegistry';
 import { logGeminiResponse } from '@/lib/geminiResponseLogger';
 import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
-import { assertNoFileReferences } from '@/lib/geminiRequestGuard';
+import { assertNoFileReferences, sanitizeTextForGemini } from '@/lib/geminiRequestGuard';
 import { logGeminiRequest } from '@/lib/geminiRequestLogger';
 
 /**
@@ -34,7 +34,9 @@ export async function POST(request: NextRequest) {
   }
 
   const fileNames = payload.fileNames?.join(', ') ?? 'none (structured context only)';
-  const userText = `${PRESENTATION_GENERATION_USER_PREFIX}${fileNames}.\n\n${payload.summary ?? 'No summary provided.'}`;
+  const userText = sanitizeTextForGemini(
+    `${PRESENTATION_GENERATION_USER_PREFIX}${fileNames}.\n\n${payload.summary ?? 'No summary provided.'}`
+  );
 
   const contents = [{ role: 'user' as const, parts: [{ text: userText }] }];
   assertNoFileReferences(contents);

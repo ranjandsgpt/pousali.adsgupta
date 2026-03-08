@@ -11,7 +11,7 @@ import {
 } from '@/lib/geminiPromptRegistry';
 import { logGeminiResponse } from '@/lib/geminiResponseLogger';
 import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
-import { assertNoFileReferences } from '@/lib/geminiRequestGuard';
+import { assertNoFileReferences, sanitizeTextForGemini } from '@/lib/geminiRequestGuard';
 import { logGeminiRequest } from '@/lib/geminiRequestLogger';
 
 /**
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     if (!Array.isArray(headers) || headers.length === 0) {
       return NextResponse.json({ error: 'Missing or empty headers' }, { status: 400 });
     }
-    const prompt = buildSchemaInferUserMessage(headers);
+    const prompt = sanitizeTextForGemini(buildSchemaInferUserMessage(headers));
     try {
       const result = await ai.models.generateContent({
         model,
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
     } catch {
       // optional: feedback not available
     }
-    const prompt = buildVerifySlmUserMessage(datasetSummary, slmArtifacts, feedbackContext);
+    const prompt = sanitizeTextForGemini(buildVerifySlmUserMessage(datasetSummary, slmArtifacts, feedbackContext));
     try {
       const result = await ai.models.generateContent({
         model,
@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
   if (mode === 'structured') {
     const p = payload as StructuredPayload;
     const datasetJson = JSON.stringify(p, null, 2);
-    const userText = STRUCTURED_FROM_JSON_USER_PREFIX + datasetJson;
+    const userText = sanitizeTextForGemini(STRUCTURED_FROM_JSON_USER_PREFIX + datasetJson);
     const contents = [{ role: 'user' as const, parts: [{ text: userText }] }];
     assertNoFileReferences(contents);
 

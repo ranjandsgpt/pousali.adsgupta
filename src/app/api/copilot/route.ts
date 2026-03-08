@@ -5,7 +5,7 @@ import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
 import { routeQuery } from '@/lib/copilot/queryRouter';
 import { buildAuditContext, type AuditContextInput, type StoreSummarySnapshot } from '@/lib/copilot/contextBuilder';
 import { validateCopilotResponse } from '@/lib/copilot/validateResponse';
-import { assertNoFileReferences } from '@/lib/geminiRequestGuard';
+import { assertNoFileReferences, sanitizeTextForGemini } from '@/lib/geminiRequestGuard';
 import { logGeminiRequest } from '@/lib/geminiRequestLogger';
 
 const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
@@ -142,8 +142,9 @@ export async function POST(request: NextRequest) {
   }
 
   const userMessage = buildCopilotUserMessage(context.summary, route.normalizedQuery, feedbackContext);
+  const safeMessage = sanitizeTextForGemini(userMessage);
 
-  const contents = [{ role: 'user' as const, parts: [{ text: userMessage }] }];
+  const contents = [{ role: 'user' as const, parts: [{ text: safeMessage }] }];
   assertNoFileReferences(contents);
 
   const ai = new GoogleGenAI({ apiKey });
@@ -159,7 +160,7 @@ export async function POST(request: NextRequest) {
     rawText = extractTextFromGenerateContentResponse(result);
     await logGeminiRequest({
       mode: 'copilot',
-      promptLength: userMessage.length,
+      promptLength: safeMessage.length,
       contextSize: context.summary.length,
       responseLatencyMs: Date.now() - startMs,
       validationResult: rawText ? 'ok' : 'empty',
@@ -168,7 +169,7 @@ export async function POST(request: NextRequest) {
     console.error('[copilot] Gemini error:', e);
     await logGeminiRequest({
       mode: 'copilot',
-      promptLength: userMessage.length,
+      promptLength: safeMessage.length,
       contextSize: context.summary.length,
       responseLatencyMs: Date.now() - startMs,
       validationResult: 'error',

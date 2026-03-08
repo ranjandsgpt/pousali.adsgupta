@@ -13,6 +13,22 @@ export class GeminiFileReferenceError extends Error {
 const FORBIDDEN = ['fileUri', 'files/', 'fileData', 'inlineData', 'fileReference'];
 
 /**
+ * Sanitizes text so that file-URI-like substrings never reach the Gemini API.
+ * Use on every string that goes into contents[].parts[].text.
+ * Prevents "Unsupported file URI type: files/<id>" errors when context contains IDs that look like file refs.
+ */
+export function sanitizeTextForGemini(text: string): string {
+  if (typeof text !== 'string' || !text) return text;
+  let out = text;
+  // Redact any "files/<id>" pattern so Gemini never receives it
+  out = out.replace(/files\/[a-z0-9]+/gi, '[file-ref-redacted]');
+  if (out.includes('fileUri') || out.includes('fileData') || out.includes('inlineData') || out.includes('fileReference')) {
+    out = out.replace(/\bfileUri\b/gi, '[redacted]').replace(/\bfileData\b/gi, '[redacted]').replace(/\binlineData\b/gi, '[redacted]').replace(/\bfileReference\b/gi, '[redacted]');
+  }
+  return out;
+}
+
+/**
  * Validates that the payload does not contain file references.
  * Call before sending to ai.models.generateContent().
  * @throws GeminiFileReferenceError if payload contains file references

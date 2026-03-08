@@ -7,7 +7,7 @@ import {
 import { validateNarrativeResponse } from '@/lib/geminiResponseValidation';
 import { logGeminiResponse } from '@/lib/geminiResponseLogger';
 import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
-import { assertNoFileReferences } from '@/lib/geminiRequestGuard';
+import { assertNoFileReferences, sanitizeTextForGemini } from '@/lib/geminiRequestGuard';
 import { logGeminiRequest } from '@/lib/geminiRequestLogger';
 
 /**
@@ -78,7 +78,8 @@ export async function POST(request: NextRequest) {
     null,
     2
   );
-  const userText = `${INSIGHT_NARRATIVE_USER_PREFIX}\n\nUse the following verified audit data (structured context only).\n\n${dataJson}`;
+  const rawUserText = `${INSIGHT_NARRATIVE_USER_PREFIX}\n\nUse the following verified audit data (structured context only).\n\n${dataJson}`;
+  const userText = sanitizeTextForGemini(rawUserText);
 
   const metricsReferenceContext =
     typeof payload.metricsReferenceContext === 'string'

@@ -18,6 +18,8 @@ import type { CopilotResponseBody } from '@/app/api/copilot/route';
 import { MessageCircle, Send, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { runDiagnosticEngines } from '../engines';
 import { runProfitabilityAgent } from '../agents/profitabilityAgent';
+import { runTrendAgent } from '../agents/trendAgent';
+import { runPerformanceDriftAgent } from '../agents/performanceDriftAgent';
 
 const SUGGESTED_QUESTIONS = [
   'Why is ACOS so high?',
@@ -84,11 +86,13 @@ function buildStoreSummarySnapshot(store: MemoryStore): StoreSummarySnapshot {
   };
 }
 
+const DEFAULT_ACCOUNT_ID = 'session';
+
 function buildAgentSignalsFromStore(store: MemoryStore): AgentSignalsSnapshot {
   const diagnostics = runDiagnosticEngines(store);
   const profit = runProfitabilityAgent(store);
   const sym = store.currency === 'EUR' ? '€' : store.currency === 'GBP' ? '£' : '$';
-  return {
+  const snapshot: AgentSignalsSnapshot = {
     wasteSignals: {
       totalWasteSpend: diagnostics.waste.totalWasteSpend,
       wastePctOfTotalAdSpend: diagnostics.waste.wastePctOfTotalAdSpend,
@@ -108,6 +112,33 @@ function buildAgentSignalsFromStore(store: MemoryStore): AgentSignalsSnapshot {
       summary: `Break-even ACOS ${profit.metrics.breakEvenACOS.toFixed(1)}%; ${profit.losses.length} campaigns below target ROAS.`,
     },
   };
+
+  try {
+    const trend = runTrendAgent(DEFAULT_ACCOUNT_ID, 'total_ad_spend', 7);
+    if (trend.growthRate !== 0 || trend.trendSlope !== 0) {
+      snapshot.trendSignals = {
+        trendSlope: trend.trendSlope,
+        growthRate: trend.growthRate,
+        summary: `Spend trend: ${(trend.growthRate * 100).toFixed(1)}% growth; slope ${trend.trendSlope.toFixed(2)}.`,
+      };
+    }
+  } catch {
+    // no historical data
+  }
+
+  try {
+    const drift = runPerformanceDriftAgent(DEFAULT_ACCOUNT_ID, 14);
+    if (drift.issues.length > 0) {
+      snapshot.anomalySignals = {
+        count: drift.driftedCampaigns.length + drift.driftedKeywords.length,
+        summary: `${drift.issues.length} drift issue(s): ${drift.issues.slice(0, 2).join(' ')}`,
+      };
+    }
+  } catch {
+    // no historical data
+  }
+
+  return snapshot;
 }
 
 function buildVerifiedInsightsFromValidated(
