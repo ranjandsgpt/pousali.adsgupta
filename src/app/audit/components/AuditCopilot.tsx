@@ -13,7 +13,7 @@ import type {
   VerifiedInsightSnapshot,
   ChartSignalsSnapshot,
 } from '@/lib/copilot/contextBuilder';
-import { runBrandIntelligence } from '../agents/brandIntelligenceAgent';
+import { runBrandIntelligence } from '@/agents/brandIntelligenceAgent';
 import { appendTurn, createEmptyMemory, type ConversationMemory } from '@/lib/copilot/conversationMemory';
 import type { CopilotResponseBody } from '@/app/api/copilot/route';
 import { MessageCircle, Send, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
