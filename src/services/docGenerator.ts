@@ -401,6 +401,39 @@ async function generateCodeDoc(): Promise<string> {
 `;
 }
 
+async function generateSemanticQueryDoc(): Promise<string> {
+  return `# Semantic Query Engine
+
+## Architecture
+
+User Question → Query Intelligence Agent → Intent Detection → Schema Grounding Agent → Semantic Query Engine → Metrics Catalog / Dataset Resolver → SLM or Gemini → Response.
+
+## Metrics Catalog
+
+Defined in \`src/analytics/metricsCatalog.ts\`. Includes: ROAS, ACOS, TACOS, CTR, CPC, CVR, Ad Sales, Store Sales, Waste Spend, Profitability Score, Break-even ACOS.
+
+## Dataset Schema Registry
+
+Datasets: campaigns, searchTerms, keywords, asins, charts, insights, brandAnalysis. Each defines fields and metrics.
+
+## Query Parser
+
+Extracts: metrics, filters, aggregations, sorting, limits. Example: "Top 5 campaigns by ROAS" → dataset: campaigns, metric: ROAS, sort: desc, limit: 5.
+
+## Supported Query Examples
+
+- Total ad sales / Total store sales
+- Top campaigns by ROAS
+- Campaigns with ACOS > 70%
+- Keywords with clicks but zero sales
+- ASINs with highest conversion rate
+
+## Explainability
+
+Copilot can explain: formula used, dataset used, query interpretation.
+`;
+}
+
 async function generateTroubleshootingDoc(): Promise<string> {
   return `# Troubleshooting
 
@@ -437,6 +470,7 @@ export async function runDocGenerator(): Promise<{ files: string[] }> {
     { name: 'troubleshooting.md', fn: generateTroubleshootingDoc },
     { name: 'faq.md', fn: generateFaqDoc },
     { name: 'code.md', fn: generateCodeDoc },
+    { name: 'semantic-query-engine.md', fn: generateSemanticQueryDoc },
   ];
 
   for (const { name, fn } of tasks) {

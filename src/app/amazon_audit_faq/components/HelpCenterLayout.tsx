@@ -6,14 +6,18 @@ import { SearchBar } from './SearchBar';
 import { Breadcrumbs } from './Breadcrumbs';
 import Link from 'next/link';
 
+import type { NavNode } from './SidebarNavigation';
+
 export function HelpCenterLayout({
   children,
   breadcrumbs,
   relatedSlugs,
+  navNodes,
 }: {
   children: ReactNode;
   breadcrumbs?: { label: string; href?: string }[];
   relatedSlugs?: string[];
+  navNodes?: NavNode[];
 }) {
   return (
     <div className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] flex flex-col">
@@ -22,7 +26,7 @@ export function HelpCenterLayout({
           <Link href="/amazon_audit_faq" className="font-semibold text-lg text-[var(--color-text)] hover:opacity-90">
             Amazon Audit Help Center
           </Link>
-          <SearchBar />
+          <SearchBar navNodes={navNodes} />
         </div>
         {breadcrumbs && breadcrumbs.length > 0 ? (
           <div className="max-w-7xl mx-auto px-4 pb-2">
@@ -32,7 +36,7 @@ export function HelpCenterLayout({
       </header>
       <div className="max-w-7xl mx-auto w-full flex flex-1 px-4 py-6 gap-8">
         <aside className="w-56 shrink-0 hidden md:block sticky top-[120px] self-start">
-          <SidebarNavigation />
+          <SidebarNavigation navNodes={navNodes} />
         </aside>
         <main className="flex-1 min-w-0">
           {children}

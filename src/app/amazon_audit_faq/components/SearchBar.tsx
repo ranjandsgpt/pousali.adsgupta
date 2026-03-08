@@ -5,39 +5,38 @@ import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { SIDEBAR_SECTIONS } from '../helpCenterSections';
+import type { NavNode } from './SidebarNavigation';
 
 const sectionsList = [...SIDEBAR_SECTIONS];
+const defaultNavList: NavNode[] = SIDEBAR_SECTIONS.map((s) => ({ label: s.title, slug: s.slug }));
 
-const fuse = new Fuse(sectionsList, {
-  keys: ['title', 'slug'],
-  threshold: 0.3,
-});
-
-export function SearchBar() {
+export function SearchBar({ navNodes }: { navNodes?: NavNode[] }) {
   const [q, setQ] = useState('');
-  const [suggestions, setSuggestions] = useState<ReadonlyArray<(typeof SIDEBAR_SECTIONS)[number]>>([]);
+  const list = navNodes && navNodes.length > 0 ? navNodes.filter((n) => n.slug) : defaultNavList;
+  const [suggestions, setSuggestions] = useState<NavNode[]>([]);
   const router = useRouter();
+  const searchFuse = useMemo(() => new Fuse(list, { keys: ['label', 'slug'], threshold: 0.3 }), [list]);
 
   const filteredSuggestions = useMemo(() => {
     const term = (q || '').trim();
-    if (!term) return sectionsList;
-    const results = fuse.search(term);
-    return results.length > 0 ? results.map((r) => r.item) : sectionsList;
-  }, [q]);
+    if (!term) return list;
+    const results = searchFuse.search(term);
+    return results.length > 0 ? results.map((r) => r.item) : list;
+  }, [q, list, searchFuse]);
 
   const onSearch = useCallback(() => {
     const term = (q || '').trim().toLowerCase();
     if (!term) return;
-    const match = filteredSuggestions[0] ?? SIDEBAR_SECTIONS.find(
-      (s) => s.slug.includes(term) || s.title.toLowerCase().includes(term)
+    const match = filteredSuggestions[0] ?? list.find(
+      (s) => s.slug.includes(term) || s.label.toLowerCase().includes(term)
     );
     if (match) router.push(`/amazon_audit_faq/${match.slug}`);
     else router.push(`/amazon_audit_faq/faq`);
-  }, [q, router, filteredSuggestions]);
+  }, [q, router, filteredSuggestions, list]);
 
   const onFocus = useCallback(() => {
-    setSuggestions(sectionsList);
-  }, []);
+    setSuggestions(list);
+  }, [list]);
 
   const onBlur = useCallback(() => {
     setTimeout(() => setSuggestions([]), 200);
@@ -69,7 +68,7 @@ export function SearchBar() {
       {(suggestions.length > 0 || q.trim()) && (
         <ul className="absolute top-full left-0 right-0 mt-1 py-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-lg z-30 max-h-64 overflow-auto">
           {(q.trim() ? filteredSuggestions : suggestions).map((s) => (
-            <li key={s.id}>
+            <li key={s.slug}>
               <button
                 type="button"
                 className="w-full text-left px-3 py-2 text-sm text-[var(--color-text)] hover:bg-white/5"
@@ -79,7 +78,7 @@ export function SearchBar() {
                   setSuggestions([]);
                 }}
               >
-                {s.title}
+                {s.label}
               </button>
             </li>
           ))}
