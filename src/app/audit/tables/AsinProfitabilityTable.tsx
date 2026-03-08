@@ -55,6 +55,7 @@ export default function AsinProfitabilityTable() {
               <th className="text-right px-4 py-3 font-semibold text-[var(--color-text)]">Ad Sales</th>
               <th className="text-right px-4 py-3 font-semibold text-[var(--color-text)]">Total ASIN Sales</th>
               <th className="text-right px-4 py-3 font-semibold text-[var(--color-text)]">ACOS</th>
+              <th className="text-right px-4 py-3 font-semibold text-[var(--color-text)]">TACOS</th>
             </tr>
           </thead>
           <tbody>
@@ -93,10 +94,13 @@ export default function AsinProfitabilityTable() {
                       {currency ? formatCurrency(m.totalSales, currency) : m.totalSales.toFixed(2)}
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums">{formatPercent(m.acos)}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {m.totalSales > 0 ? formatPercent((m.adSpend / m.totalSales) * 100) : '—'}
+                    </td>
                   </tr>
                   {isExpanded && keywords.length > 0 && (
                     <tr key={`${m.asin}-detail`} className="bg-white/5">
-                      <td colSpan={9} className="px-4 py-3">
+                      <td colSpan={10} className="px-4 py-3">
                         <div className="rounded-lg border border-white/10 bg-[var(--color-surface-elevated)] p-4">
                           <p className="text-xs font-semibold text-[var(--color-text-muted)] mb-2 uppercase tracking-wider">
                             Keywords targeting this ASIN

@@ -6,6 +6,7 @@
 
 import { safePercent, safeDivide } from './mathEngine';
 import { acos, roas, tacos, contributionMarginRatio, lostRevenueEstimate as lostRevenueFormula } from './amazonMetricsLibrary';
+import { calculateOrganicSales } from '@/services/salesCalculator';
 
 /** Store level (Section 2: core revenue KPIs) */
 export interface StoreMetrics {
@@ -117,7 +118,7 @@ export function computeStoreMetrics(
     targetACOSPct?: number;
   }
 ): StoreMetrics {
-  const organicSales = totalStoreSales - totalAdSales;
+  const organicSales = calculateOrganicSales(totalStoreSales, totalAdSales);
   const adSalesPercent = safePercent(totalAdSales, totalStoreSales);
   const organicVsPaidRatio = safeDivide(organicSales, totalAdSales);
   const conversionRate =

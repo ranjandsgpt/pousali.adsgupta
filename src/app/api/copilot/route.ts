@@ -10,6 +10,8 @@ import { logGeminiRequest } from '@/lib/geminiRequestLogger';
 import { runQueryIntelligenceAgent } from '@/agents/queryIntelligenceAgent';
 import { recordQueryInteraction } from '@/agents/queryInteractionStore';
 import { runInsightDiscoveryAgent } from '@/agents/insightDiscoveryAgent';
+import { getCalculationAnswer } from '@/lib/copilot/calculationKnowledgeRegistry';
+import { getWastedKeywordsExplanation } from '@/agents/wasteKeywordAgent';
 
 const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -89,6 +91,24 @@ export async function POST(request: NextRequest) {
   }
   if (!auditContextInput || typeof auditContextInput !== 'object') {
     return NextResponse.json({ error: 'Missing or invalid auditContextInput' }, { status: 400 });
+  }
+
+  // Phase 16–17: Calculation and insight explanation (no data required)
+  const calculationAnswer = getCalculationAnswer(question);
+  if (calculationAnswer) {
+    return NextResponse.json({
+      answer: calculationAnswer,
+      validated: true,
+      suggestedFollowUps: runInsightDiscoveryAgent(question),
+    } as CopilotResponseBody);
+  }
+  const q = question.toLowerCase().trim();
+  if (/\bwhere\s+(do|are)\s+wasted\s+keyword|wasted\s+keyword.*(come\s+from|from\s+where)\b/.test(q)) {
+    return NextResponse.json({
+      answer: getWastedKeywordsExplanation(),
+      validated: true,
+      suggestedFollowUps: runInsightDiscoveryAgent(question),
+    } as CopilotResponseBody);
   }
 
   const hasData =

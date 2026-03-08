@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addFeedback, getFeedback } from '@/app/audit/db/feedback';
 import { getQueryInteraction } from '@/agents/queryInteractionStore';
+import { registerFeedback } from '@/services/feedbackRegistry';
 
 /**
  * POST: submit feedback (like/dislike or correct/incorrect).
@@ -43,6 +44,13 @@ export async function POST(request: NextRequest) {
       feedbackType: hasLikeDislike ? (feedbackType as 'like' | 'dislike') : undefined,
       comment: comment ? String(comment) : undefined,
       sessionId: sessionId ? String(sessionId) : undefined,
+    });
+    registerFeedback({
+      reportId: audit_id ?? 'session',
+      userFeedback: feedbackType === 'like' || (hasVerdict && userFeedback === 'correct') ? 'like' : 'dislike',
+      affectedSection: type,
+      metricId: artifactId,
+      comment: comment ? String(comment) : undefined,
     });
     return NextResponse.json({ ok: true, id: record.timestamp });
   } catch (e) {

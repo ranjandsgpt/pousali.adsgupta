@@ -67,7 +67,7 @@ export function MetricFeedbackButtons({
       <button
         type="button"
         aria-label="Correct"
-        onClick={() => submit('correct')}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); submit('correct'); }}
         disabled={feedback !== null}
         className={`p-1 rounded border transition ${feedback === 'correct' ? 'bg-emerald-500/30 border-emerald-500/50 text-emerald-400' : 'border-white/20 text-[var(--color-text-muted)] hover:bg-white/10 hover:text-[var(--color-text)]'}`}
       >
@@ -76,7 +76,7 @@ export function MetricFeedbackButtons({
       <button
         type="button"
         aria-label="Incorrect"
-        onClick={() => submit('incorrect')}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); submit('incorrect'); }}
         disabled={feedback !== null}
         className={`p-1 rounded border transition ${feedback === 'incorrect' ? 'bg-red-500/30 border-red-500/50 text-red-400' : 'border-white/20 text-[var(--color-text-muted)] hover:bg-white/10 hover:text-[var(--color-text)]'}`}
       >
