@@ -82,6 +82,7 @@ function buildPremiumStateFromPayload(body: {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('[Zenith export-pdf] Started');
   try {
     setExportStatus('queued', 'Preparing PDF export…');
     const body = await request.json().catch(() => ({})) as {
@@ -163,16 +164,16 @@ export async function POST(request: NextRequest) {
 
     setExportStatus('ready', 'Export ready');
     await writeCache(auditId, null, new Uint8Array(pdfBuffer));
-
-    return new NextResponse(new Uint8Array(pdfBuffer), {
+    console.log('[Zenith export-pdf] Export ready, returning PDF length:', pdfBuffer.length);
+    return new Response(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename="Amazon-Advertising-CXO-Audit.pdf"',
+        'Content-Disposition': 'attachment; filename="audit-report.pdf"',
       },
     });
   } catch (e) {
-    console.error('zenith-export-pdf', e);
+    console.error('[Zenith export-pdf] Error', e);
     setExportStatus('error', e instanceof Error ? e.message : 'PDF export failed');
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'PDF export failed' },

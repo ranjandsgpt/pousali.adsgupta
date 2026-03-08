@@ -105,6 +105,7 @@ function buildPremiumStateFromPayload(body: {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('[Zenith export] Started');
   try {
     setExportStatus('queued', 'Preparing export…');
     const body = await request.json().catch(() => ({})) as {
@@ -120,6 +121,7 @@ export async function POST(request: NextRequest) {
     const auditId = (body as { auditId?: string }).auditId ?? `audit-${Date.now()}`;
 
     setExportStatus('rendering', 'Building deck…');
+    console.log('[Zenith export] Building deck, slides:', SLIDE_TITLES.length);
     const exportedMetrics = premiumState.verifiedMetrics
       .filter((m) => typeof m.value === 'number')
       .map((m) => ({ label: m.label, value: m.value as number }));
@@ -268,17 +270,19 @@ export async function POST(request: NextRequest) {
 
     const buffer = await pres.write({ outputType: 'nodebuffer' });
     const buf = buffer instanceof Buffer ? buffer : Buffer.from(buffer as ArrayBuffer);
+    console.log('[Zenith export] Slides composed, buffer length:', buf.length);
     setExportStatus('ready', 'Export ready');
     await writeCache(auditId, buf, null);
-    return new NextResponse(buf as unknown as BodyInit, {
+    console.log('[Zenith export] Export ready, returning PPTX');
+    return new Response(new Uint8Array(buf), {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'Content-Disposition': 'attachment; filename="Amazon-Advertising-CXO-Audit.pptx"',
+        'Content-Disposition': 'attachment; filename="audit-report.pptx"',
       },
     });
   } catch (e) {
-    console.error('zenith-export', e);
+    console.error('[Zenith export] Error', e);
     setExportStatus('error', e instanceof Error ? e.message : 'Zenith export failed');
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Zenith export failed' },

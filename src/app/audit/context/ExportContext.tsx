@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useState,
   type ReactNode,
 } from 'react';
@@ -35,29 +34,12 @@ export function useExport() {
   return ctx;
 }
 
-const POLL_INTERVAL_MS = 800;
-
 export function ExportProvider({ children }: { children: ReactNode }) {
   const [exportGenerating, setExportGenerating] = useState(false);
   const [exportStatus, setExportStatusState] = useState<ExportProgressStatus>('idle');
   const [exportStatusMessage, setExportStatusMessage] = useState('');
   const [exportError, setExportError] = useState<string | null>(null);
   const { state } = useAuditStore();
-
-  useEffect(() => {
-    if (!exportGenerating) return;
-    const t = setInterval(async () => {
-      try {
-        const res = await fetch('/api/export-status');
-        const data = (await res.json()) as { status: ExportProgressStatus; message?: string };
-        setExportStatusState(data.status);
-        setExportStatusMessage(data.message ?? data.status);
-      } catch {
-        //
-      }
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(t);
-  }, [exportGenerating]);
   const { validated } = useValidatedArtifacts();
   const { report } = useGeminiReport();
   const store = state.store;
@@ -137,6 +119,8 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     }
     setExportError(null);
     setExportGenerating(true);
+    setExportStatusState('rendering');
+    setExportStatusMessage('Generating PDF…');
     try {
       const insights = (validated?.insights ?? []).map((i) => ({ title: i.title, description: i.description }));
       const narrative = await fetchBoardroomNarrative(insights, report ?? '');
@@ -152,11 +136,15 @@ export function ExportProvider({ children }: { children: ReactNode }) {
         throw new Error((err as { error?: string }).error || 'PDF export failed');
       }
       const blob = await res.blob();
-      triggerDownload(blob, 'Amazon-Advertising-CXO-Audit.pdf');
+      triggerDownload(blob, 'audit-report.pdf');
+      setExportStatusState('ready');
+      setExportStatusMessage('Export ready');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'PDF export failed';
       console.error('Zenith PDF export', e);
       setExportError(msg);
+      setExportStatusState('error');
+      setExportStatusMessage(msg);
     } finally {
       setExportGenerating(false);
     }
@@ -166,6 +154,8 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     if (!hasData) return;
     setExportError(null);
     setExportGenerating(true);
+    setExportStatusState('rendering');
+    setExportStatusMessage('Generating PPTX…');
     try {
       const insights = (validated?.insights ?? []).map((i) => ({ title: i.title, description: i.description }));
       const narrative = await fetchBoardroomNarrative(insights, report ?? '');
@@ -181,11 +171,15 @@ export function ExportProvider({ children }: { children: ReactNode }) {
         throw new Error((err as { error?: string }).error || 'PPTX export failed');
       }
       const blob = await res.blob();
-      triggerDownload(blob, 'Amazon-Advertising-CXO-Audit.pptx');
+      triggerDownload(blob, 'audit-report.pptx');
+      setExportStatusState('ready');
+      setExportStatusMessage('Export ready');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'PPTX export failed';
       console.error('Zenith export', e);
       setExportError(msg);
+      setExportStatusState('error');
+      setExportStatusMessage(msg);
     } finally {
       setExportGenerating(false);
     }

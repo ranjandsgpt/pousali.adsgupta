@@ -46,46 +46,54 @@ export async function runRenderPremiumAssets(
 
 /**
  * Run full export pipeline. Builds PremiumState, runs Python render, then CXO Judge.
+ * Always updates export status (ready or error).
  */
 export async function runExportPipeline(input: ExportPipelineInput): Promise<ExportPipelineResult> {
   const { store, slm, gemini, auditId = 'session' } = input;
+  try {
+    setExportStatus('queued', 'Preparing export…');
+    console.log('[exportPipeline] Started');
 
-  setExportStatus('queued', 'Preparing export…');
+    const premiumState = syncModels(store, slm, gemini);
+    const structuredInsights = runStructuredInsightsAgent(store);
+    (premiumState as PremiumState).structuredInsights = structuredInsights;
 
-  const premiumState = syncModels(store, slm, gemini);
-  const structuredInsights = runStructuredInsightsAgent(store);
-  (premiumState as PremiumState).structuredInsights = structuredInsights;
+    const projectRoot = typeof process !== 'undefined' && process.cwd ? process.cwd() : '.';
+    const outputDir = path.join(projectRoot, 'export-cache', 'charts');
 
-  const projectRoot = typeof process !== 'undefined' && process.cwd ? process.cwd() : '.';
-  const outputDir = path.join(projectRoot, 'export-cache', 'charts');
+    setExportStatus('rendering', 'Generating charts…');
+    const { charts: renderedCharts } = await runRenderPremiumAssets(premiumState, outputDir);
+    console.log('[exportPipeline] Charts generated:', renderedCharts.length);
 
-  const { charts: renderedCharts } = await runRenderPremiumAssets(premiumState, outputDir);
+    setExportStatus('verifying', 'Verifying export…');
+    const exportedMetrics = premiumState.verifiedMetrics
+      .filter((m) => typeof m.value === 'number')
+      .map((m) => ({ label: m.label, value: m.value as number }));
 
-  setExportStatus('verifying', 'Verifying export…');
-
-  const exportedMetrics = premiumState.verifiedMetrics
-    .filter((m) => typeof m.value === 'number')
-    .map((m) => ({ label: m.label, value: m.value as number }));
-
-  let lastResult: { status: string } = { status: 'PASSED' };
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const judge = runCxoJudgeAgent(premiumState, exportedMetrics, {
-      maxTableRows: 12,
-      maxSlideWords: 120,
-    });
-    lastResult = judge;
-    if (judge.status === 'PASSED') break;
-    if (attempt < MAX_RETRIES) {
-      await new Promise((r) => setTimeout(r, 300));
+    let lastResult: { status: string } = { status: 'PASSED' };
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const judge = runCxoJudgeAgent(premiumState, exportedMetrics, {
+        maxTableRows: 12,
+        maxSlideWords: 120,
+      });
+      lastResult = judge;
+      if (judge.status === 'PASSED') break;
+      if (attempt < MAX_RETRIES) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
     }
+
+    setExportStatus('ready', 'Export ready');
+    console.log('[exportPipeline] Export ready');
+    return {
+      premiumState,
+      renderedCharts,
+      judgePassed: lastResult.status === 'PASSED',
+      judgeStatus: lastResult.status,
+    };
+  } catch (e) {
+    console.error('[exportPipeline] Error', e);
+    setExportStatus('error', e instanceof Error ? e.message : 'Export failed');
+    throw e;
   }
-
-  setExportStatus('ready', 'Export ready');
-
-  return {
-    premiumState,
-    renderedCharts,
-    judgePassed: lastResult.status === 'PASSED',
-    judgeStatus: lastResult.status,
-  };
 }
