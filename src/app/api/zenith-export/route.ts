@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pptxgen from 'pptxgenjs';
 import { runCxoJudgeAgent } from '@/agents/cxoJudgeAgent';
+import { runBrandIntelligence } from '@/agents/brandIntelligenceAgent';
 import type { PremiumState, VerifiedMetric, VerifiedInsight } from '@/agents/zenithTypes';
 import { setExportStatus } from '@/services/exportStatusStore';
 import { writeCache } from '@/services/exportCache';
@@ -44,6 +45,8 @@ function buildPremiumStateFromPayload(body: {
   campaigns?: Array<{ campaignName: string; spend: number; sales: number; acos: number }>;
   keywords?: Array<{ searchTerm: string; campaign: string; spend: number; sales: number; roas: number }>;
   waste?: Array<{ searchTerm: string; campaign: string; spend: number; clicks: number }>;
+  brandNames?: string[];
+  competitorBrands?: string[];
 }): PremiumState {
   const verifiedMetrics: VerifiedMetric[] = (body.metrics ?? []).map((m) => ({
     label: m.label,
@@ -69,6 +72,17 @@ function buildPremiumStateFromPayload(body: {
     roas: k.roas,
   }));
   const wasteAnalysis = (body.waste ?? []).map((w) => ({ ...w, suggestedAction: 'Consider pausing or negating.' }));
+  const searchTermsForBrand = (body.keywords ?? []).map((k) => ({
+    searchTerm: k.searchTerm,
+    sales: k.sales,
+    spend: k.spend,
+    orders: 0,
+  }));
+  const brandAnalysis = runBrandIntelligence(
+    searchTermsForBrand,
+    body.brandNames ?? [],
+    body.competitorBrands ?? []
+  );
   return {
     verifiedMetrics,
     verifiedInsights,
@@ -86,6 +100,7 @@ function buildPremiumStateFromPayload(body: {
     recommendations: verifiedInsights.flatMap((i) => (i.recommendedAction ? [i.recommendedAction] : [])),
     generatedAt: new Date().toISOString(),
     modelVerificationStatus: 'Zenith Export Orchestrator',
+    brandAnalysis,
   };
 }
 

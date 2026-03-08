@@ -79,6 +79,24 @@ export interface ProfitabilitySnapshot {
   contributionMargin?: number;
 }
 
+/** Brand Intelligence: per-term classification and aggregate sales by type. */
+export type BrandKeywordType = 'branded' | 'competitor' | 'generic';
+
+export interface BrandAnalysisItem {
+  searchTerm: string;
+  keywordType: BrandKeywordType;
+  sales: number;
+  spend: number;
+  orders: number;
+}
+
+export interface BrandAnalysisResult {
+  terms: BrandAnalysisItem[];
+  brandedSales: number;
+  genericSales: number;
+  competitorSales: number;
+}
+
 export interface StructuredInsightSection {
   id: string;
   title: string;
@@ -124,4 +142,6 @@ export interface PremiumState {
   currency?: string;
   /** Chosen chart source per chart (SLM → Gemini → Python). Populated before render. */
   chartSources?: ChartSourceRecord[];
+  /** Brand Intelligence: branded / competitor / generic classification and aggregate sales. */
+  brandAnalysis?: BrandAnalysisResult;
 }

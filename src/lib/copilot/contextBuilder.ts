@@ -83,6 +83,13 @@ export interface StoreSummarySnapshot {
   }>;
 }
 
+/** Brand Intelligence aggregates for Copilot. */
+export interface BrandMetricsSnapshot {
+  brandedSales: number;
+  genericSales: number;
+  competitorSales: number;
+}
+
 export interface AuditContextInput {
   metrics: MetricItem[];
   tables: TableArtifact[];
@@ -95,6 +102,8 @@ export interface AuditContextInput {
   verifiedInsights?: VerifiedInsightSnapshot[];
   chartSignals?: ChartSignalsSnapshot;
   conversationMemory?: ConversationMemory;
+  /** Brand Intelligence: branded / generic / competitor sales (from Brand Intelligence Agent). */
+  brandMetrics?: BrandMetricsSnapshot;
 }
 
 export interface AuditContext {
@@ -108,6 +117,7 @@ export interface AuditContext {
   verifiedInsights: string;
   chartSignals: string;
   conversationMemory: string;
+  brandMetrics: string;
   /** Full text for Gemini prompt */
   summary: string;
 }
@@ -228,6 +238,11 @@ function formatChartSignals(chartSignals: ChartSignalsSnapshot | undefined): str
   return parts.length > 0 ? parts.join('\n') : 'No chart signals.';
 }
 
+function formatBrandMetrics(brand: BrandMetricsSnapshot | undefined): string {
+  if (!brand) return 'No brand metrics available.';
+  return `Branded sales: ${brand.brandedSales.toFixed(2)} | Generic sales: ${brand.genericSales.toFixed(2)} | Competitor sales: ${brand.competitorSales.toFixed(2)}`;
+}
+
 /** Build structured audit context for the Copilot. */
 export function buildAuditContext(input: AuditContextInput): AuditContext {
   const metrics = formatMetrics(input.metrics);
@@ -243,12 +258,15 @@ export function buildAuditContext(input: AuditContextInput): AuditContext {
   const verifiedInsights = formatVerifiedInsights(input.verifiedInsights);
   const chartSignals = formatChartSignals(input.chartSignals);
   const conversationMemory = input.conversationMemory ? formatMemoryForPrompt(input.conversationMemory) : '';
+  const brandMetrics = formatBrandMetrics(input.brandMetrics);
 
   const summaryParts = [
     '--- Metrics ---',
     metrics,
     '--- Account summary (profit/totals) ---',
     profit,
+    '--- Brand Intelligence (branded / generic / competitor sales) ---',
+    brandMetrics,
     '--- Agent signals (deterministic) ---',
     agentSignals,
     '--- Detected issues (patterns) ---',
@@ -278,6 +296,7 @@ export function buildAuditContext(input: AuditContextInput): AuditContext {
     verifiedInsights,
     chartSignals,
     conversationMemory,
+    brandMetrics,
     summary,
   };
 }

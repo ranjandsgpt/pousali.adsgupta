@@ -5,6 +5,7 @@
 
 import type { PremiumState, VerifiedMetric, VerifiedInsight, ChartSpec, TableSpec } from './zenithTypes';
 import type { MemoryStore } from '@/app/audit/utils/reportParser';
+import { runBrandIntelligence } from './brandIntelligenceAgent';
 
 export interface ZenithOrchestratorInput {
   store: MemoryStore;
@@ -16,6 +17,10 @@ export interface ZenithOrchestratorInput {
   charts?: ChartSpec[];
   /** Table datasets from UI or SLM */
   tables?: TableSpec[];
+  /** Brand names for Brand Intelligence (branded classification) */
+  brandNames?: string[];
+  /** Competitor brand names for Brand Intelligence */
+  competitorBrands?: string[];
 }
 
 const DEFAULT_CURRENCY = 'EUR';
@@ -25,7 +30,7 @@ const DEFAULT_CURRENCY = 'EUR';
  * All exports (UI, PDF, PPTX) must read from this state for consistency.
  */
 export function runZenithExportOrchestrator(input: ZenithOrchestratorInput): PremiumState {
-  const { store, executiveNarrative = '', insights = [], charts = [], tables = [] } = input;
+  const { store, executiveNarrative = '', insights = [], charts = [], tables = [], brandNames = [], competitorBrands = [] } = input;
   const m = store.storeMetrics;
   const totalAdSpend = store.totalAdSpend;
   const totalAdSales = store.totalAdSales;
@@ -103,6 +108,12 @@ export function runZenithExportOrchestrator(input: ZenithOrchestratorInput): Pre
     lossCampaignCount: campaignAnalysis.filter((c) => c.spend > 0 && c.sales / c.spend < 1 / (breakEvenAcos / 100)).length,
   };
 
+  const searchTermsForBrand = Object.values(store.keywordMetrics)
+    .sort((a, b) => b.spend - a.spend)
+    .slice(0, 500)
+    .map((k) => ({ searchTerm: k.searchTerm, sales: k.sales, spend: k.spend, orders: 0 }));
+  const brandAnalysis = runBrandIntelligence(searchTermsForBrand, brandNames, competitorBrands);
+
   return {
     verifiedMetrics,
     verifiedInsights,
@@ -118,5 +129,6 @@ export function runZenithExportOrchestrator(input: ZenithOrchestratorInput): Pre
     confidenceScore: undefined,
     modelVerificationStatus: 'Zenith Export Orchestrator',
     currency: store.currency ?? DEFAULT_CURRENCY,
+    brandAnalysis,
   };
 }

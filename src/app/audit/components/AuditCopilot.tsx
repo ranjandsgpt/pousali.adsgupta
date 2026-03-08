@@ -13,6 +13,7 @@ import type {
   VerifiedInsightSnapshot,
   ChartSignalsSnapshot,
 } from '@/lib/copilot/contextBuilder';
+import { runBrandIntelligence } from '../agents/brandIntelligenceAgent';
 import { appendTurn, createEmptyMemory, type ConversationMemory } from '@/lib/copilot/conversationMemory';
 import type { CopilotResponseBody } from '@/app/api/copilot/route';
 import { MessageCircle, Send, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
@@ -182,6 +183,18 @@ export default function AuditCopilot() {
 
   const buildPayload = useCallback((): AuditContextInput => {
     const storeSummary = buildStoreSummarySnapshot(store);
+    const searchTerms = storeSummary.keywords.map((k) => ({
+      searchTerm: k.searchTerm,
+      sales: k.sales,
+      spend: k.spend,
+      orders: 0,
+    }));
+    const brandResult = runBrandIntelligence(searchTerms, [], []);
+    const brandMetrics = {
+      brandedSales: brandResult.brandedSales,
+      genericSales: brandResult.genericSales,
+      competitorSales: brandResult.competitorSales,
+    };
     return {
       metrics: validated.metrics,
       tables: validated.tables,
@@ -194,6 +207,7 @@ export default function AuditCopilot() {
       verifiedInsights: buildVerifiedInsightsFromValidated(validated.insights, validated.artifactConfidence),
       chartSignals: buildChartSignalsFromStore(store),
       conversationMemory: conversationMemory.turns.length > 0 ? conversationMemory : undefined,
+      brandMetrics,
     };
   }, [store, validated, patterns, opportunities, conversationMemory]);
 
