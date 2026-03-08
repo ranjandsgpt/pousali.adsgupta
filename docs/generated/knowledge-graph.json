@@ -1,0 +1,157 @@
+{
+  "nodes": [
+    {
+      "id": "getting-started",
+      "type": "article",
+      "title": "Getting Started",
+      "slug": "getting-started",
+      "related": [
+        "architecture",
+        "copilot",
+        "export-system"
+      ]
+    },
+    {
+      "id": "architecture",
+      "type": "article",
+      "title": "Platform Architecture",
+      "slug": "architecture",
+      "related": [
+        "agents",
+        "export-system",
+        "copilot"
+      ]
+    },
+    {
+      "id": "agents",
+      "type": "article",
+      "title": "Agents & Intelligence",
+      "slug": "agents",
+      "related": [
+        "architecture",
+        "query-system",
+        "export-system",
+        "feedback"
+      ]
+    },
+    {
+      "id": "formulas",
+      "type": "article",
+      "title": "Metrics & Formulas",
+      "slug": "formulas",
+      "related": [
+        "agents",
+        "copilot",
+        "query-system",
+        "charts"
+      ]
+    },
+    {
+      "id": "charts",
+      "type": "article",
+      "title": "Charts & Visualizations",
+      "slug": "charts",
+      "related": [
+        "export-system",
+        "formulas",
+        "agents"
+      ]
+    },
+    {
+      "id": "copilot",
+      "type": "article",
+      "title": "AI Copilot",
+      "slug": "copilot",
+      "related": [
+        "query-system",
+        "agents",
+        "formulas",
+        "feedback"
+      ]
+    },
+    {
+      "id": "query-system",
+      "type": "article",
+      "title": "Query Intelligence",
+      "slug": "query-system",
+      "related": [
+        "copilot",
+        "agents",
+        "formulas"
+      ]
+    },
+    {
+      "id": "brand-intelligence",
+      "type": "article",
+      "title": "Brand Intelligence",
+      "slug": "brand-intelligence",
+      "related": [
+        "agents",
+        "formulas",
+        "charts"
+      ]
+    },
+    {
+      "id": "export-system",
+      "type": "article",
+      "title": "Export System",
+      "slug": "export-system",
+      "related": [
+        "agents",
+        "charts",
+        "architecture"
+      ]
+    },
+    {
+      "id": "feedback",
+      "type": "article",
+      "title": "Feedback System",
+      "slug": "feedback",
+      "related": [
+        "copilot",
+        "agents"
+      ]
+    },
+    {
+      "id": "security",
+      "type": "article",
+      "title": "Security & Validation",
+      "slug": "security",
+      "related": [
+        "copilot",
+        "export-system"
+      ]
+    },
+    {
+      "id": "troubleshooting",
+      "type": "article",
+      "title": "Troubleshooting",
+      "slug": "troubleshooting",
+      "related": [
+        "export-system",
+        "copilot",
+        "query-system"
+      ]
+    },
+    {
+      "id": "faq",
+      "type": "article",
+      "title": "FAQ",
+      "slug": "faq",
+      "related": [
+        "formulas",
+        "copilot",
+        "charts",
+        "export-system"
+      ]
+    },
+    {
+      "id": "code",
+      "type": "article",
+      "title": "Code Explorer",
+      "slug": "code",
+      "related": []
+    }
+  ],
+  "generatedAt": "2026-03-08T14:03:09.908Z"
+}
