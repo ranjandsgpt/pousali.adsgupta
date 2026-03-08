@@ -1,22 +1,25 @@
 'use client';
 
-import { FileDown, FileText } from 'lucide-react';
+import { FileDown, Presentation, RefreshCw } from 'lucide-react';
 import { useAuditStore } from '../context/AuditStoreContext';
-import { exportAuditPdf } from '../utils/exportPdf';
-import { exportAuditDocx } from '../utils/exportDocx';
 
-/** Section 9: PDF & Word export – white-label, client-side only. */
-export default function ExportBar() {
+/** Bottom export bar: PDF, PPTX, Refresh. Zenith CXO Export. */
+interface ExportBarProps {
+  onDownloadPdf?: () => void;
+  onDownloadPptx?: () => void;
+  onRefreshExports?: () => void;
+  exportGenerating?: boolean;
+}
+
+export default function ExportBar({
+  onDownloadPdf,
+  onDownloadPptx,
+  onRefreshExports,
+  exportGenerating = false,
+}: ExportBarProps) {
   const { state } = useAuditStore();
   const hasData = state.store.totalAdSpend > 0 || state.store.totalStoreSales > 0;
-
-  const handlePdf = () => {
-    exportAuditPdf(state.store);
-  };
-
-  const handleWord = async () => {
-    await exportAuditDocx(state.store);
-  };
+  const lock = exportGenerating;
 
   return (
     <section
@@ -24,28 +27,43 @@ export default function ExportBar() {
       className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[var(--color-surface-elevated)] px-4 py-3"
     >
       <span className="text-sm font-medium text-[var(--color-text)]">
-        Export Report (PDF & Word)
+        {lock ? 'Generating premium report…' : 'Export Report (PDF & PPTX)'}
       </span>
       <div className="flex items-center gap-2">
+        {onRefreshExports && (
+          <button
+            type="button"
+            onClick={onRefreshExports}
+            disabled={!hasData || lock}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-500/20 text-slate-300 font-medium text-sm hover:bg-slate-500/30 disabled:opacity-50"
+            aria-label="Refresh exports"
+            title="Regenerate premium report"
+          >
+            <RefreshCw size={18} className={lock ? 'animate-spin' : ''} aria-hidden />
+            Refresh
+          </button>
+        )}
         <button
           type="button"
-          onClick={handlePdf}
-          disabled={!hasData}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500/20 text-cyan-500 font-medium text-sm hover:bg-cyan-500/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Export as PDF"
+          onClick={onDownloadPdf}
+          disabled={!hasData || lock}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 ${lock ? 'opacity-40 pointer-events-none' : ''} bg-cyan-500/20 text-cyan-500 hover:bg-cyan-500/30`}
+          style={lock ? { filter: 'blur(4px)' } : undefined}
+          aria-label="Download PDF"
         >
           <FileDown size={18} aria-hidden />
-          PDF
+          Download PDF
         </button>
         <button
           type="button"
-          onClick={handleWord}
-          disabled={!hasData}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500/20 text-cyan-500 font-medium text-sm hover:bg-cyan-500/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Export as Word"
+          onClick={onDownloadPptx}
+          disabled={!hasData || lock}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 ${lock ? 'opacity-40 pointer-events-none' : ''} bg-amber-500/20 text-amber-400 hover:bg-amber-500/30`}
+          style={lock ? { filter: 'blur(4px)' } : undefined}
+          aria-label="Download PPTX"
         >
-          <FileText size={18} aria-hidden />
-          Word
+          <Presentation size={18} aria-hidden />
+          Download PPTX
         </button>
       </div>
     </section>

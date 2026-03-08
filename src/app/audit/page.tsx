@@ -10,6 +10,7 @@ import ExportBar from './components/ExportBar';
 import PrivacyNote from './components/PrivacyNote';
 import { AuditStoreProvider, useAuditStore } from './context/AuditStoreContext';
 import { GeminiReportProvider, useGeminiReport } from './context/GeminiReportContext';
+import { ExportProvider, useExport } from './context/ExportContext';
 import { ValidatedArtifactsProvider } from './store/ValidatedArtifactsContext';
 import { DualEngineProvider, useDualEngine } from './dualEngine/dualEngineContext';
 import { PipelineProvider, usePipeline, type PipelineStageId } from './context/PipelineContext';
@@ -20,6 +21,43 @@ import { runReportVerification } from './utils/reportVerification';
 import type { TabId } from './tabs/useTabData';
 
 export type AuditStep = 'upload' | 'processing' | 'dashboard';
+
+function DashboardWithExport({
+  activeTab,
+  setActiveTab,
+  onRerunAnalysis,
+}: {
+  activeTab: TabId;
+  setActiveTab: (t: TabId) => void;
+  onRerunAnalysis: () => void;
+}) {
+  const exportCtx = useExport();
+  return (
+    <>
+      <AuditSummaryBlock
+        onRerunAnalysis={onRerunAnalysis}
+        onFocusCriticalIssues={() => {
+          setActiveTab('overview');
+          if (typeof window !== 'undefined') {
+            const el = document.getElementById('critical-section');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }}
+        onDownloadPdf={exportCtx?.onDownloadPdf}
+        onDownloadPptx={exportCtx?.onDownloadPptx}
+        onRefreshExports={exportCtx?.onRefreshExports}
+        exportGenerating={exportCtx?.exportGenerating ?? false}
+      />
+      <AuditTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <ExportBar
+        onDownloadPdf={exportCtx?.onDownloadPdf}
+        onDownloadPptx={exportCtx?.onDownloadPptx}
+        onRefreshExports={exportCtx?.onRefreshExports}
+        exportGenerating={exportCtx?.exportGenerating ?? false}
+      />
+    </>
+  );
+}
 
 const MAX_PARSING_RETRIES = 3;
 
@@ -134,20 +172,13 @@ function AuditPageContent() {
         )}
 
         {step === 'dashboard' && (
-          <>
-            <AuditSummaryBlock
+          <ExportProvider>
+            <DashboardWithExport
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
               onRerunAnalysis={handleRerunAnalysis}
-              onFocusCriticalIssues={() => {
-                setActiveTab('overview');
-                if (typeof window !== 'undefined') {
-                  const el = document.getElementById('critical-section');
-                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-              }}
             />
-            <AuditTabs activeTab={activeTab} onTabChange={setActiveTab} />
-            <ExportBar />
-          </>
+          </ExportProvider>
         )}
       </div>
     </div>

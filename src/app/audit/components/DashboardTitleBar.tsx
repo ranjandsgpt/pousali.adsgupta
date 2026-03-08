@@ -1,21 +1,27 @@
 'use client';
 
-import { FileDown, FileText, RotateCcw } from 'lucide-react';
+import { FileDown, Presentation, RotateCcw, RefreshCw } from 'lucide-react';
 import { useAuditStore } from '../context/AuditStoreContext';
-import { exportAuditPdf } from '../utils/exportPdf';
-import { exportAuditDocx } from '../utils/exportDocx';
 
-/** Section 24 & 40: Dashboard title and action buttons; no overlap with navbar. */
+/** Dashboard title and actions: Rerun, Refresh exports, Download PDF, Download PPTX. */
 interface DashboardTitleBarProps {
   onRerunAnalysis: () => void;
+  onDownloadPdf?: () => void;
+  onDownloadPptx?: () => void;
+  onRefreshExports?: () => void;
+  exportGenerating?: boolean;
 }
 
-export default function DashboardTitleBar({ onRerunAnalysis }: DashboardTitleBarProps) {
+export default function DashboardTitleBar({
+  onRerunAnalysis,
+  onDownloadPdf,
+  onDownloadPptx,
+  onRefreshExports,
+  exportGenerating = false,
+}: DashboardTitleBarProps) {
   const { state } = useAuditStore();
   const hasData = state.store.totalAdSpend > 0 || state.store.totalStoreSales > 0;
-
-  const handlePdf = () => exportAuditPdf(state.store);
-  const handleWord = async () => await exportAuditDocx(state.store);
+  const lock = exportGenerating;
 
   return (
     <section
@@ -35,25 +41,40 @@ export default function DashboardTitleBar({ onRerunAnalysis }: DashboardTitleBar
           <RotateCcw size={18} aria-hidden />
           Rerun Analysis
         </button>
+        {onRefreshExports && (
+          <button
+            type="button"
+            onClick={onRefreshExports}
+            disabled={!hasData || lock}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-500/20 text-slate-300 font-medium text-sm hover:bg-slate-500/30 disabled:opacity-50"
+            aria-label="Refresh exports"
+            title="Regenerate premium report"
+          >
+            <RefreshCw size={18} className={lock ? 'animate-spin' : ''} aria-hidden />
+            Refresh
+          </button>
+        )}
         <button
           type="button"
-          onClick={handleWord}
-          disabled={!hasData}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-500/20 text-purple-400 font-medium text-sm hover:bg-purple-500/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Download Word"
-        >
-          <FileText size={18} aria-hidden />
-          Download Word
-        </button>
-        <button
-          type="button"
-          onClick={handlePdf}
-          disabled={!hasData}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-500/20 text-purple-400 font-medium text-sm hover:bg-purple-500/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={onDownloadPdf}
+          disabled={!hasData || lock}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 ${lock ? 'opacity-40 pointer-events-none' : ''} bg-purple-500/20 text-purple-400 hover:bg-purple-500/30`}
+          style={lock ? { filter: 'blur(4px)' } : undefined}
           aria-label="Download PDF"
         >
           <FileDown size={18} aria-hidden />
           Download PDF
+        </button>
+        <button
+          type="button"
+          onClick={onDownloadPptx}
+          disabled={!hasData || lock}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 ${lock ? 'opacity-40 pointer-events-none' : ''} bg-amber-500/20 text-amber-400 hover:bg-amber-500/30`}
+          style={lock ? { filter: 'blur(4px)' } : undefined}
+          aria-label="Download PPTX"
+        >
+          <Presentation size={18} aria-hidden />
+          Download PPTX
         </button>
       </div>
     </section>

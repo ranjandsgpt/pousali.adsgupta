@@ -1,31 +1,16 @@
 'use client';
 
-import { useState } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
 import { useGeminiReport } from '../context/GeminiReportContext';
-import { exportAmazonPerformancePptx, exportAgencyActionPlanCsv } from '../utils/exportGeminiReport';
 
+/** AI Audit Narrative — Gemini. Export via top-level Download PDF / Download PPTX only. */
 export default function GeminiInsightsPanel() {
   const { state } = useAuditStore();
   const { report, loading, error } = useGeminiReport();
   const store = state.store;
   const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
-  const [exportingPptx, setExportingPptx] = useState(false);
 
   if (!hasData) return null;
-
-  const handleExportPptx = async () => {
-    setExportingPptx(true);
-    try {
-      await exportAmazonPerformancePptx(store);
-    } finally {
-      setExportingPptx(false);
-    }
-  };
-
-  const handleExportCsv = () => {
-    exportAgencyActionPlanCsv(store);
-  };
 
   return (
     <section
@@ -58,26 +43,6 @@ export default function GeminiInsightsPanel() {
           role="alert"
         >
           <p className="text-sm font-medium text-red-400">{error}</p>
-        </div>
-      )}
-
-      {!loading && hasData && (
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleExportPptx}
-            disabled={exportingPptx}
-            className="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 disabled:opacity-50 text-sm font-medium"
-          >
-            {exportingPptx ? 'Generating…' : 'Download Amazon_Performance_Report.pptx'}
-          </button>
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            className="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 text-sm font-medium"
-          >
-            Download Agency_Action_Plan.csv
-          </button>
         </div>
       )}
 

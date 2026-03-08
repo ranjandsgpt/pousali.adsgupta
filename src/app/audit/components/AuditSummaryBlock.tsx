@@ -5,9 +5,8 @@ import { useAuditStore } from '../context/AuditStoreContext';
 import { useDualEngine } from '../dualEngine/dualEngineContext';
 import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
-import { FileDown, FileText, RotateCcw, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { FileDown, Presentation, RotateCcw, ThumbsUp, ThumbsDown, RefreshCw } from 'lucide-react';
 import { exportAuditPdf } from '../utils/exportPdf';
-import { exportAuditDocx } from '../utils/exportDocx';
 import { computeHealthScore } from '../utils/healthScoreEngine';
 import { runReportVerification } from '../utils/reportVerification';
 import { validateMetrics } from '../utils/statisticalValidator';
@@ -23,6 +22,10 @@ const DISPLAY_NAMES: Record<string, string> = {
 interface AuditSummaryBlockProps {
   onRerunAnalysis: () => void;
   onFocusCriticalIssues?: () => void;
+  onDownloadPdf?: () => void;
+  onDownloadPptx?: () => void;
+  onRefreshExports?: () => void;
+  exportGenerating?: boolean;
 }
 
 type SummaryStatus = 'red' | 'orange' | 'green' | 'blue';
@@ -35,7 +38,14 @@ interface SummaryCard {
 }
 
 /** Single block under page: title, health score, summary cards, detected (and missing) metrics. */
-export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssues }: AuditSummaryBlockProps) {
+export default function AuditSummaryBlock({
+  onRerunAnalysis,
+  onFocusCriticalIssues,
+  onDownloadPdf,
+  onDownloadPptx,
+  onRefreshExports,
+  exportGenerating = false,
+}: AuditSummaryBlockProps) {
   const { state } = useAuditStore();
   const { store } = state;
   const dualEngine = useDualEngine();
@@ -127,8 +137,9 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
   }, [store]);
 
   const handlePdf = () => exportAuditPdf(store);
-  const handleWord = async () => await exportAuditDocx(store);
   const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
+  const handlePdfExport = () => (onDownloadPdf ? onDownloadPdf() : exportAuditPdf(store));
+  const lockExport = exportGenerating;
 
   const sendKpiFeedback = async (label: string, value: string, feedbackType: 'like' | 'dislike') => {
     try {
@@ -196,25 +207,40 @@ export default function AuditSummaryBlock({ onRerunAnalysis, onFocusCriticalIssu
             <RotateCcw size={16} aria-hidden />
             Rerun Analysis
           </button>
+          {onRefreshExports && (
+            <button
+              type="button"
+              onClick={onRefreshExports}
+              disabled={!hasData || lockExport}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-500/20 text-slate-300 font-medium text-sm hover:bg-slate-500/30 disabled:opacity-50"
+              aria-label="Refresh exports"
+              title="Regenerate premium report"
+            >
+              <RefreshCw size={16} aria-hidden={lockExport ? undefined : true} className={lockExport ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          )}
           <button
             type="button"
-            onClick={handleWord}
-            disabled={!hasData}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-400 font-medium text-sm hover:bg-purple-500/30 disabled:opacity-50"
-            aria-label="Download Word"
-          >
-            <FileText size={16} aria-hidden />
-            Download Word
-          </button>
-          <button
-            type="button"
-            onClick={handlePdf}
-            disabled={!hasData}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-400 font-medium text-sm hover:bg-purple-500/30 disabled:opacity-50"
+            onClick={handlePdfExport}
+            disabled={!hasData || lockExport}
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm disabled:opacity-50 ${lockExport ? 'opacity-40 pointer-events-none' : ''} bg-purple-500/20 text-purple-400 hover:bg-purple-500/30`}
+            style={lockExport ? { filter: 'blur(2px)' } : undefined}
             aria-label="Download PDF"
           >
             <FileDown size={16} aria-hidden />
             Download PDF
+          </button>
+          <button
+            type="button"
+            onClick={onDownloadPptx}
+            disabled={!hasData || lockExport}
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm disabled:opacity-50 ${lockExport ? 'opacity-40 pointer-events-none' : ''} bg-amber-500/20 text-amber-400 hover:bg-amber-500/30`}
+            style={lockExport ? { filter: 'blur(2px)' } : undefined}
+            aria-label="Download PPTX"
+          >
+            <Presentation size={16} aria-hidden />
+            Download PPTX
           </button>
         </div>
       </div>

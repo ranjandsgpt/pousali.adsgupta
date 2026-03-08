@@ -4,26 +4,6 @@ import { useState, useMemo } from 'react';
 import type { DeepDiveTableConfig } from './types';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
 import type { DetectedCurrency } from '../utils/currencyDetector';
-import { Download } from 'lucide-react';
-
-function escapeCsvCell(v: unknown): string {
-  if (v == null) return '';
-  const s = String(v);
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
-
-function exportToCsv(columns: DeepDiveTableConfig['columns'], rows: Record<string, unknown>[], filename: string) {
-  const header = columns.map((c) => c.label).join(',');
-  const body = rows.map((r) => columns.map((c) => escapeCsvCell(r[c.key])).join(',')).join('\n');
-  const blob = new Blob([header + '\n' + body], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename || 'export.csv';
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
 export function DeepDivePanel({
   title,
   table,
@@ -85,14 +65,6 @@ export function DeepDivePanel({
           onChange={(e) => setFilter(e.target.value)}
           className="flex-1 min-w-[160px] rounded border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-1 focus:ring-cyan-500"
         />
-        <button
-          type="button"
-          onClick={() => exportToCsv(table.columns, sortedAndFiltered, `${title.replace(/\s+/g, '-')}-deep-dive.csv`)}
-          className="flex items-center gap-1.5 rounded border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-cyan-400 hover:bg-white/10"
-        >
-          <Download size={14} />
-          Export CSV
-        </button>
         <span className="text-xs text-[var(--color-text-muted)]">
           {sortedAndFiltered.length} row{sortedAndFiltered.length !== 1 ? 's' : ''}
         </span>
