@@ -15,7 +15,7 @@ import {
 import { TabContent } from '../tabs/TabContent';
 import type { TabId } from '../tabs/useTabData';
 
-/** Color-coded tabs with icons (Phase 4). */
+/** Tab icons (accent kept for potential future use). */
 const TAB_STYLES: Record<TabId, { accent: string; icon: LucideIcon }> = {
   overview: { accent: 'cyan', icon: LayoutDashboard },
   'keywords-search-terms': { accent: 'purple', icon: Search },
@@ -43,53 +43,32 @@ export interface AuditTabsProps {
   onTabChange: (tab: TabId) => void;
 }
 
-function tabButtonClass(active: boolean, accent: string): string {
-  const base = 'flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap rounded-lg border transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)]';
-  if (active) {
-    const colors: Record<string, string> = {
-      cyan: 'border-cyan-500 bg-cyan-500/15 text-cyan-400 shadow-sm',
-      purple: 'border-purple-500 bg-purple-500/15 text-purple-400 shadow-sm',
-      orange: 'border-orange-500 bg-orange-500/15 text-orange-400 shadow-sm',
-      emerald: 'border-emerald-500 bg-emerald-500/15 text-emerald-400 shadow-sm',
-      red: 'border-red-500 bg-red-500/15 text-red-400 shadow-sm',
-      amber: 'border-amber-500 bg-amber-500/15 text-amber-400 shadow-sm',
-      indigo: 'border-indigo-500 bg-indigo-500/15 text-indigo-400 shadow-sm',
-      teal: 'border-teal-500 bg-teal-500/15 text-teal-400 shadow-sm',
-    };
-    return `${base} ${colors[accent] ?? colors.cyan} border-b-2 border-b-current`;
-  }
-  return `${base} border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/10`;
-}
-
 export default function AuditTabs({ activeTab, onTabChange }: AuditTabsProps) {
   return (
-    <section
-      aria-label="Audit results tabs"
-      className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] overflow-hidden"
-    >
-      <div
-        role="tablist"
-        className="flex border-b border-[var(--color-border)] overflow-x-auto gap-1 p-2 scrollbar-thin"
-      >
-        {TABS.map(({ id, label }) => {
-          const { accent, icon: Icon } = TAB_STYLES[id];
-          return (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={activeTab === id}
-              aria-controls={`panel-${id}`}
-              id={`tab-${id}`}
-              onClick={() => onTabChange(id)}
-              className={tabButtonClass(activeTab === id, accent)}
-            >
-              <Icon size={14} aria-hidden />
-              {label}
-            </button>
-          );
-        })}
+    <section aria-label="Audit results tabs">
+      <div className="audit-tabs-container">
+        <div role="tablist" className="tab-list">
+          {TABS.map(({ id, label }) => {
+            const { icon: Icon } = TAB_STYLES[id];
+            return (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === id}
+                aria-controls={`panel-${id}`}
+                id={`tab-${id}`}
+                onClick={() => onTabChange(id)}
+                className={`tab-button focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)] focus-visible:ring-[rgba(140,160,255,0.6)] ${activeTab === id ? 'active' : ''}`}
+              >
+                <Icon size={14} aria-hidden />
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <div className="p-6 min-h-[400px] overflow-auto">
+      <div className="tab-content-container p-6 min-h-[400px] overflow-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)]">
         {TABS.map(({ id }) => (
           <div
             key={id}
