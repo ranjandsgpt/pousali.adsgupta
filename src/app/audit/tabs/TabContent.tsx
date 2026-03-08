@@ -11,6 +11,8 @@ import { useTabData, type TabId } from './useTabData';
 import LearningIntelligencePanel from '../components/LearningIntelligencePanel';
 import GeminiInsightsPanel from '../components/GeminiInsightsPanel';
 import AuditCopilot from '../components/AuditCopilot';
+import DiscoveredInsightsSection from '../components/DiscoveredInsightsSection';
+import BenchmarkPanel from '../components/BenchmarkPanel';
 
 export interface TabContentProps {
   tabId: TabId;
@@ -79,6 +81,8 @@ export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
             <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Funnel</h3>
             <FunnelOverviewChart />
           </section>
+          <BenchmarkPanel />
+          <DiscoveredInsightsSection />
           {insightModules.length > 0 && (
             <section id="critical-section">
               <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">Critical Issues & Growth Opportunities</h3>

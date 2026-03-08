@@ -71,6 +71,10 @@ export function renderNodePdf(premiumState: PremiumState): Buffer {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text(`Generated ${premiumState.generatedAt}. Node fallback PDF.`, margin, 28);
+  if (premiumState.dataTrustReport != null) {
+    doc.setFontSize(9);
+    doc.text(`Audit Confidence: ${Math.round(premiumState.dataTrustReport.trustScore * 100)}%`, margin, 33);
+  }
   let y = 36;
 
   y = sectionHeading(doc, y, 'Executive Summary', margin);

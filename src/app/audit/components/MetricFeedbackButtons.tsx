@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
+import { recordLearningSignal } from '@/agents/learningOptimizationAgent';
 
 export interface MetricFeedbackButtonsProps {
   metricId: string;
@@ -42,6 +43,12 @@ export function MetricFeedbackButtons({
           comment: (commentText ?? comment) || undefined,
           artifactType,
         }),
+      });
+      recordLearningSignal({
+        type: userFeedback === 'correct' ? 'like' : 'dislike',
+        entityId: metricId,
+        payload: { artifactType, value },
+        timestamp: Date.now(),
       });
       onSubmitted?.();
     } catch {

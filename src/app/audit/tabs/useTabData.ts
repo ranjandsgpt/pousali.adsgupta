@@ -8,6 +8,7 @@ import type { MemoryStore } from '../utils/reportParser';
 import type { DetectedCurrency } from '../utils/currencyDetector';
 import { runDiagnosticEngines, type DiagnosticEnginesResult } from '../engines';
 import { runSanityChecks, type SanityCheckResults } from '../utils/sanityChecks';
+import { getInsightRankingHints } from '@/agents/learningOptimizationAgent';
 
 /** Primary tabs: distributed analysis, deep-dive modules, Gemini Insights, reference UX. */
 export type TabId =
@@ -593,6 +594,7 @@ function buildInsightModules(
       severity: 'info',
       tableRef: 'account-strategy',
       deepDiveTable: strategyDetails,
+      impactScore: 5,
     });
   }
 
@@ -642,6 +644,8 @@ function buildInsightModules(
         severity: 'critical',
         tableRef: 'critical',
         deepDiveTable: criticalDeepDive,
+        impactScore: 9,
+        evidence: wasteTotal > 0 ? { summary: `${critical} items; ${sym}${wasteTotal.toFixed(0)} wasted spend.` } : undefined,
       });
 
     // Phase 4: additional critical-issue tables using sanity checks.
@@ -736,6 +740,7 @@ function buildInsightModules(
         severity: 'opportunity',
         tableRef: 'opportunities',
         deepDiveTable: opportunitiesDeepDive,
+        impactScore: 7,
       });
 
     // Phase 5: additional opportunity tables.
@@ -1534,10 +1539,11 @@ function buildInsightModules(
           { metric: 'Top 5 campaigns spend share', share: diagnostics.portfolioConcentration.top5CampaignsSpendShare * 100 },
         ],
       };
-      modules.push({ id: 'portfolio-concentration', title: 'Portfolio Concentration', description: 'Revenue and spend concentration (Pareto).', count: 2, severity: 'info', tableRef: 'portfolio-concentration', deepDiveTable: paretoDeepDive });
+      modules.push({ id: 'portfolio-concentration', title: 'Portfolio Concentration', description: 'Revenue and spend concentration (Pareto).', count: 2, severity: 'info', tableRef: 'portfolio-concentration', deepDiveTable: paretoDeepDive, impactScore: 4 });
     }
   }
 
+  modules.sort((a, b) => (b.impactScore ?? 0) - (a.impactScore ?? 0));
   return modules;
 }
 
@@ -1553,7 +1559,17 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
     const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
     const diagnostics = hasData ? runDiagnosticEngines(store) : null;
     const sanity = hasData ? runSanityChecks(store) : null;
-    const insightModules = buildInsightModules(store, tabId, diagnostics, sanity);
+    let insightModules = buildInsightModules(store, tabId, diagnostics, sanity);
+    if (tabId === 'overview' && insightModules.length > 0) {
+      const hints = getInsightRankingHints();
+      const hintMap = new Map(hints.map((h) => [h.insightId, h.scoreDelta]));
+      insightModules = [...insightModules].sort((a, b) => {
+        const ia = a.impactScore ?? 0;
+        const ib = b.impactScore ?? 0;
+        if (ib !== ia) return ib - ia;
+        return (hintMap.get(b.id) ?? 0) - (hintMap.get(a.id) ?? 0);
+      });
+    }
 
     const emptyTables: TabTableConfig[] = [];
     let tables: TabTableConfig[] = emptyTables;

@@ -47,6 +47,7 @@ function buildPremiumStateFromPayload(body: {
   waste?: Array<{ searchTerm: string; campaign: string; spend: number; clicks: number }>;
   brandNames?: string[];
   competitorBrands?: string[];
+  dataTrustReport?: PremiumState['dataTrustReport'];
 }): PremiumState {
   const verifiedMetrics: VerifiedMetric[] = (body.metrics ?? []).map((m) => ({
     label: m.label,
@@ -101,6 +102,7 @@ function buildPremiumStateFromPayload(body: {
     generatedAt: new Date().toISOString(),
     modelVerificationStatus: 'Zenith Export Orchestrator',
     brandAnalysis,
+    dataTrustReport: body.dataTrustReport,
   };
 }
 
@@ -270,10 +272,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    pres.addSlide().addText(
-      `Generated ${premiumState.generatedAt} | ${premiumState.modelVerificationStatus ?? 'Zenith'}${judge.status === 'PASSED' ? ' | Verified' : ' | Visual layout simplified due to data density.'}`,
-      { x: 0.5, y: 5.2, w: 9, h: 0.4, fontSize: 8, color: THEME.accent }
-    );
+    const footerText = premiumState.dataTrustReport != null
+      ? `Generated ${premiumState.generatedAt} | ${premiumState.modelVerificationStatus ?? 'Zenith'} | Audit Confidence: ${Math.round(premiumState.dataTrustReport.trustScore * 100)}%${judge.status === 'PASSED' ? ' | Verified' : ''}`
+      : `Generated ${premiumState.generatedAt} | ${premiumState.modelVerificationStatus ?? 'Zenith'}${judge.status === 'PASSED' ? ' | Verified' : ' | Visual layout simplified due to data density.'}`;
+    pres.addSlide().addText(footerText, { x: 0.5, y: 5.2, w: 9, h: 0.4, fontSize: 8, color: THEME.accent });
 
     const buffer = await pres.write({ outputType: 'nodebuffer' });
     const buf = buffer instanceof Buffer ? buffer : Buffer.from(buffer as ArrayBuffer);

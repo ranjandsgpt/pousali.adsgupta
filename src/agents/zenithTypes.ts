@@ -17,6 +17,11 @@ export interface VerifiedInsight {
   recommendedAction?: string;
   verificationScore?: number;
   sourceEngine: 'slm' | 'gemini';
+  /** Phase 28–29: category for grouping; evidence for data backing */
+  category?: 'profit_opportunities' | 'budget_waste' | 'scaling_opportunities' | 'strategic_recommendations' | 'other';
+  evidence?: InsightEvidence;
+  /** Phase 22: impact score 0–10 when available */
+  impactScore?: number;
 }
 
 export type ChartSource = 'slm' | 'gemini' | 'python';
@@ -77,6 +82,50 @@ export interface ProfitabilitySnapshot {
   targetROAS: number;
   lossCampaignCount: number;
   contributionMargin?: number;
+}
+
+/** Phase 21 — Data trust & reliability. */
+export interface DataTrustReport {
+  trustScore: number;
+  missingFields: string[];
+  reportCoverage: number;
+  attributionMismatch: boolean;
+  duplicateRows: number;
+  warnings: string[];
+}
+
+/** Phase 22–23 — Insight impact and graph. */
+export type InsightPriority = 'critical' | 'high' | 'medium' | 'low';
+
+export interface ImpactScoredInsight {
+  insightId: string;
+  impactScore: number;
+  estimatedProfitLift?: number;
+  priority: InsightPriority;
+}
+
+export interface InsightGraphNode {
+  rootInsight: string;
+  causes: string[];
+  impact: string[];
+}
+
+/** Phase 25 — Story structure (Problem, Evidence, Impact, Recommendation). */
+export interface InsightStory {
+  problem: string;
+  evidence: string;
+  impact: string;
+  recommendation: string;
+}
+
+/** Phase 29 — Evidence linked to dataset/chart/table. */
+export interface InsightEvidence {
+  summary: string;
+  dataset?: string;
+  chartId?: string;
+  tableRef?: string;
+  rowCount?: number;
+  metricValues?: Record<string, number | string>;
 }
 
 /** Brand Intelligence: per-term classification and aggregate sales by type. */
@@ -144,4 +193,10 @@ export interface PremiumState {
   chartSources?: ChartSourceRecord[];
   /** Brand Intelligence: branded / competitor / generic classification and aggregate sales. */
   brandAnalysis?: BrandAnalysisResult;
+  /** Phase 21 — Data trust report; UI shows Audit Confidence = trustScore * 100%. */
+  dataTrustReport?: DataTrustReport;
+  /** Phase 22 — Insights ranked by impact (for UI sort). */
+  impactScoredInsights?: ImpactScoredInsight[];
+  /** Phase 23 — Cause → effect graph for narratives. */
+  insightGraph?: InsightGraphNode[];
 }

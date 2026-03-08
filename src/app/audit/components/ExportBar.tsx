@@ -1,7 +1,9 @@
 'use client';
 
+import { useMemo } from 'react';
 import { FileDown, Presentation, RefreshCw } from 'lucide-react';
 import { useAuditStore } from '../context/AuditStoreContext';
+import { runDataTrustAgent } from '@/agents/dataTrustAgent';
 
 /** Bottom export bar: PDF, PPTX, Refresh. Phase 40: progress bar. */
 interface ExportBarProps {
@@ -39,6 +41,7 @@ export default function ExportBar({
   const hasData = store.totalAdSpend > 0 || (store.totalStoreSales ?? store.storeMetrics?.totalSales ?? 0) > 0;
   const lock = exportGenerating;
   const pct = STATUS_PCT[exportStatus] ?? 0;
+  const dataTrust = useMemo(() => (hasData ? runDataTrustAgent(store) : null), [hasData, store]);
 
   return (
     <section
@@ -48,6 +51,11 @@ export default function ExportBar({
       <div className="flex flex-wrap items-center justify-between gap-4">
       <span className="text-sm font-medium text-[var(--color-text)]">
         {lock ? (exportStatusMessage || 'Generating premium report…') : 'Export Report (PDF & PPTX)'}
+        {dataTrust != null && (
+          <span className="ml-2 text-xs font-normal text-[var(--color-text-muted)]" title="Data trust score">
+            Audit Confidence: {Math.round(dataTrust.trustScore * 100)}%
+          </span>
+        )}
       </span>
       <div className="flex items-center gap-2">
         {onRefreshExports && (

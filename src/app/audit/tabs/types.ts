@@ -39,6 +39,15 @@ export interface DeepDiveTableConfig {
   rows: Record<string, unknown>[];
 }
 
+/** Phase 28 — Insight categories for grouping. */
+export const INSIGHT_CATEGORIES = [
+  'Profit Opportunities',
+  'Budget Waste',
+  'Scaling Opportunities',
+  'Strategic Recommendations',
+] as const;
+export type InsightCategoryLabel = (typeof INSIGHT_CATEGORIES)[number];
+
 /** Deep-dive module: summary card with count, impact, and expandable detail (reference UX). */
 export interface InsightModule {
   id: string;
@@ -52,6 +61,12 @@ export interface InsightModule {
   chartId?: string;
   /** Full dataset for Deep Dive panel (sort, filter, export) */
   deepDiveTable?: DeepDiveTableConfig;
+  /** Phase 22: impact score 0–10 for sort/display */
+  impactScore?: number;
+  /** Phase 29: evidence summary and optional dataset/chart/table ref */
+  evidence?: { summary: string; dataset?: string; chartId?: string; tableRef?: string; rowCount?: number };
+  /** Phase 28: category for grouping */
+  category?: InsightCategoryLabel;
 }
 
 export interface TableColumn {

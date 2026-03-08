@@ -40,10 +40,18 @@ export function InsightModuleCard({
             <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium tabular-nums">
               {module.count} {module.count === 1 ? 'item' : 'items'}
             </span>
+            {module.impactScore != null && (
+              <span className="text-xs font-medium text-amber-400" title="Impact score">Impact: {module.impactScore.toFixed(1)}</span>
+            )}
             {module.impact && (
               <span className="text-xs font-medium text-[var(--color-text)]">{module.impact}</span>
             )}
           </div>
+          {module.evidence?.summary && (
+            <p className="mt-1.5 text-xs text-[var(--color-text-muted)] border-l-2 border-cyan-500/50 pl-2">
+              Evidence: {module.evidence.summary}
+            </p>
+          )}
           <div className="mt-2">
             <MetricFeedbackButtons
               metricId={`insight-${module.id}`}

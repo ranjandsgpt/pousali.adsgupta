@@ -10,6 +10,9 @@ import type { SlmData, GeminiData } from '@/agents/modelSyncController';
 import type { PremiumState } from '@/agents/zenithTypes';
 import { runCxoJudgeAgent } from '@/agents/cxoJudgeAgent';
 import { runStructuredInsightsAgent } from '@/agents/structuredInsightsAgent';
+import { runDataTrustAgent } from '@/agents/dataTrustAgent';
+import { runInsightImpactAgent } from '@/agents/insightImpactAgent';
+import { runInsightGraphAgent } from '@/agents/insightGraphAgent';
 import { renderPremiumAssets } from './renderPremiumAssets';
 import { setExportStatus } from './exportStatusStore';
 import { getCacheDir } from './exportCache';
@@ -65,6 +68,10 @@ export async function runExportPipeline(input: ExportPipelineInput): Promise<Exp
     const premiumState = syncModels(store, slm, gemini);
     const structuredInsights = runStructuredInsightsAgent(store);
     (premiumState as PremiumState).structuredInsights = structuredInsights;
+    const dataTrustReport = runDataTrustAgent(store);
+    (premiumState as PremiumState).dataTrustReport = dataTrustReport;
+    (premiumState as PremiumState).impactScoredInsights = runInsightImpactAgent(premiumState.verifiedInsights, store);
+    (premiumState as PremiumState).insightGraph = runInsightGraphAgent(premiumState.verifiedInsights);
 
     const outputDir = path.join(getCacheDir(), 'charts');
 

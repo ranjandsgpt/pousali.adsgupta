@@ -24,6 +24,7 @@ function buildPremiumStateFromPayload(body: {
   waste?: Array<{ searchTerm: string; campaign: string; spend: number; clicks: number }>;
   brandNames?: string[];
   competitorBrands?: string[];
+  dataTrustReport?: PremiumState['dataTrustReport'];
 }): PremiumState {
   const verifiedMetrics: VerifiedMetric[] = (body.metrics ?? []).map((m) => ({
     label: m.label,
@@ -78,6 +79,7 @@ function buildPremiumStateFromPayload(body: {
     generatedAt: new Date().toISOString(),
     modelVerificationStatus: 'Zenith Export Orchestrator',
     brandAnalysis,
+    dataTrustReport: body.dataTrustReport,
   };
 }
 

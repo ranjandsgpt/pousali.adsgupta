@@ -11,6 +11,7 @@ import { useAuditStore } from './AuditStoreContext';
 import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
 import { useGeminiReport } from './GeminiReportContext';
 import { exportAuditPdf } from '../utils/exportPdf';
+import { runDataTrustAgent } from '@/agents/dataTrustAgent';
 
 export type ExportProgressStatus = 'idle' | 'queued' | 'rendering' | 'verifying' | 'retrying' | 'ready' | 'error';
 
@@ -80,7 +81,8 @@ export function ExportProvider({ children }: { children: ReactNode }) {
       .slice(0, 100)
       .map((k) => ({ searchTerm: k.searchTerm, campaign: k.campaign || '', spend: k.spend, clicks: k.clicks }));
     const insights = (validated?.insights ?? []).map((i) => ({ title: i.title, description: i.description, recommendedAction: i.recommendedAction }));
-    return { executiveNarrative: report ?? '', insights, metrics, campaigns, keywords, waste };
+    const dataTrustReport = runDataTrustAgent(store);
+    return { executiveNarrative: report ?? '', insights, metrics, campaigns, keywords, waste, dataTrustReport };
   }, [store, validated?.insights, report]);
 
   const triggerDownload = useCallback((blob: Blob, filename: string) => {

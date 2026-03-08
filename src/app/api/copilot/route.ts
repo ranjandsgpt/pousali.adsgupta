@@ -9,6 +9,7 @@ import { assertNoFileReferences, sanitizeTextForGemini } from '@/lib/geminiReque
 import { logGeminiRequest } from '@/lib/geminiRequestLogger';
 import { runQueryIntelligenceAgent } from '@/agents/queryIntelligenceAgent';
 import { recordQueryInteraction } from '@/agents/queryInteractionStore';
+import { runInsightDiscoveryAgent } from '@/agents/insightDiscoveryAgent';
 
 const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -119,10 +120,7 @@ export async function POST(request: NextRequest) {
       capability: qiResult.capability,
       answer: qiResult.answer,
     });
-    const suggestedFollowUps =
-      qiResult.source === 'fallback'
-        ? []
-        : ['Why is ACOS high?', 'Which campaigns should I pause?', 'View wasted keywords'];
+    const suggestedFollowUps = runInsightDiscoveryAgent(question);
     return NextResponse.json({
       answer: qiResult.answer,
       validated: qiResult.validated,
@@ -237,11 +235,10 @@ export async function POST(request: NextRequest) {
     } as CopilotResponseBody);
   }
 
-  const suggestedFollowUps = [
-    'See the worst campaigns',
-    'View wasted keywords',
-    'Generate an action plan',
-  ];
+  const suggestedFollowUps =
+    runInsightDiscoveryAgent(question).length > 0
+      ? runInsightDiscoveryAgent(question)
+      : ['See the worst campaigns', 'View wasted keywords', 'Generate an action plan'];
 
   const responseId = randomUUID();
   recordQueryInteraction(responseId, {
