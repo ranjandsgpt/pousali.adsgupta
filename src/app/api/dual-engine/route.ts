@@ -16,12 +16,12 @@ import { logGeminiRequest } from '@/lib/geminiRequestLogger';
 
 /**
  * Dual Engine API:
- * - mode: 'structured' — Gemini analyzes dataset (and optionally raw files) and returns metrics_gemini, tables_gemini, charts_gemini, insights_gemini, recovered_fields
- * - mode: 'verify_slm' — Gemini receives SLM artifacts and returns verification scores
+ * - mode: 'structured' — Gemini receives structured JSON payload only; returns metrics_gemini, tables_gemini, charts_gemini, insights_gemini, recovered_fields
+ * - mode: 'verify_slm' — Gemini receives SLM artifacts (text) and returns verification scores
+ * - mode: 'infer_schema' — Gemini receives header list (text) and returns schema mappings
  *
- * Accepts either:
- * - application/json: body = { mode, payload }
- * - multipart/form-data: files = raw report files (CSV/XLSX), payload = JSON string. Raw files are sent to Gemini unmodified.
+ * Architecture: Gemini receives only structured audit context (text/JSON). No raw CSV/XLSX files are sent to Gemini.
+ * Accepts application/json: body = { mode, payload }. Multipart form-data may include files for future server-side parsing only; files are not sent to Gemini.
  */
 
 const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
