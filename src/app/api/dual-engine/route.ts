@@ -89,13 +89,6 @@ function parseVerificationResult(
   };
 }
 
-function getMimeType(fileName: string): string {
-  const lower = fileName.toLowerCase();
-  if (lower.endsWith('.xlsx')) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  if (lower.endsWith('.xls')) return 'application/vnd.ms-excel';
-  return 'text/csv';
-}
-
 export async function POST(request: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
