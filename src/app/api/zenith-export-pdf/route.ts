@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     setExportStatus('ready', 'Export ready');
     await writeCache(auditId, null, new Uint8Array(pdfBuffer));
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
