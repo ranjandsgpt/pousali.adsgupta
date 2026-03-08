@@ -1,15 +1,15 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/api/copilot/route": "app/api/copilot/route.js",
-  "/api/audit-feedback/route": "app/api/audit-feedback/route.js",
   "/api/dual-engine/route": "app/api/dual-engine/route.js",
-  "/api/generate-insights/route": "app/api/generate-insights/route.js",
-  "/api/generate-presentation/route": "app/api/generate-presentation/route.js",
-  "/page": "app/page.js",
   "/api/generate-presentation-pptx/route": "app/api/generate-presentation-pptx/route.js",
-  "/contact/page": "app/contact/page.js",
+  "/api/audit-feedback/route": "app/api/audit-feedback/route.js",
+  "/api/copilot/route": "app/api/copilot/route.js",
+  "/page": "app/page.js",
+  "/api/generate-presentation/route": "app/api/generate-presentation/route.js",
   "/work/page": "app/work/page.js",
+  "/contact/page": "app/contact/page.js",
   "/insights/page": "app/insights/page.js",
-  "/audit/page": "app/audit/page.js",
-  "/about/page": "app/about/page.js"
+  "/about/page": "app/about/page.js",
+  "/api/generate-insights/route": "app/api/generate-insights/route.js",
+  "/audit/page": "app/audit/page.js"
 }
