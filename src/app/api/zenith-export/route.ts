@@ -10,6 +10,7 @@ import { runCxoJudgeAgent } from '@/agents/cxoJudgeAgent';
 import type { PremiumState, VerifiedMetric, VerifiedInsight } from '@/agents/zenithTypes';
 import { setExportStatus } from '@/services/exportStatusStore';
 import { writeCache } from '@/services/exportCache';
+import { checkExportConsistency } from '@/services/exportConsistencyGuard';
 
 const SLIDE_TITLES = [
   'Amazon Advertising CXO Audit',
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
     const exportedMetrics = premiumState.verifiedMetrics
       .filter((m) => typeof m.value === 'number')
       .map((m) => ({ label: m.label, value: m.value as number }));
-    const judge = runCxoJudgeAgent(premiumState, exportedMetrics);
+    const judge = runCxoJudgeAgent(premiumState, exportedMetrics, { maxTableRows: 12, maxSlideWords: 120 });
 
     const pres = new pptxgen();
     pres.title = 'Amazon Advertising CXO Audit';
@@ -188,6 +189,20 @@ export async function POST(request: NextRequest) {
     }
 
     setExportStatus('verifying', 'Verifying export…');
+    const consistency = checkExportConsistency(
+      premiumState,
+      exportedMetrics.map((m) => ({ label: m.label, value: m.value })),
+      'PPT',
+      { tolerancePct: 0.0001 }
+    );
+    if (!consistency.passed) {
+      setExportStatus('error', 'Export consistency check failed');
+      return NextResponse.json(
+        { error: 'FAILED_ACCURACY: metric mismatch (0.01% tolerance)', mismatches: consistency.mismatches },
+        { status: 422 }
+      );
+    }
+
     pres.addSlide().addText(
       `Generated ${premiumState.generatedAt} | ${premiumState.modelVerificationStatus ?? 'Zenith'}${judge.status === 'PASSED' ? ' | Verified' : ''}`,
       { x: 0.5, y: 5.2, w: 9, h: 0.4, fontSize: 8, color: THEME.accent }

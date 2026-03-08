@@ -17,16 +17,19 @@ export interface RenderPremiumAssetsResult {
   charts: RenderedChart[];
   slides: Array<{ title: string; insightNarrative: string; chartPath: string; keyTakeaway: string }>;
   outputDir: string;
+  /** Phase 42: set when mode is 'pdf' */
+  pdfPath?: string;
   error?: string;
 }
 
 /**
  * Call Python export_engine.py with PremiumState; returns charts and slide specs.
- * Uses child_process.spawn; stdin = PremiumState JSON, stdout = manifest JSON.
+ * When mode is 'pdf', Python also runs generate_pdf() and returns pdfPath.
  */
 export async function renderPremiumAssets(
   premiumState: PremiumState,
-  outputDir: string
+  outputDir: string,
+  options?: { mode?: 'charts' | 'pdf' }
 ): Promise<RenderPremiumAssetsResult> {
   const projectRoot = typeof process !== 'undefined' && process.cwd ? process.cwd() : '.';
   const scriptPath = path.join(projectRoot, 'export-engine', 'export_engine.py');
@@ -35,6 +38,7 @@ export async function renderPremiumAssets(
     const payload = JSON.stringify({
       premiumState: JSON.parse(JSON.stringify(premiumState)),
       outputDir,
+      mode: options?.mode ?? 'charts',
     });
 
     const proc = spawn('python3', [scriptPath], {
@@ -72,8 +76,14 @@ export async function renderPremiumAssets(
         return;
       }
       try {
-        const out = JSON.parse(stdout) as RenderPremiumAssetsResult;
-        resolve(out);
+        const out = JSON.parse(stdout) as RenderPremiumAssetsResult & { pdfPath?: string };
+        resolve({
+          charts: out.charts ?? [],
+          slides: out.slides ?? [],
+          outputDir: out.outputDir ?? outputDir,
+          pdfPath: out.pdfPath,
+          error: out.error,
+        });
       } catch {
         resolve({
           charts: [],
