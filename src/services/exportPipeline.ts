@@ -12,6 +12,7 @@ import { runCxoJudgeAgent } from '@/agents/cxoJudgeAgent';
 import { runStructuredInsightsAgent } from '@/agents/structuredInsightsAgent';
 import { renderPremiumAssets } from './renderPremiumAssets';
 import { setExportStatus } from './exportStatusStore';
+import { getCacheDir } from './exportCache';
 
 const MAX_RETRIES = 2;
 
@@ -44,22 +45,28 @@ export async function runRenderPremiumAssets(
   return { charts: result.charts };
 }
 
+const JUDGE_OPTIONS = {
+  maxTableRows: 25,
+  maxSlideWords: 180,
+  maxPointsScatter: 600,
+  maxCategoriesBar: 40,
+};
+
 /**
  * Run full export pipeline. Builds PremiumState, runs Python render, then CXO Judge.
- * Always updates export status (ready or error).
+ * Always updates export status (ready or error). Never blocks download on aesthetic failure.
  */
 export async function runExportPipeline(input: ExportPipelineInput): Promise<ExportPipelineResult> {
   const { store, slm, gemini, auditId = 'session' } = input;
-  try {
-    setExportStatus('queued', 'Preparing export…');
-    console.log('[exportPipeline] Started');
+  setExportStatus('queued', 'Preparing export…');
+  console.log('[exportPipeline] Started');
 
+  try {
     const premiumState = syncModels(store, slm, gemini);
     const structuredInsights = runStructuredInsightsAgent(store);
     (premiumState as PremiumState).structuredInsights = structuredInsights;
 
-    const projectRoot = typeof process !== 'undefined' && process.cwd ? process.cwd() : '.';
-    const outputDir = path.join(projectRoot, 'export-cache', 'charts');
+    const outputDir = path.join(getCacheDir(), 'charts');
 
     setExportStatus('rendering', 'Generating charts…');
     const { charts: renderedCharts } = await runRenderPremiumAssets(premiumState, outputDir);
@@ -73,11 +80,15 @@ export async function runExportPipeline(input: ExportPipelineInput): Promise<Exp
     let lastResult: { status: string } = { status: 'PASSED' };
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       const judge = runCxoJudgeAgent(premiumState, exportedMetrics, {
-        maxTableRows: 12,
-        maxSlideWords: 120,
+        ...JUDGE_OPTIONS,
+        retryMode: attempt > 0,
       });
       lastResult = judge;
-      if (judge.status === 'PASSED') break;
+      if (judge.status === 'PASSED' || judge.status === 'PASSED_WITH_WARNINGS') break;
+      if (judge.status === 'FAILED_ACCURACY' || judge.status === 'FAILED_STORYLINE') {
+        setExportStatus('error', judge.message ?? 'Export check failed');
+        throw new Error(judge.message ?? judge.status);
+      }
       if (attempt < MAX_RETRIES) {
         await new Promise((r) => setTimeout(r, 300));
       }

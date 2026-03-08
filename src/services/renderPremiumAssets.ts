@@ -5,6 +5,7 @@
 
 import { spawn } from 'child_process';
 import path from 'path';
+import { mkdir } from 'fs/promises';
 import type { PremiumState } from '@/agents/zenithTypes';
 import { resolveChartSourcePriority } from './chartSourceResolver';
 import { checkPythonAvailable } from './pythonAvailability';
@@ -52,6 +53,7 @@ function runPythonEngine(
     let stdout = '';
     let stderr = '';
     const timeout = setTimeout(() => {
+      clearTimeout(timeout);
       try {
         proc.kill('SIGTERM');
       } catch {
@@ -129,6 +131,7 @@ export async function renderPremiumAssets(
 ): Promise<RenderPremiumAssetsResult> {
   const mode = options?.mode ?? 'charts';
   console.log('[renderPremiumAssets] Started, mode:', mode);
+  await mkdir(outputDir, { recursive: true });
   resolveChartSourcePriority(premiumState);
 
   const pythonOk = await checkPythonAvailable();

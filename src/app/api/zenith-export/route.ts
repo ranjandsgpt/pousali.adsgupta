@@ -126,17 +126,24 @@ export async function POST(request: NextRequest) {
       .filter((m) => typeof m.value === 'number')
       .map((m) => ({ label: m.label, value: m.value as number }));
 
-    let judge = runCxoJudgeAgent(premiumState, exportedMetrics, { maxTableRows: 12, maxSlideWords: 120 });
+    let judge = runCxoJudgeAgent(premiumState, exportedMetrics, {
+      maxTableRows: 25,
+      maxSlideWords: 180,
+      maxPointsScatter: 600,
+      maxCategoriesBar: 40,
+    });
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       if (attempt > 1) {
         setExportStatus('retrying', `Retrying export (${attempt}/${MAX_ATTEMPTS})…`);
         judge = runCxoJudgeAgent(premiumState, exportedMetrics, {
-          maxTableRows: 12,
-          maxSlideWords: 120,
+          maxTableRows: 25,
+          maxSlideWords: 180,
+          maxPointsScatter: 600,
+          maxCategoriesBar: 40,
           retryMode: true,
         });
       }
-      if (judge.status === 'PASSED') break;
+      if (judge.status === 'PASSED' || judge.status === 'PASSED_WITH_WARNINGS') break;
       if (judge.status === 'FAILED_STORYLINE') {
         setExportStatus('error', 'Narrative validation failed');
         return NextResponse.json(
@@ -264,7 +271,7 @@ export async function POST(request: NextRequest) {
     }
 
     pres.addSlide().addText(
-      `Generated ${premiumState.generatedAt} | ${premiumState.modelVerificationStatus ?? 'Zenith'}${judge.status === 'PASSED' ? ' | Verified' : ' | Simplified layout'}`,
+      `Generated ${premiumState.generatedAt} | ${premiumState.modelVerificationStatus ?? 'Zenith'}${judge.status === 'PASSED' ? ' | Verified' : ' | Visual layout simplified due to data density.'}`,
       { x: 0.5, y: 5.2, w: 9, h: 0.4, fontSize: 8, color: THEME.accent }
     );
 

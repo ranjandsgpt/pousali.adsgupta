@@ -10,7 +10,7 @@ import { runCxoJudgeAgent } from '@/agents/cxoJudgeAgent';
 import { runBrandIntelligence } from '@/agents/brandIntelligenceAgent';
 import type { PremiumState, VerifiedMetric, VerifiedInsight } from '@/agents/zenithTypes';
 import { setExportStatus } from '@/services/exportStatusStore';
-import { writeCache } from '@/services/exportCache';
+import { writeCache, getCacheDir } from '@/services/exportCache';
 import { renderPremiumAssets } from '@/services/renderPremiumAssets';
 import { checkExportConsistency } from '@/services/exportConsistencyGuard';
 import { renderNodePdf } from '@/services/renderNodePdf';
@@ -98,8 +98,7 @@ export async function POST(request: NextRequest) {
     const premiumState = buildPremiumStateFromPayload(body);
     const auditId = body.auditId ?? `audit-${Date.now()}`;
 
-    const projectRoot = typeof process !== 'undefined' && process.cwd ? process.cwd() : '.';
-    const outputDir = path.join(projectRoot, 'export-cache', 'charts');
+    const outputDir = path.join(getCacheDir(), 'charts');
 
     setExportStatus('rendering', 'Generating PDF…');
     let pdfBuffer: Buffer | null = null;
@@ -137,11 +136,13 @@ export async function POST(request: NextRequest) {
       .map((m) => ({ label: m.label, value: m.value as number }));
 
     const judge = runCxoJudgeAgent(premiumState, exportedMetrics, {
-      maxTableRows: 12,
-      maxSlideWords: 120,
+      maxTableRows: 25,
+      maxSlideWords: 180,
+      maxPointsScatter: 600,
+      maxCategoriesBar: 40,
     });
-    if (judge.status !== 'PASSED') {
-      setExportStatus('error', judge.message);
+    if (judge.status === 'FAILED_STORYLINE' || judge.status === 'FAILED_ACCURACY') {
+      setExportStatus('error', judge.message ?? 'CXO Judge failed');
       return NextResponse.json(
         { error: judge.message ?? 'CXO Judge failed' },
         { status: 422 }

@@ -29,16 +29,18 @@ export async function renderChartsNodeFallback(
 ): Promise<RenderedChart[]> {
   const dir = path.resolve(outputDir);
   await mkdir(dir, { recursive: true });
-  const result: RenderedChart[] = [];
 
-  for (const { id, title } of FALLBACK_CHARTS) {
+  const chartTasks = FALLBACK_CHARTS.map(async ({ id, title }) => {
     const filePath = path.join(dir, `${id}.png`);
     try {
       await writeFile(filePath, TINY_PNG);
-      result.push({ id, path: filePath, title });
+      return { id, path: filePath, title };
     } catch (e) {
       console.warn('Node fallback write failed for', id, e);
+      return null;
     }
-  }
-  return result;
+  });
+
+  const results = await Promise.all(chartTasks);
+  return results.filter((r): r is RenderedChart => r !== null);
 }

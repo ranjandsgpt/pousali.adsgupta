@@ -248,7 +248,7 @@ export default function AuditCopilot() {
         setMessages((prev) => [
           ...prev,
           {
-            id: crypto.randomUUID(),
+            id: data.responseId ?? crypto.randomUUID(),
             role: 'assistant',
             content: answer,
             validated: data.validated,

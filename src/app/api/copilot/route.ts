@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import { COPILOT_SYSTEM, buildCopilotUserMessage } from '@/lib/geminiPromptRegistry';
 import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
-import { routeQuery } from '@/lib/copilot/queryRouter';
 import { buildAuditContext, type AuditContextInput, type StoreSummarySnapshot } from '@/lib/copilot/contextBuilder';
 import { validateCopilotResponse } from '@/lib/copilot/validateResponse';
 import { assertNoFileReferences, sanitizeTextForGemini } from '@/lib/geminiRequestGuard';
 import { logGeminiRequest } from '@/lib/geminiRequestLogger';
+import { runQueryIntelligenceAgent } from '@/agents/queryIntelligenceAgent';
+import { recordQueryInteraction } from '@/agents/queryInteractionStore';
 
 const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -63,6 +65,8 @@ export interface CopilotResponseBody {
   suggestedFollowUps?: string[];
   validated: boolean;
   error?: string;
+  /** Use this ID when submitting feedback (like/dislike) so the system can link to intent/capability. */
+  responseId?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -86,7 +90,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing or invalid auditContextInput' }, { status: 400 });
   }
 
-  const route = routeQuery(question);
   const hasData =
     (auditContextInput.metrics?.length ?? 0) > 0 ||
     (auditContextInput.storeSummary?.metrics != null);
@@ -101,16 +104,35 @@ export async function POST(request: NextRequest) {
 
   const storeSummary = auditContextInput.storeSummary as StoreSummarySnapshot;
 
-  if (route.engine === 'slm') {
-    const slmAnswer = answerWithSlm(route.normalizedQuery, storeSummary);
-    if (slmAnswer) {
-      return NextResponse.json({
-        answer: slmAnswer,
-        validated: true,
-        suggestedFollowUps: ['Why is ACOS high?', 'Which campaigns should I pause?', 'View wasted keywords'],
-      } as CopilotResponseBody);
-    }
+  // Query Intelligence Agent: intent → capability → route → SLM/formula/dataset or Gemini
+  const qiResult = runQueryIntelligenceAgent({
+    question,
+    storeSummary,
+    slmAnswerFn: answerWithSlm,
+  });
+
+  if (qiResult.kind === 'answer') {
+    const responseId = randomUUID();
+    recordQueryInteraction(responseId, {
+      question,
+      intent: qiResult.intent,
+      capability: qiResult.capability,
+      answer: qiResult.answer,
+    });
+    const suggestedFollowUps =
+      qiResult.source === 'fallback'
+        ? []
+        : ['Why is ACOS high?', 'Which campaigns should I pause?', 'View wasted keywords'];
+    return NextResponse.json({
+      answer: qiResult.answer,
+      validated: qiResult.validated,
+      suggestedFollowUps,
+      responseId,
+    } as CopilotResponseBody);
   }
+
+  // need_gemini: use existing pipeline with normalized query (and optional decomposition)
+  const normalizedQuery = qiResult.normalizedQuery;
 
   const context = buildAuditContext({
     metrics: auditContextInput.metrics ?? [],
@@ -141,7 +163,11 @@ export async function POST(request: NextRequest) {
     // optional
   }
 
-  const userMessage = buildCopilotUserMessage(context.summary, route.normalizedQuery, feedbackContext);
+  const userMessage = buildCopilotUserMessage(
+    context.summary,
+    normalizedQuery,
+    feedbackContext
+  );
   const safeMessage = sanitizeTextForGemini(userMessage);
 
   const contents = [{ role: 'user' as const, parts: [{ text: safeMessage }] }];
@@ -195,11 +221,19 @@ export async function POST(request: NextRequest) {
   );
 
   if (!validation.valid && validation.fallbackMessage) {
+    const responseId = randomUUID();
+    recordQueryInteraction(responseId, {
+      question,
+      intent: qiResult.intent,
+      capability: qiResult.capability,
+      answer: validation.fallbackMessage,
+    });
     return NextResponse.json({
       answer: validation.fallbackMessage,
       reason: validation.errors.join('; '),
       validated: false,
       confidence: 'Low',
+      responseId,
     } as CopilotResponseBody);
   }
 
@@ -209,9 +243,18 @@ export async function POST(request: NextRequest) {
     'Generate an action plan',
   ];
 
+  const responseId = randomUUID();
+  recordQueryInteraction(responseId, {
+    question,
+    intent: qiResult.intent,
+    capability: qiResult.capability,
+    answer: rawText,
+  });
+
   return NextResponse.json({
     answer: rawText,
     validated: validation.valid,
     suggestedFollowUps,
+    responseId,
   } as CopilotResponseBody);
 }

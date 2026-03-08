@@ -6,8 +6,16 @@
 import { writeFile, readFile, mkdir, readdir, unlink } from 'fs/promises';
 import path from 'path';
 
-const CACHE_DIR = 'export-cache';
 const META_FILE = 'cache-meta.json';
+
+/** Serverless (e.g. Vercel): /var/task is read-only; use /tmp. Local: project/export-cache. */
+export function getCacheDir(): string {
+  if (typeof process !== 'undefined' && process.env.VERCEL) {
+    return '/tmp/export-cache';
+  }
+  const base = typeof process !== 'undefined' && process.cwd ? process.cwd() : '.';
+  return path.join(base, 'export-cache');
+}
 
 export interface CacheMeta {
   auditId: string;
@@ -18,11 +26,6 @@ export interface CacheMeta {
   version?: number;
   pptxPath?: string;
   pdfPath?: string;
-}
-
-function getCacheDir(): string {
-  const base = typeof process !== 'undefined' && process.cwd ? process.cwd() : '.';
-  return path.join(base, CACHE_DIR);
 }
 
 export async function writeCache(

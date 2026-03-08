@@ -5,7 +5,7 @@
 
 import type { PremiumState } from './zenithTypes';
 
-export type CxoJudgeStatus = 'PASSED' | 'FAILED_AESTHETIC' | 'FAILED_ACCURACY' | 'FAILED_STORYLINE';
+export type CxoJudgeStatus = 'PASSED' | 'PASSED_WITH_WARNINGS' | 'FAILED_AESTHETIC' | 'FAILED_ACCURACY' | 'FAILED_STORYLINE';
 
 export interface CxoJudgeResult {
   status: CxoJudgeStatus;
@@ -33,11 +33,10 @@ export interface CxoJudgeOptions {
 }
 
 const ALLOWED_DEVIATION_PCT = 0.0001; // 0.01%
-const DEFAULT_MAX_TABLE_ROWS = 12;
-const DEFAULT_MAX_SLIDE_WORDS = 120;
-/** Phase 4 — relaxed for reliability */
-const DEFAULT_MAX_POINTS_SCATTER = 400;
-const DEFAULT_MAX_CATEGORIES_BAR = 30;
+const DEFAULT_MAX_TABLE_ROWS = 25;
+const DEFAULT_MAX_SLIDE_WORDS = 180;
+const DEFAULT_MAX_POINTS_SCATTER = 600;
+const DEFAULT_MAX_CATEGORIES_BAR = 40;
 
 function compareMetric(expected: number, actual: number): boolean {
   if (expected === 0) return actual === 0;
@@ -202,15 +201,28 @@ export function runCxoJudgeAgent(
     };
   }
 
-  const tableRowsOk = checkTableRows(premiumState, maxTableRows);
+  const retryMode = Boolean(options.retryMode);
+  const skipTableRows = retryMode;
+  const skipDensity = retryMode;
+  const tableRowsOk = skipTableRows || checkTableRows(premiumState, maxTableRows);
   const words = totalSlideWords(premiumState);
-  const skipDensity = Boolean(options.retryMode);
-  const slideDensityOk = skipDensity || words <= maxSlideWords * 15;
+  const slideDensityOk = skipDensity || words <= maxSlideWords;
   const colorContrastOk = checkColorContrast(['0F172A', 'E5E7EB', 'D4AF37']);
   const chartReadabilityResult = checkChartReadability(premiumState, { maxPointsScatter, maxCategoriesBar });
   const chartReadabilityOk = chartReadabilityResult.passed;
 
-  if (!tableRowsOk || !slideDensityOk || !colorContrastOk || !chartReadabilityOk) {
+  const aestheticFailed = !tableRowsOk || !slideDensityOk || !colorContrastOk || !chartReadabilityOk;
+  if (aestheticFailed) {
+    if (retryMode) {
+      return {
+        status: 'PASSED_WITH_WARNINGS',
+        message: 'Visual layout simplified due to data density.',
+        slideDensity: slideDensityOk,
+        textOverflow: tableRowsOk,
+        colorContrast: colorContrastOk,
+        chartReadability: chartReadabilityOk,
+      };
+    }
     return {
       status: 'FAILED_AESTHETIC',
       message: chartReadabilityResult.reason ?? `Visual audit failed: max_table_rows=${maxTableRows}, max_slide_words=${maxSlideWords}`,

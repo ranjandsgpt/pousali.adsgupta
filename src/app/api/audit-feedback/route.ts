@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addFeedback, getFeedback } from '@/app/audit/db/feedback';
+import { getQueryInteraction } from '@/agents/queryInteractionStore';
 
 /**
  * POST: submit feedback (like/dislike or correct/incorrect).
  * Body: { artifactType, artifactId | artifact_id | metricId, value?, feedbackType: 'like'|'dislike' | feedback: 'correct'|'incorrect', comment?, audit_id?, sessionId? }
+ * For copilot: send artifactId = responseId from Copilot response to link question/intent/capability.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -27,11 +29,16 @@ export async function POST(request: NextRequest) {
       | 'insights'
       | 'recommendations'
       | 'copilot_response';
+    let resolvedValue = value ?? '';
+    if ((type === 'copilot_response' || !artifactType) && resolvedValue === '') {
+      const interaction = getQueryInteraction(String(artifactId));
+      if (interaction) resolvedValue = JSON.stringify({ question: interaction.question, intent: interaction.intent, capability: interaction.capability, answer: interaction.answer });
+    }
     const record = addFeedback({
       audit_id: audit_id ?? 'session',
       artifact_type: type,
       artifact_id: String(artifactId),
-      value: value ?? '',
+      value: resolvedValue,
       feedback: hasVerdict ? userFeedback : feedbackType === 'like' ? 'correct' : 'incorrect',
       feedbackType: hasLikeDislike ? (feedbackType as 'like' | 'dislike') : undefined,
       comment: comment ? String(comment) : undefined,
