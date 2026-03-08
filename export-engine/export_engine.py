@@ -43,8 +43,15 @@ def apply_premium_style(ax):
         pass
 
 
+def _chart_source_map(premium_state: dict) -> dict:
+    """Build chartId -> source from premium_state.chartSources (SLM → Gemini → Python)."""
+    sources = premium_state.get("chartSources", [])
+    return {s.get("chartId", ""): s.get("source", "python") for s in sources if s.get("chartId")}
+
+
 def generate_charts(premium_state: dict, output_dir: str) -> list:
-    """Phase 34 + 46: Premium charts. Phase 46: + funnel, keyword scatter, ACOS histogram, quadrant, waterfall."""
+    """Phase 34 + 46: Premium charts. Chart source priority: SLM → Gemini → Python; record in result."""
+    source_map = _chart_source_map(premium_state)
     result = []
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -81,7 +88,7 @@ def generate_charts(premium_state: dict, output_dir: str) -> list:
             p = output_path / "spend-vs-roas.png"
             fig.savefig(p, facecolor=CHART_STYLE["background"], edgecolor="none", bbox_inches="tight")
             plt.close()
-            result.append({"id": "spend-vs-roas", "path": str(p), "title": "Spend vs ROAS"})
+            result.append({"id": "spend-vs-roas", "path": str(p), "title": "Spend vs ROAS", "source": source_map.get("spend-vs-roas", "python")})
         except Exception:
             pass
 
@@ -100,7 +107,7 @@ def generate_charts(premium_state: dict, output_dir: str) -> list:
             p = output_path / "campaign-spend-distribution.png"
             fig.savefig(p, facecolor=CHART_STYLE["background"], edgecolor="none", bbox_inches="tight")
             plt.close()
-            result.append({"id": "campaign-spend", "path": str(p), "title": "Campaign Spend Distribution"})
+            result.append({"id": "campaign-spend", "path": str(p), "title": "Campaign Spend Distribution", "source": source_map.get("campaign-spend", "python")})
         except Exception:
             pass
 
@@ -119,7 +126,7 @@ def generate_charts(premium_state: dict, output_dir: str) -> list:
             p = output_path / "roas-by-campaign.png"
             fig.savefig(p, facecolor=CHART_STYLE["background"], edgecolor="none", bbox_inches="tight")
             plt.close()
-            result.append({"id": "roas-by-campaign", "path": str(p), "title": "ROAS by Campaign"})
+            result.append({"id": "roas-by-campaign", "path": str(p), "title": "ROAS by Campaign", "source": source_map.get("roas-by-campaign", "python")})
         except Exception:
             pass
 
@@ -138,7 +145,7 @@ def generate_charts(premium_state: dict, output_dir: str) -> list:
             p = output_path / "keyword-waste-distribution.png"
             fig.savefig(p, facecolor=CHART_STYLE["background"], edgecolor="none", bbox_inches="tight")
             plt.close()
-            result.append({"id": "keyword-waste", "path": str(p), "title": "Keyword Waste Distribution"})
+            result.append({"id": "keyword-waste", "path": str(p), "title": "Keyword Waste Distribution", "source": source_map.get("keyword-waste", "python")})
         except Exception:
             pass
 
@@ -165,7 +172,7 @@ def generate_charts(premium_state: dict, output_dir: str) -> list:
             p = output_path / "ad-vs-organic-revenue.png"
             fig.savefig(p, facecolor=CHART_STYLE["background"], edgecolor="none", bbox_inches="tight")
             plt.close()
-            result.append({"id": "ad-vs-organic", "path": str(p), "title": "Ad vs Organic Revenue"})
+            result.append({"id": "ad-vs-organic", "path": str(p), "title": "Ad vs Organic Revenue", "source": source_map.get("ad-vs-organic", "python")})
         except Exception:
             pass
 
@@ -188,7 +195,7 @@ def generate_charts(premium_state: dict, output_dir: str) -> list:
             p = output_path / "conversion-funnel.png"
             fig.savefig(p, facecolor=CHART_STYLE["background"], edgecolor="none", bbox_inches="tight")
             plt.close()
-            result.append({"id": "conversion-funnel", "path": str(p), "title": "Conversion Funnel"})
+            result.append({"id": "conversion-funnel", "path": str(p), "title": "Conversion Funnel", "source": source_map.get("conversion-funnel", "python")})
     except Exception:
         pass
 
@@ -206,7 +213,7 @@ def generate_charts(premium_state: dict, output_dir: str) -> list:
             p = output_path / "keyword-opportunity-scatter.png"
             fig.savefig(p, facecolor=CHART_STYLE["background"], edgecolor="none", bbox_inches="tight")
             plt.close()
-            result.append({"id": "keyword-opportunity-scatter", "path": str(p), "title": "Keyword Opportunity Scatter"})
+            result.append({"id": "keyword-opportunity-scatter", "path": str(p), "title": "Keyword Opportunity Scatter", "source": source_map.get("keyword-opportunity-scatter", "python")})
         except Exception:
             pass
 
@@ -223,7 +230,7 @@ def generate_charts(premium_state: dict, output_dir: str) -> list:
             p = output_path / "acos-distribution.png"
             fig.savefig(p, facecolor=CHART_STYLE["background"], edgecolor="none", bbox_inches="tight")
             plt.close()
-            result.append({"id": "acos-distribution", "path": str(p), "title": "ACOS Distribution"})
+            result.append({"id": "acos-distribution", "path": str(p), "title": "ACOS Distribution", "source": source_map.get("acos-distribution", "python")})
         except Exception:
             pass
 
@@ -244,7 +251,7 @@ def generate_charts(premium_state: dict, output_dir: str) -> list:
             p = output_path / "campaign-efficiency-quadrant.png"
             fig.savefig(p, facecolor=CHART_STYLE["background"], edgecolor="none", bbox_inches="tight")
             plt.close()
-            result.append({"id": "campaign-efficiency-quadrant", "path": str(p), "title": "Campaign Efficiency Quadrant"})
+            result.append({"id": "campaign-efficiency-quadrant", "path": str(p), "title": "Campaign Efficiency Quadrant", "source": source_map.get("campaign-efficiency-quadrant", "python")})
         except Exception:
             pass
 
@@ -268,19 +275,47 @@ def generate_charts(premium_state: dict, output_dir: str) -> list:
             p = output_path / "profitability-waterfall.png"
             fig.savefig(p, facecolor=CHART_STYLE["background"], edgecolor="none", bbox_inches="tight")
             plt.close()
-            result.append({"id": "profitability-waterfall", "path": str(p), "title": "Profitability Waterfall"})
+            result.append({"id": "profitability-waterfall", "path": str(p), "title": "Profitability Waterfall", "source": source_map.get("profitability-waterfall", "python")})
     except Exception:
         pass
 
     return result
 
 
-def compose_slide(title: str, insight_narrative: str, chart_path: str = "", key_takeaway: str = "") -> dict:
+# Consulting slide structure: Title, Chart, Key Findings (3 bullets), Recommendation (1 bullet)
+MAX_WORDS_PER_BULLET = 15
+SLIDE_WORD_CAP = 90
+
+
+def _truncate_words(text: str, max_words: int) -> str:
+    words = (text or "").strip().split()
+    return " ".join(words[:max_words]) if words else ""
+
+
+def compose_slide(
+    title: str,
+    chart_path: str = "",
+    key_findings: list = None,
+    recommendation: str = "",
+    insight_narrative: str = "",
+    key_takeaway: str = "",
+) -> dict:
+    """Enforce consulting structure: Title, Chart, Key Findings (3 bullets, max 15 words each), Recommendation (1 bullet). Slide word cap 90."""
+    key_findings = key_findings or []
+    bullets = [_truncate_words(b, MAX_WORDS_PER_BULLET) for b in key_findings[:3]]
+    rec_bullet = _truncate_words(recommendation or key_takeaway, MAX_WORDS_PER_BULLET)
+    narrative = insight_narrative or " ".join(bullets) + " " + rec_bullet
+    word_count = len(narrative.strip().split())
+    if word_count > SLIDE_WORD_CAP:
+        narrative = _truncate_words(narrative, SLIDE_WORD_CAP)
     return {
         "title": title,
-        "insightNarrative": insight_narrative,
         "chartPath": chart_path,
-        "keyTakeaway": key_takeaway,
+        "keyFindings": bullets,
+        "recommendation": rec_bullet,
+        "insightNarrative": narrative,
+        "keyTakeaway": rec_bullet,
+        "wordCount": min(word_count, SLIDE_WORD_CAP),
     }
 
 
@@ -471,15 +506,17 @@ def main():
     charts = generate_charts(premium_state, output_dir)
     slides = []
     if premium_state.get("executiveNarrative"):
+        nar = premium_state["executiveNarrative"][:500]
         slides.append(compose_slide(
-            "Executive Summary",
-            premium_state["executiveNarrative"][:500],
-            charts[0]["path"] if charts else "",
-            "Key metrics and narrative from audit.",
+            title="Executive Summary",
+            chart_path=charts[0]["path"] if charts else "",
+            key_findings=[],
+            recommendation="Key metrics and narrative from audit.",
+            insight_narrative=nar,
         ))
     slides = optimize_visual_layout(slides)
 
-    out = {"charts": charts, "slides": slides, "outputDir": output_dir}
+    out = {"charts": charts, "slides": slides, "outputDir": output_dir, "chartSources": premium_state.get("chartSources", [])}
 
     if mode == "pdf":
         pdf_path = generate_pdf(premium_state, charts, output_dir)

@@ -107,6 +107,17 @@ export async function POST(request: NextRequest) {
       .filter((m) => typeof m.value === 'number')
       .map((m) => ({ label: m.label, value: m.value as number }));
     const judge = runCxoJudgeAgent(premiumState, exportedMetrics, { maxTableRows: 12, maxSlideWords: 120 });
+    if (judge.status === 'FAILED_STORYLINE') {
+      setExportStatus('error', 'Narrative validation failed');
+      return NextResponse.json(
+        { error: 'FAILED_STORYLINE: regenerate narrative (Problem → Evidence → Impact → Recommendation)', message: judge.message },
+        { status: 422 }
+      );
+    }
+    if (judge.status === 'FAILED_AESTHETIC' || judge.status === 'FAILED_ACCURACY') {
+      setExportStatus('error', judge.message ?? 'Export check failed');
+      return NextResponse.json({ error: judge.status, message: judge.message }, { status: 422 });
+    }
 
     const pres = new pptxgen();
     pres.title = 'Amazon Advertising CXO Audit';

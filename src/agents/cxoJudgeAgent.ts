@@ -5,7 +5,7 @@
 
 import type { PremiumState } from './zenithTypes';
 
-export type CxoJudgeStatus = 'PASSED' | 'FAILED_AESTHETIC' | 'FAILED_ACCURACY';
+export type CxoJudgeStatus = 'PASSED' | 'FAILED_AESTHETIC' | 'FAILED_ACCURACY' | 'FAILED_STORYLINE';
 
 export interface CxoJudgeResult {
   status: CxoJudgeStatus;
@@ -16,6 +16,10 @@ export interface CxoJudgeResult {
   textOverflow?: boolean;
   colorContrast?: boolean;
   chartReadability?: boolean;
+  /** Narrative validation */
+  storylineFlow?: boolean;
+  metricExplanation?: boolean;
+  businessImpact?: boolean;
 }
 
 export interface CxoJudgeOptions {
@@ -101,6 +105,34 @@ export function checkChartReadability(
   return { passed: true };
 }
 
+/** Narrative validation: each slide must follow Problem → Evidence → Impact → Recommendation. */
+function storylineFlowCheck(narrative: string): boolean {
+  const lower = (narrative || '').toLowerCase();
+  const hasProblem = /\b(problem|issue|risk|challenge|concern)\b/.test(lower) || lower.includes('severely') || lower.includes('critical');
+  const hasEvidence = /\b(acos|roas|spend|sales|%|metric)\b/.test(lower) || /\d+/.test(narrative);
+  const hasImpact = /\b(impact|consequence|loss|waste|efficiency|revenue)\b/.test(lower);
+  const hasRecommendation = /\b(recommend|action|next step|restructur|optimiz|pause|scale)\b/.test(lower);
+  return hasProblem && hasEvidence && hasImpact && hasRecommendation;
+}
+
+/** Any metric in narrative must be explained (narrative has substantive text, not just numbers). */
+function metricExplanationCheck(narrative: string, metrics: Array<{ label: string }>): boolean {
+  if (!metrics.length) return true;
+  const text = (narrative || '').trim();
+  if (text.length < 40) return false;
+  const lower = text.toLowerCase();
+  const hasExplanatoryWord = /\b(is|are|was|were|exceeds?|below|above|indicates?|shows?|due to|because|requires?)\b/.test(lower);
+  const hasMetricLabel = metrics.some((m) => lower.includes(m.label.toLowerCase()));
+  if (hasMetricLabel && !hasExplanatoryWord) return false;
+  return true;
+}
+
+/** Each slide must contain a business implication. */
+function businessImpactCheck(narrative: string): boolean {
+  const lower = (narrative || '').toLowerCase();
+  return /\b(budget|revenue|profit|loss|waste|efficiency|growth|risk|opportunity|margin|acos|roas|tacos)\b/.test(lower);
+}
+
 /** Phase 38 — Approximate slide word count from PremiumState content. */
 function totalSlideWords(premiumState: PremiumState): number {
   let words = 0;
@@ -152,6 +184,21 @@ export function runCxoJudgeAgent(
 
   const maxPointsScatter = options.maxPointsScatter ?? DEFAULT_MAX_POINTS_SCATTER;
   const maxCategoriesBar = options.maxCategoriesBar ?? DEFAULT_MAX_CATEGORIES_BAR;
+
+  const narrative = premiumState.executiveNarrative || '';
+  const storylineOk = storylineFlowCheck(narrative);
+  const metricExplanationOk = metricExplanationCheck(narrative, premiumState.verifiedMetrics);
+  const businessImpactOk = businessImpactCheck(narrative);
+
+  if (!storylineOk || !metricExplanationOk || !businessImpactOk) {
+    return {
+      status: 'FAILED_STORYLINE',
+      message: 'Narrative validation failed: ensure Problem → Evidence → Impact → Recommendation; metrics explained; business impact stated.',
+      storylineFlow: storylineOk,
+      metricExplanation: metricExplanationOk,
+      businessImpact: businessImpactOk,
+    };
+  }
 
   const tableRowsOk = checkTableRows(premiumState, maxTableRows);
   const words = totalSlideWords(premiumState);

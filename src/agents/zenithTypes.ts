@@ -19,6 +19,8 @@ export interface VerifiedInsight {
   sourceEngine: 'slm' | 'gemini';
 }
 
+export type ChartSource = 'slm' | 'gemini' | 'python';
+
 export interface ChartSpec {
   id: string;
   type: string;
@@ -26,6 +28,14 @@ export interface ChartSpec {
   axisLabels?: { x?: string; y?: string };
   dataset: Array<Record<string, unknown>>;
   colors?: string[];
+  /** Chart source priority: SLM → Gemini → Python */
+  source?: ChartSource;
+}
+
+export interface ChartSourceRecord {
+  chartId: string;
+  chartType?: string;
+  source: ChartSource;
 }
 
 export interface TableSpec {
@@ -112,4 +122,6 @@ export interface PremiumState {
   confidenceScore?: number;
   modelVerificationStatus?: string;
   currency?: string;
+  /** Chosen chart source per chart (SLM → Gemini → Python). Populated before render. */
+  chartSources?: ChartSourceRecord[];
 }

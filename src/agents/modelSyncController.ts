@@ -27,7 +27,7 @@ export interface GeminiData {
  * Fills gaps: if Gemini has insight but no chart, add chart placeholder/spec; if SLM has chart but no narrative, keep for Gemini later.
  */
 export function syncModels(store: MemoryStore, slm: SlmData, gemini: GeminiData): PremiumState {
-  const charts: ChartSpec[] = [...slm.charts];
+  const charts: ChartSpec[] = slm.charts.map((c) => ({ ...c, source: (c.source ?? 'slm') as 'slm' | 'gemini' | 'python' }));
   const tables: TableSpec[] = [...(slm.tableDatasets ?? [])];
 
   if (slm.chartMetadata?.length && charts.length === 0) {
@@ -37,6 +37,7 @@ export function syncModels(store: MemoryStore, slm: SlmData, gemini: GeminiData)
         type: meta.type,
         title: meta.title,
         dataset: Array.isArray(meta.dataset) ? (meta.dataset as Record<string, unknown>[]) : [],
+        source: 'slm',
       });
     }
   }

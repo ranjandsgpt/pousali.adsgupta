@@ -6,6 +6,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import type { PremiumState } from '@/agents/zenithTypes';
+import { resolveChartSourcePriority } from './chartSourceResolver';
 
 export interface RenderedChart {
   id: string;
@@ -34,6 +35,7 @@ export async function renderPremiumAssets(
   const projectRoot = typeof process !== 'undefined' && process.cwd ? process.cwd() : '.';
   const scriptPath = path.join(projectRoot, 'export-engine', 'export_engine.py');
 
+  resolveChartSourcePriority(premiumState);
   return new Promise((resolve) => {
     const payload = JSON.stringify({
       premiumState: JSON.parse(JSON.stringify(premiumState)),
