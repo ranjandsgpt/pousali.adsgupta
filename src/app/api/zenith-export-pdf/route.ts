@@ -12,6 +12,7 @@ import { setExportStatus } from '@/services/exportStatusStore';
 import { writeCache } from '@/services/exportCache';
 import { renderPremiumAssets } from '@/services/renderPremiumAssets';
 import { checkExportConsistency } from '@/services/exportConsistencyGuard';
+import { renderNodePdf } from '@/services/renderNodePdf';
 
 function buildPremiumStateFromPayload(body: {
   executiveNarrative?: string;
@@ -85,21 +86,31 @@ export async function POST(request: NextRequest) {
     const outputDir = path.join(projectRoot, 'export-cache', 'charts');
 
     setExportStatus('rendering', 'Generating PDF…');
-    const renderResult = await renderPremiumAssets(premiumState, outputDir, { mode: 'pdf' });
-
     let pdfBuffer: Buffer | null = null;
-    if (renderResult.pdfPath) {
-      try {
-        pdfBuffer = await readFile(renderResult.pdfPath);
-      } catch (e) {
-        console.error('zenith-export-pdf read file', e);
+
+    try {
+      const renderResult = await renderPremiumAssets(premiumState, outputDir, { mode: 'pdf' });
+      if (renderResult.pdfPath) {
+        try {
+          pdfBuffer = await readFile(renderResult.pdfPath);
+        } catch (e) {
+          console.error('zenith-export-pdf read file', e);
+        }
       }
+    } catch (e) {
+      console.warn('Python PDF failed — fallback to Node PDF', e);
+    }
+
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      console.warn('Python PDF failed — fallback to Node PDF');
+      setExportStatus('rendering', 'Generating PDF (Node fallback)…');
+      pdfBuffer = renderNodePdf(premiumState);
     }
 
     if (!pdfBuffer || pdfBuffer.length === 0) {
       setExportStatus('error', 'PDF generation failed');
       return NextResponse.json(
-        { error: 'PDF generation failed (Python engine may be unavailable or reportlab missing)' },
+        { error: 'PDF generation failed' },
         { status: 500 }
       );
     }

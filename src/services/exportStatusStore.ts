@@ -1,9 +1,19 @@
 /**
- * Phase 40 — Export progress state for UI.
- * In-memory store: queued | rendering | verifying | ready.
+ * Phase 40 & 6 — Export progress state for UI.
+ * States: queued | rendering | verifying | retrying | ready | error.
  */
 
-export type ExportStatus = 'idle' | 'queued' | 'rendering' | 'verifying' | 'ready' | 'error';
+export type ExportStatus = 'idle' | 'queued' | 'rendering' | 'verifying' | 'retrying' | 'ready' | 'error';
+
+export const EXPORT_STATUS_MESSAGES: Record<ExportStatus, string> = {
+  idle: '',
+  queued: 'Preparing export…',
+  rendering: 'Generating charts…',
+  verifying: 'Validating CXO standards…',
+  retrying: 'Retrying export…',
+  ready: 'Export ready',
+  error: 'Export failed',
+};
 
 let currentStatus: ExportStatus = 'idle';
 let statusMessage: string = '';

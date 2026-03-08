@@ -35,6 +35,8 @@ const THEME = {
   accent: 'D4AF37',
 };
 
+const MAX_ATTEMPTS = 3;
+
 function buildPremiumStateFromPayload(body: {
   executiveNarrative?: string;
   insights?: Array<{ title: string; description?: string; recommendedAction?: string }>;
@@ -106,17 +108,37 @@ export async function POST(request: NextRequest) {
     const exportedMetrics = premiumState.verifiedMetrics
       .filter((m) => typeof m.value === 'number')
       .map((m) => ({ label: m.label, value: m.value as number }));
-    const judge = runCxoJudgeAgent(premiumState, exportedMetrics, { maxTableRows: 12, maxSlideWords: 120 });
-    if (judge.status === 'FAILED_STORYLINE') {
-      setExportStatus('error', 'Narrative validation failed');
-      return NextResponse.json(
-        { error: 'FAILED_STORYLINE: regenerate narrative (Problem → Evidence → Impact → Recommendation)', message: judge.message },
-        { status: 422 }
-      );
+
+    let judge = runCxoJudgeAgent(premiumState, exportedMetrics, { maxTableRows: 12, maxSlideWords: 120 });
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      if (attempt > 1) {
+        setExportStatus('retrying', `Retrying export (${attempt}/${MAX_ATTEMPTS})…`);
+        judge = runCxoJudgeAgent(premiumState, exportedMetrics, {
+          maxTableRows: 12,
+          maxSlideWords: 120,
+          retryMode: true,
+        });
+      }
+      if (judge.status === 'PASSED') break;
+      if (judge.status === 'FAILED_STORYLINE') {
+        setExportStatus('error', 'Narrative validation failed');
+        return NextResponse.json(
+          { error: 'FAILED_STORYLINE: regenerate narrative (Problem → Evidence → Impact → Recommendation)', message: judge.message },
+          { status: 422 }
+        );
+      }
+      if (judge.status === 'FAILED_ACCURACY') {
+        setExportStatus('error', judge.message ?? 'Export check failed');
+        return NextResponse.json({ error: judge.status, message: judge.message }, { status: 422 });
+      }
+      if (attempt < MAX_ATTEMPTS) {
+        console.warn('Retrying export generation', attempt);
+      }
     }
-    if (judge.status === 'FAILED_AESTHETIC' || judge.status === 'FAILED_ACCURACY') {
-      setExportStatus('error', judge.message ?? 'Export check failed');
-      return NextResponse.json({ error: judge.status, message: judge.message }, { status: 422 });
+
+    const useSimplifiedLayout = judge.status !== 'PASSED';
+    if (useSimplifiedLayout) {
+      setExportStatus('rendering', 'Using simplified slide layout…');
     }
 
     const pres = new pptxgen();
@@ -135,6 +157,16 @@ export async function POST(request: NextRequest) {
         bold: true,
         color: THEME.accent,
       });
+
+      if (useSimplifiedLayout) {
+        const bullets = premiumState.recommendations.slice(0, 2).map((r) => `• ${r.slice(0, 60)}`);
+        const rec = premiumState.recommendations[0] ? `Recommendation: ${premiumState.recommendations[0].slice(0, 80)}` : '';
+        const body = [...bullets, rec].filter(Boolean).join('\n');
+        if (body) {
+          slide.addText(body, { x: 0.5, y: 1.4, w: 9, h: 4, fontSize: 11, color: 'FFFFFF' });
+        }
+        continue;
+      }
 
       if (i === 1 && premiumState.executiveNarrative) {
         slide.addText(premiumState.executiveNarrative.slice(0, 800), {
@@ -215,7 +247,7 @@ export async function POST(request: NextRequest) {
     }
 
     pres.addSlide().addText(
-      `Generated ${premiumState.generatedAt} | ${premiumState.modelVerificationStatus ?? 'Zenith'}${judge.status === 'PASSED' ? ' | Verified' : ''}`,
+      `Generated ${premiumState.generatedAt} | ${premiumState.modelVerificationStatus ?? 'Zenith'}${judge.status === 'PASSED' ? ' | Verified' : ' | Simplified layout'}`,
       { x: 0.5, y: 5.2, w: 9, h: 0.4, fontSize: 8, color: THEME.accent }
     );
 

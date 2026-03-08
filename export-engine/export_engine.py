@@ -299,8 +299,9 @@ def compose_slide(
     recommendation: str = "",
     insight_narrative: str = "",
     key_takeaway: str = "",
+    highlight_metric: dict = None,
 ) -> dict:
-    """Enforce consulting structure: Title, Chart, Key Findings (3 bullets, max 15 words each), Recommendation (1 bullet). Slide word cap 90."""
+    """Enforce consulting structure: Title, Chart, Key Findings (3 bullets), Recommendation (1 bullet). Optional highlightMetric: { label, value, trend } with gold styling."""
     key_findings = key_findings or []
     bullets = [_truncate_words(b, MAX_WORDS_PER_BULLET) for b in key_findings[:3]]
     rec_bullet = _truncate_words(recommendation or key_takeaway, MAX_WORDS_PER_BULLET)
@@ -308,7 +309,7 @@ def compose_slide(
     word_count = len(narrative.strip().split())
     if word_count > SLIDE_WORD_CAP:
         narrative = _truncate_words(narrative, SLIDE_WORD_CAP)
-    return {
+    out = {
         "title": title,
         "chartPath": chart_path,
         "keyFindings": bullets,
@@ -317,6 +318,13 @@ def compose_slide(
         "keyTakeaway": rec_bullet,
         "wordCount": min(word_count, SLIDE_WORD_CAP),
     }
+    if highlight_metric and isinstance(highlight_metric, dict):
+        out["highlightMetric"] = {
+            "label": str(highlight_metric.get("label", "")),
+            "value": str(highlight_metric.get("value", "")),
+            "trend": str(highlight_metric.get("trend", "")),
+        }
+    return out
 
 
 def optimize_visual_layout(slides: list) -> list:

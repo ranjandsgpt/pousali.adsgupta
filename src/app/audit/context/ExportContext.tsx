@@ -13,7 +13,7 @@ import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
 import { useGeminiReport } from './GeminiReportContext';
 import { exportAuditPdf } from '../utils/exportPdf';
 
-export type ExportProgressStatus = 'idle' | 'queued' | 'rendering' | 'verifying' | 'ready' | 'error';
+export type ExportProgressStatus = 'idle' | 'queued' | 'rendering' | 'verifying' | 'retrying' | 'ready' | 'error';
 
 interface ExportContextValue {
   exportGenerating: boolean;
@@ -115,6 +115,21 @@ export function ExportProvider({ children }: { children: ReactNode }) {
 
   const hasData = store.totalAdSpend > 0 || (store.totalStoreSales ?? store.storeMetrics?.totalSales ?? 0) > 0;
 
+  const fetchBoardroomNarrative = useCallback(async (insights: Array<{ title: string; description?: string }>, currentNarrative: string): Promise<string> => {
+    try {
+      const res = await fetch('/api/zenith-boardroom-narrative', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ insights, executiveNarrative: currentNarrative }),
+      });
+      if (!res.ok) return currentNarrative;
+      const data = (await res.json()) as { narrative?: string };
+      return data.narrative ?? currentNarrative;
+    } catch {
+      return currentNarrative;
+    }
+  }, []);
+
   const onDownloadPdf = useCallback(async () => {
     if (!hasData) {
       exportAuditPdf(store);
@@ -123,7 +138,10 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     setExportError(null);
     setExportGenerating(true);
     try {
+      const insights = (validated?.insights ?? []).map((i) => ({ title: i.title, description: i.description }));
+      const narrative = await fetchBoardroomNarrative(insights, report ?? '');
       const payload = buildExportPayload();
+      payload.executiveNarrative = narrative;
       const res = await fetch('/api/zenith-export-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -142,14 +160,17 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     } finally {
       setExportGenerating(false);
     }
-  }, [store, buildExportPayload, hasData, triggerDownload]);
+  }, [store, buildExportPayload, hasData, triggerDownload, validated?.insights, report, fetchBoardroomNarrative]);
 
   const onDownloadPptx = useCallback(async () => {
     if (!hasData) return;
     setExportError(null);
     setExportGenerating(true);
     try {
+      const insights = (validated?.insights ?? []).map((i) => ({ title: i.title, description: i.description }));
+      const narrative = await fetchBoardroomNarrative(insights, report ?? '');
       const payload = buildExportPayload();
+      payload.executiveNarrative = narrative;
       const res = await fetch('/api/zenith-export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -168,7 +189,7 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     } finally {
       setExportGenerating(false);
     }
-  }, [store, buildExportPayload, hasData, triggerDownload]);
+  }, [store, buildExportPayload, hasData, triggerDownload, validated?.insights, report, fetchBoardroomNarrative]);
 
   const onRefreshExports = useCallback(async () => {
     if (exportGenerating) return;

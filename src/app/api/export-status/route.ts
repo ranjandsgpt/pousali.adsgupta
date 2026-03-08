@@ -1,15 +1,16 @@
 /**
- * Phase 40 — Export progress API.
- * Returns: idle | queued | rendering | verifying | ready | error.
+ * Phase 40 & 6 — Export progress API.
+ * Returns: idle | queued | rendering | verifying | retrying | ready | error.
  */
 
 import { NextResponse } from 'next/server';
-import { getExportStatus } from '@/services/exportStatusStore';
+import { getExportStatus, EXPORT_STATUS_MESSAGES } from '@/services/exportStatusStore';
 
 export async function GET() {
   const { status, message } = getExportStatus();
+  const defaultMsg = EXPORT_STATUS_MESSAGES[status as keyof typeof EXPORT_STATUS_MESSAGES] ?? status;
   return NextResponse.json({
     status,
-    message: message || (status === 'ready' ? 'Export ready' : status === 'rendering' ? 'Generating charts…' : status),
+    message: message || defaultMsg,
   });
 }

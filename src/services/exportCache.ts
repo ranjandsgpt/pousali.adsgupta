@@ -1,10 +1,9 @@
 /**
  * Phase 39 — Asset cache activation.
- * Store: pptx buffer, pdf buffer, timestamp, auditId in export-cache/.
- * Invalidate when: new audit run, refresh clicked.
+ * Phase: Export asset versioning — audit_1_v1.pptx, audit_1_v2.pptx for export history.
  */
 
-import { writeFile, readFile, mkdir, unlink } from 'fs/promises';
+import { writeFile, readFile, mkdir, readdir, unlink } from 'fs/promises';
 import path from 'path';
 
 const CACHE_DIR = 'export-cache';
@@ -15,6 +14,10 @@ export interface CacheMeta {
   timestamp: string;
   hasPptx: boolean;
   hasPdf: boolean;
+  /** Version for this auditId (incremented on each write) */
+  version?: number;
+  pptxPath?: string;
+  pdfPath?: string;
 }
 
 function getCacheDir(): string {
@@ -29,19 +32,47 @@ export async function writeCache(
 ): Promise<void> {
   const dir = getCacheDir();
   await mkdir(dir, { recursive: true });
+
+  let version = 1;
+  try {
+    const metaRaw = await readFile(path.join(dir, META_FILE), 'utf-8');
+    const existing = JSON.parse(metaRaw) as CacheMeta;
+    if (existing.auditId === auditId && typeof existing.version === 'number') {
+      version = existing.version + 1;
+    }
+  } catch {
+    //
+  }
+
+  const safeId = auditId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const pptxPath = pptxBuffer ? path.join(dir, `${safeId}_v${version}.pptx`) : undefined;
+  const pdfPath = pdfBuffer ? path.join(dir, `${safeId}_v${version}.pdf`) : undefined;
+
+  if (pptxBuffer && pptxPath) {
+    await writeFile(pptxPath, Buffer.from(pptxBuffer));
+  }
+  if (pdfBuffer && pdfPath) {
+    await writeFile(pdfPath, Buffer.from(pdfBuffer));
+  }
+
   const meta: CacheMeta = {
     auditId,
     timestamp: new Date().toISOString(),
     hasPptx: Boolean(pptxBuffer?.byteLength),
     hasPdf: Boolean(pdfBuffer?.byteLength),
+    version,
+    pptxPath,
+    pdfPath,
   };
+  await writeFile(path.join(dir, META_FILE), JSON.stringify(meta, null, 2));
+
+  // Keep latest.pptx / latest.pdf for backward compatibility (point to current)
   if (pptxBuffer) {
     await writeFile(path.join(dir, 'latest.pptx'), Buffer.from(pptxBuffer));
   }
   if (pdfBuffer) {
     await writeFile(path.join(dir, 'latest.pdf'), Buffer.from(pdfBuffer));
   }
-  await writeFile(path.join(dir, META_FILE), JSON.stringify(meta, null, 2));
 }
 
 export async function readCache(): Promise<{
@@ -60,14 +91,26 @@ export async function readCache(): Promise<{
   let pptx: Buffer | null = null;
   let pdf: Buffer | null = null;
   try {
-    if (meta.hasPptx) pptx = await readFile(path.join(dir, 'latest.pptx'));
+    if (meta.hasPptx) {
+      pptx = await readFile(meta.pptxPath ?? path.join(dir, 'latest.pptx'));
+    }
   } catch {
-    //
+    try {
+      pptx = await readFile(path.join(dir, 'latest.pptx'));
+    } catch {
+      //
+    }
   }
   try {
-    if (meta.hasPdf) pdf = await readFile(path.join(dir, 'latest.pdf'));
+    if (meta.hasPdf) {
+      pdf = await readFile(meta.pdfPath ?? path.join(dir, 'latest.pdf'));
+    }
   } catch {
-    //
+    try {
+      pdf = await readFile(path.join(dir, 'latest.pdf'));
+    } catch {
+      //
+    }
   }
   return { meta, pptx, pdf };
 }
@@ -75,17 +118,12 @@ export async function readCache(): Promise<{
 export async function invalidateCache(): Promise<void> {
   const dir = getCacheDir();
   try {
-    await unlink(path.join(dir, 'latest.pptx'));
-  } catch {
-    //
-  }
-  try {
-    await unlink(path.join(dir, 'latest.pdf'));
-  } catch {
-    //
-  }
-  try {
-    await unlink(path.join(dir, META_FILE));
+    const files = await readdir(dir);
+    for (const f of files) {
+      if (f.endsWith('.pptx') || f.endsWith('.pdf') || f === META_FILE) {
+        await unlink(path.join(dir, f));
+      }
+    }
   } catch {
     //
   }

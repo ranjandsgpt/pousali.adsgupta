@@ -10,7 +10,7 @@ interface ExportBarProps {
   onRefreshExports?: () => void;
   exportGenerating?: boolean;
   /** Phase 40: status for progress bar */
-  exportStatus?: 'idle' | 'queued' | 'rendering' | 'verifying' | 'ready' | 'error';
+  exportStatus?: 'idle' | 'queued' | 'rendering' | 'verifying' | 'retrying' | 'ready' | 'error';
   exportStatusMessage?: string;
   exportError?: string | null;
 }
@@ -20,6 +20,7 @@ const STATUS_PCT: Record<string, number> = {
   queued: 15,
   rendering: 45,
   verifying: 80,
+  retrying: 65,
   ready: 100,
   error: 100,
 };
@@ -97,9 +98,19 @@ export default function ExportBar({
         </div>
       )}
       {exportError && !lock && (
-        <p className="text-sm text-red-400" role="alert">
-          {exportError}
-        </p>
+        <div
+          className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm"
+          role="alert"
+          aria-live="polite"
+        >
+          <p className="font-semibold text-red-400">Export failed</p>
+          <p className="mt-1 text-red-300/90">
+            <span className="text-[var(--color-text-muted)]">Reason:</span> {exportError}
+          </p>
+          <p className="mt-2 text-amber-200/90">
+            <span className="text-[var(--color-text-muted)]">Suggestion:</span> Click Refresh to regenerate report, then try Download again.
+          </p>
+        </div>
       )}
     </section>
   );
