@@ -11,6 +11,9 @@ import type { MemoryStore } from '../utils/reportParser';
 import { runDiagnosticEngines } from '../engines';
 import { runSanityChecks } from '../utils/sanityChecks';
 import { getMetricDefinitionsContext } from '@/lib/amazonMetricsReference';
+import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
+import { runInsightRuleEngine } from '@/services/insightRuleEngine';
+import { computeAccountHealthScore } from '@/services/accountHealthScore';
 
 export interface GeminiReportState {
   report: string | null;
@@ -45,6 +48,7 @@ export function useGeminiReport() {
 function buildPayload(store: MemoryStore): Record<string, unknown> {
   const diagnostics = runDiagnosticEngines(store);
   const sanity = runSanityChecks(store);
+  const canonical = executeMetricEngineForStore(store);
   const m = store.storeMetrics;
 
   const campaigns = Object.values(store.campaignMetrics)
@@ -141,6 +145,9 @@ function buildPayload(store: MemoryStore): Record<string, unknown> {
     'ACOS', 'ROAS', 'CTR', 'CVR', 'CPC', 'TACOS',
   ]);
 
+  const insightSummary = runInsightRuleEngine(store, canonical);
+  const accountHealth = computeAccountHealthScore(store, sanity);
+
   return {
     metricsReferenceContext: metricsReferenceContext || undefined,
     accountSummary: {
@@ -157,6 +164,8 @@ function buildPayload(store: MemoryStore): Record<string, unknown> {
       adSalesPercent: m.adSalesPercent,
       wastedSpendEstimate: wasted,
     },
+    insightsSummary: insightSummary.insights,
+    accountHealth,
     campaigns,
     searchTerms,
     asins,

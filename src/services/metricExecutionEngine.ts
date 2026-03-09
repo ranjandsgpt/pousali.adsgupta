@@ -1,6 +1,7 @@
 import { safeDivide } from '@/app/audit/utils/mathEngine';
 import { AMAZON_SALES_ATTRIBUTION_COLUMN } from '@/config/amazonAttribution';
 import type { MemoryStore } from '@/app/audit/utils/reportParser';
+import { sanitizeNumeric } from '@/utils/sanitizeNumeric';
 import { applyOverrides, type OverrideState } from './overrideEngine';
 
 export interface MetricExecutionInput {
@@ -40,29 +41,6 @@ export interface CanonicalMetrics {
   ctr: number;
 }
 
-function sanitizeCurrency(value: string | number): number {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-  if (!value) return 0;
-  const cleaned = value.toString().replace(/[^\d.-]/g, '');
-  const parsed = parseFloat(cleaned);
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function toNumber(value: unknown): number {
-  if (value == null) return 0;
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : 0;
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (!trimmed) return 0;
-    const normalized = trimmed.replace(/[^0-9.\-]+/g, '');
-    const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
-}
-
 export function executeMetricEngine(input: MetricExecutionInput, overrides?: OverrideState): CanonicalMetrics {
   const raw = overrides ? applyOverrides(input, overrides) : input;
   const input_ = raw;
@@ -91,16 +69,16 @@ export function executeMetricEngine(input: MetricExecutionInput, overrides?: Ove
   for (const row of adSourceRows) {
     if (!row || typeof row !== 'object') continue;
     const r: any = row;
-    totalAdSpend += sanitizeCurrency((r.spend ?? r.Spend) as any);
+    totalAdSpend += sanitizeNumeric(r.spend ?? r.Spend);
     const adSalesRaw =
       r[AMAZON_SALES_ATTRIBUTION_COLUMN] ??
       r['7 Day Total Sales'] ??
       r.sales7d ??
       r.sales ??
       r.Sales;
-    totalAdSales += sanitizeCurrency(adSalesRaw as any);
-    totalAdClicks += toNumber(r.clicks ?? r.Clicks);
-    totalAdImpressions += toNumber(r.impressions ?? r.Impressions);
+    totalAdSales += sanitizeNumeric(adSalesRaw);
+    totalAdClicks += sanitizeNumeric(r.clicks ?? r.Clicks);
+    totalAdImpressions += sanitizeNumeric(r.impressions ?? r.Impressions);
     const ordersRaw =
       r.orders ??
       r.Orders ??
@@ -108,7 +86,7 @@ export function executeMetricEngine(input: MetricExecutionInput, overrides?: Ove
       r['Total Order Items'] ??
       r.units ??
       r.Units;
-    totalAdOrders += toNumber(ordersRaw);
+    totalAdOrders += sanitizeNumeric(ordersRaw);
   }
 
   // ----- Global store totals (Business Report preferred) -----
@@ -130,8 +108,8 @@ export function executeMetricEngine(input: MetricExecutionInput, overrides?: Ove
         r.Orders ??
         r['Units Ordered'] ??
         r.units;
-      totalStoreSales += sanitizeCurrency(orderedProductSales as any);
-      totalStoreOrders += toNumber(ordersRaw);
+      totalStoreSales += sanitizeNumeric(orderedProductSales);
+      totalStoreOrders += sanitizeNumeric(ordersRaw);
     }
   } else {
     // Fallback: 100% ad-dependent scenario

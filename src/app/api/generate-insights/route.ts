@@ -17,12 +17,16 @@ import { logGeminiRequest } from '@/lib/geminiRequestLogger';
  */
 export interface InsightNarrativePayload {
   accountSummary: Record<string, unknown>;
-  campaigns: unknown[];
-  searchTerms: unknown[];
-  asins: unknown[];
-  patterns: unknown[];
-  sanity: Record<string, unknown>;
+  campaigns?: unknown[];
+  searchTerms?: unknown[];
+  asins?: unknown[];
+  patterns?: unknown[];
+  sanity?: Record<string, unknown>;
+  /** Deterministic insight summaries from the Insight Rule Engine. */
+  insightsSummary?: string[] | string;
   metricsReferenceContext?: string;
+  /** Optional mode: default = 'narrative', 'plan' = 7-day optimization plan. */
+  mode?: 'narrative' | 'plan';
 }
 
 const FAILSAFE_MESSAGE =
@@ -66,19 +70,32 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const dataJson = JSON.stringify(
-    {
-      accountSummary: payload.accountSummary,
-      campaigns: payload.campaigns,
-      searchTerms: payload.searchTerms,
-      asins: payload.asins,
-      patterns: payload.patterns,
-      sanity: payload.sanity,
-    },
-    null,
-    2
-  );
-  const rawUserText = `${INSIGHT_NARRATIVE_USER_PREFIX}\n\nUse the following verified audit data (structured context only).\n\n${dataJson}`;
+  const insightsSummaryText = Array.isArray(payload.insightsSummary)
+    ? payload.insightsSummary.join('\n')
+    : typeof payload.insightsSummary === 'string'
+      ? payload.insightsSummary
+      : '';
+
+  let rawUserText: string;
+  if (payload.mode === 'plan') {
+    rawUserText = [
+      'Generate a 7 day Amazon PPC optimization plan using these deterministic insights.',
+      '',
+      'Insights detected:',
+      insightsSummaryText || '(no insights provided)',
+    ].join('\n');
+  } else {
+    const dataJson = JSON.stringify(
+      {
+        accountSummary: payload.accountSummary,
+        insightsSummary: insightsSummaryText,
+      },
+      null,
+      2
+    );
+    rawUserText = `${INSIGHT_NARRATIVE_USER_PREFIX}\n\nUse the following verified audit data (structured context only).\n\n${dataJson}`;
+  }
+
   const userText = sanitizeTextForGemini(rawUserText);
 
   const metricsReferenceContext =
