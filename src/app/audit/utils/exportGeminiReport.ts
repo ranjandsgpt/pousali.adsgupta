@@ -7,6 +7,7 @@ import type { MemoryStore } from './reportParser';
 import { runSanityChecks } from './sanityChecks';
 import { runDiagnosticEngines } from '../engines';
 import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
+import type { OverrideState } from '@/services/overrideEngine';
 
 const SECTION_TITLES = [
   'Executive Summary',
@@ -106,14 +107,15 @@ export function exportAgencyActionPlanCsv(store: MemoryStore): void {
 
 /**
  * Generate and download Amazon_Performance_Report.pptx with 10-section slides and 3 charts.
+ * Uses corrected canonical metrics when overrides are provided (e.g. learned from Dislike feedback).
  */
-export async function exportAmazonPerformancePptx(store: MemoryStore): Promise<void> {
+export async function exportAmazonPerformancePptx(store: MemoryStore, overrides?: OverrideState): Promise<void> {
   const sanity = runSanityChecks(store);
   const diagnostics = runDiagnosticEngines(store);
   const pptxgen = (await import('pptxgenjs')).default;
   const pres = new pptxgen();
 
-  const canonical = executeMetricEngineForStore(store);
+  const canonical = executeMetricEngineForStore(store, overrides);
   const totalStoreSales = canonical.totalSales;
   const totalAdSales = canonical.totalAdSales;
   const totalAdSpend = canonical.totalAdSpend;

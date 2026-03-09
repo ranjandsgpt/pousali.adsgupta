@@ -1,6 +1,7 @@
 import { safeDivide } from '@/app/audit/utils/mathEngine';
 import { AMAZON_SALES_ATTRIBUTION_COLUMN } from '@/config/amazonAttribution';
 import type { MemoryStore } from '@/app/audit/utils/reportParser';
+import { applyOverrides, type OverrideState } from './overrideEngine';
 
 export interface MetricExecutionInput {
   campaignReport?: any[];
@@ -62,11 +63,13 @@ function toNumber(value: unknown): number {
   return 0;
 }
 
-export function executeMetricEngine(input: MetricExecutionInput): CanonicalMetrics {
+export function executeMetricEngine(input: MetricExecutionInput, overrides?: OverrideState): CanonicalMetrics {
+  const raw = overrides ? applyOverrides(input, overrides) : input;
+  const input_ = raw;
   // ----- Global ad totals (single source of truth) -----
-  const campaignRows = input.campaignReport ?? [];
-  const advertisedRows = input.advertisedProductReport ?? [];
-  const targetingRows = input.targetingReport ?? [];
+  const campaignRows = input_.campaignReport ?? [];
+  const advertisedRows = input_.advertisedProductReport ?? [];
+  const targetingRows = input_.targetingReport ?? [];
 
   let adSourceRows: any[] = [];
   if (campaignRows.length > 0) {
@@ -111,7 +114,7 @@ export function executeMetricEngine(input: MetricExecutionInput): CanonicalMetri
   // ----- Global store totals (Business Report preferred) -----
   let totalStoreSales = 0;
   let totalStoreOrders = 0;
-  const businessRows = input.businessReport ?? [];
+  const businessRows = input_.businessReport ?? [];
   if (businessRows.length > 0) {
     for (const row of businessRows) {
       if (!row || typeof row !== 'object') continue;
@@ -187,7 +190,7 @@ export function executeMetricEngine(input: MetricExecutionInput): CanonicalMetri
   };
 }
 
-export function executeMetricEngineForStore(store: MemoryStore): CanonicalMetrics {
+export function executeMetricEngineForStore(store: MemoryStore, overrides?: OverrideState): CanonicalMetrics {
   const totalStoreSales = store.totalStoreSales || store.storeMetrics.totalSales;
 
   return executeMetricEngine({
@@ -205,6 +208,6 @@ export function executeMetricEngineForStore(store: MemoryStore): CanonicalMetric
         'Ordered Product Sales': totalStoreSales,
       },
     ],
-  });
+  }, overrides);
 }
 

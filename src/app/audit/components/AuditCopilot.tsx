@@ -22,6 +22,7 @@ import { runProfitabilityAgent } from '../agents/profitabilityAgent';
 import { runTrendAgent } from '../agents/trendAgent';
 import { runPerformanceDriftAgent } from '../agents/performanceDriftAgent';
 import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
+import type { OverrideState } from '@/services/overrideEngine';
 
 const SUGGESTED_QUESTIONS = [
   'Why is ACOS so high?',
@@ -40,9 +41,8 @@ interface ChatMessage {
   feedbackSent?: 'like' | 'dislike';
 }
 
-function buildStoreSummarySnapshot(store: MemoryStore): StoreSummarySnapshot {
-  const m = store.storeMetrics;
-  const canonical = executeMetricEngineForStore(store);
+function buildStoreSummarySnapshot(store: MemoryStore, overrides?: OverrideState): StoreSummarySnapshot {
+  const canonical = executeMetricEngineForStore(store, overrides);
   const totalClicks =
     canonical.totalClicks > 0
       ? canonical.totalClicks
@@ -187,7 +187,8 @@ export default function AuditCopilot() {
   const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
 
   const buildPayload = useCallback((): AuditContextInput => {
-    const storeSummary = buildStoreSummarySnapshot(store);
+    const overrides = state.learnedOverrides?.overrides;
+    const storeSummary = buildStoreSummarySnapshot(store, overrides);
     const searchTerms = storeSummary.keywords.map((k) => ({
       searchTerm: k.searchTerm,
       sales: k.sales,
@@ -200,6 +201,14 @@ export default function AuditCopilot() {
       genericSales: brandResult.genericSales,
       competitorSales: brandResult.competitorSales,
     };
+    const activeOverrides = state.learnedOverrides
+      ? {
+          reasoning: state.learnedOverrides.reasoning,
+          sanitizeCurrency: state.learnedOverrides.overrides.sanitizeCurrency,
+          preferredReport: state.learnedOverrides.overrides.preferredReport,
+          overrideSalesColumn: state.learnedOverrides.overrides.overrideSalesColumn,
+        }
+      : undefined;
     return {
       metrics: validated.metrics,
       tables: validated.tables,
@@ -213,8 +222,9 @@ export default function AuditCopilot() {
       chartSignals: buildChartSignalsFromStore(store),
       conversationMemory: conversationMemory.turns.length > 0 ? conversationMemory : undefined,
       brandMetrics,
+      activeOverrides,
     };
-  }, [store, validated, patterns, opportunities, conversationMemory]);
+  }, [store, state.learnedOverrides, validated, patterns, opportunities, conversationMemory]);
 
   const sendMessage = useCallback(
     async (question: string) => {

@@ -1,8 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
+import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
+import { MetricFeedbackButtons } from './MetricFeedbackButtons';
+import type { OverrideSuggestion } from '@/services/feedbackLearningEngine';
 
 /** KPI Summary: 10 key metrics in order, with green / orange / red coding. */
 const METRIC_ORDER: Array<{
@@ -88,22 +91,22 @@ type DerivedMetrics = {
 };
 
 export default function KPISummarySection() {
-  const { state } = useAuditStore();
+  const { state, setStore } = useAuditStore();
   const { store } = state;
+  const overrides = state.learnedOverrides?.overrides;
 
-  const derived = useMemo((): DerivedMetrics => {
+  const { derived, canonical } = useMemo(() => {
+    const canonical = executeMetricEngineForStore(store, overrides);
     const totalClicks =
-      store.totalClicks > 0
-        ? store.totalClicks
-        : Object.values(store.keywordMetrics).reduce((s, m) => s + m.clicks, 0);
+      canonical.totalClicks > 0
+        ? canonical.totalClicks
+        : store.totalClicks > 0
+          ? store.totalClicks
+          : Object.values(store.keywordMetrics).reduce((s, m) => s + m.clicks, 0);
     const totalSessions =
       store.totalSessions > 0
         ? store.totalSessions
         : Object.values(store.asinMetrics).reduce((s, m) => s + m.sessions, 0);
-    const acos =
-      store.totalAdSales > 0
-        ? (store.totalAdSpend / store.totalAdSales) * 100
-        : null;
     const cvr =
       store.storeMetrics.conversionRate > 0
         ? store.storeMetrics.conversionRate
@@ -112,22 +115,50 @@ export default function KPISummarySection() {
           : totalSessions > 0 && store.totalOrders > 0
             ? (store.totalOrders / totalSessions) * 100
             : null;
-    const impressions = store.totalImpressions || (totalClicks > 0 ? totalClicks * 50 : 0);
-    const ctr = impressions > 0 && totalClicks > 0 ? (totalClicks / impressions) * 100 : null;
-    const cpc = totalClicks > 0 ? store.totalAdSpend / totalClicks : null;
 
-    return {
-      totalAdSpend: store.totalAdSpend,
-      totalAdSales: store.totalAdSales,
-      totalOrders: store.totalOrders ?? 0,
-      totalImpressions: impressions,
+    const derived: DerivedMetrics = {
+      totalAdSpend: canonical.totalAdSpend,
+      totalAdSales: canonical.totalAdSales,
+      totalOrders: canonical.totalOrders ?? store.totalOrders ?? 0,
+      totalImpressions: canonical.totalImpressions || (totalClicks > 0 ? totalClicks * 50 : 0),
       totalClicks,
-      acos,
-      ctr,
+      acos: canonical.acos * 100,
+      ctr: canonical.ctr > 0 ? canonical.ctr * 100 : null,
       cvr,
-      cpc,
+      cpc: canonical.cpc > 0 ? canonical.cpc : totalClicks > 0 ? store.totalAdSpend / totalClicks : null,
     };
-  }, [store]);
+    return { derived, canonical };
+  }, [store, overrides]);
+
+  const feedbackSnapshot = useMemo(
+    () => ({
+      fileHeaders: Array.from(store.uniqueColumns),
+      currentMetrics: {
+        totalSales: canonical.totalSales,
+        acos: canonical.acos * 100,
+        tacos: canonical.tacos * 100,
+        totalAdSpend: canonical.totalAdSpend,
+        totalAdSales: canonical.totalAdSales,
+        totalOrders: canonical.totalOrders,
+      },
+      reportTypes: store.files.map((f) => f.type),
+    }),
+    [store, canonical]
+  );
+
+  const handleOverrideSuggestion = useCallback(
+    (suggestion: OverrideSuggestion) => {
+      setStore(store, {
+        overrides: {
+          sanitizeCurrency: suggestion.sanitizeCurrency,
+          preferredReport: suggestion.preferredReport,
+          overrideSalesColumn: suggestion.overrideSalesColumn,
+        },
+        reasoning: suggestion.reasoning,
+      });
+    },
+    [store, setStore]
+  );
 
   const statusClass = {
     green: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40',
@@ -159,6 +190,18 @@ export default function KPISummarySection() {
           );
         })}
       </div>
+      {(store.totalAdSpend > 0 || store.totalStoreSales > 0) && (
+        <div className="mt-3 pt-3 border-t border-white/10 flex items-center gap-2">
+          <span className="text-xs text-[var(--color-text-muted)]">Are these metrics correct?</span>
+          <MetricFeedbackButtons
+            metricId="kpi-summary-section"
+            value="KPI Summary"
+            artifactType="metrics"
+            feedbackSnapshot={feedbackSnapshot}
+            onOverrideSuggestion={handleOverrideSuggestion}
+          />
+        </div>
+      )}
     </section>
   );
 }

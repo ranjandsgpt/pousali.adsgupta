@@ -10,6 +10,7 @@ import { runDiagnosticEngines, type DiagnosticEnginesResult } from '../engines';
 import { runSanityChecks, type SanityCheckResults } from '../utils/sanityChecks';
 import { getInsightRankingHints } from '@/agents/learningOptimizationAgent';
 import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
+import type { OverrideState } from '@/services/overrideEngine';
 
 /** Primary tabs: distributed analysis, deep-dive modules, Gemini Insights, reference UX. */
 export type TabId =
@@ -22,9 +23,9 @@ export type TabId =
   | 'gemini-insights'
   | 'insights-reports';
 
-function buildKPIs(store: MemoryStore): KPIMetric[] {
+function buildKPIs(store: MemoryStore, overrides?: OverrideState): KPIMetric[] {
   const m = store.storeMetrics;
-  const canonical = executeMetricEngineForStore(store);
+  const canonical = executeMetricEngineForStore(store, overrides);
 
   const acosPct = canonical.acos * 100;
   const tacosPct = canonical.tacos * 100;
@@ -1580,7 +1581,8 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
   const currency = store.currency;
 
   return useMemo(() => {
-    const kpis = buildKPIs(store);
+    const overrides = state.learnedOverrides?.overrides;
+    const kpis = buildKPIs(store, overrides);
     const patterns = buildPatterns(store);
     const opportunities = buildOpportunities(store);
     const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
@@ -1730,5 +1732,5 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
       chartIds,
       currency,
     };
-  }, [store, tabId, currency]);
+  }, [store, tabId, currency, state.learnedOverrides]);
 }

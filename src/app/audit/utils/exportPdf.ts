@@ -6,6 +6,7 @@
 import { jsPDF } from 'jspdf';
 import type { MemoryStore } from './reportParser';
 import { buildFullExportData } from './exportDataBuilder';
+import type { OverrideState } from '@/services/overrideEngine';
 
 const CFO_SECTIONS = [
   'Executive Summary',
@@ -74,8 +75,8 @@ function sectionHeading(doc: jsPDF, y: number, text: string, margin: number, pag
   return y + 14;
 }
 
-export function exportAuditPdf(store: MemoryStore): void {
-  const data = buildFullExportData(store);
+export function exportAuditPdf(store: MemoryStore, overrides?: OverrideState): void {
+  const data = buildFullExportData(store, overrides);
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 14;

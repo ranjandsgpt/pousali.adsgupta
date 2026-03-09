@@ -8,6 +8,8 @@ import type { MemoryStore } from './reportParser';
 import { formatCurrency, formatPercent } from './formatNumber';
 import { getCurrencySymbol } from './currencyDetector';
 import { runSanityChecks } from '../utils/sanityChecks';
+import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
+import type { OverrideState } from '@/services/overrideEngine';
 
 export interface ExportTable {
   section: string;
@@ -36,23 +38,21 @@ export interface FullExportData {
   chartDatasets: ExportChartData[];
 }
 
-function buildKpis(store: MemoryStore): { label: string; value: string }[] {
-  const m = store.storeMetrics;
-  const acos = store.totalAdSales > 0 ? (store.totalAdSpend / store.totalAdSales) * 100 : 0;
-  const totalClicks = store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
-  const totalOrders = store.totalOrders || 0;
+function buildKpis(store: MemoryStore, overrides?: OverrideState): { label: string; value: string }[] {
+  const canonical = executeMetricEngineForStore(store, overrides);
+  const totalClicks = canonical.totalClicks > 0 ? canonical.totalClicks : store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
   const sym = getCurrencySymbol(store.currency) || '$';
   return [
-    { label: 'Total Ad Spend', value: `${sym}${store.totalAdSpend.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
-    { label: 'Total Ad Sales', value: `${sym}${(store.totalAdSales || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
-    { label: 'Total Store Sales', value: `${sym}${(store.totalStoreSales || m.totalSales).toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
-    { label: 'ACOS', value: formatPercent(acos) },
-    { label: 'ROAS', value: `${m.roas.toFixed(2)}×` },
-    { label: 'TACOS', value: formatPercent(m.tacos) },
+    { label: 'Total Ad Spend', value: `${sym}${canonical.totalAdSpend.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+    { label: 'Total Ad Sales', value: `${sym}${canonical.totalAdSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+    { label: 'Total Store Sales', value: `${sym}${canonical.totalSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+    { label: 'ACOS', value: formatPercent(canonical.acos * 100) },
+    { label: 'ROAS', value: `${canonical.roas.toFixed(2)}×` },
+    { label: 'TACOS', value: formatPercent(canonical.tacos * 100) },
     { label: 'Clicks', value: String(totalClicks) },
-    { label: 'Orders', value: String(totalOrders) },
+    { label: 'Orders', value: String(canonical.totalOrders) },
     { label: 'Sessions', value: store.totalSessions > 0 ? String(store.totalSessions) : '—' },
-    { label: 'Organic Sales', value: `${sym}${m.organicSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+    { label: 'Organic Sales', value: `${sym}${canonical.organicSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
   ];
 }
 
@@ -214,7 +214,7 @@ function buildTables(store: MemoryStore): ExportTable[] {
   return tables;
 }
 
-function buildChartDatasets(store: MemoryStore): ExportChartData[] {
+function buildChartDatasets(store: MemoryStore, overrides?: OverrideState): ExportChartData[] {
   const charts: ExportChartData[] = [];
   const campaigns = Object.values(store.campaignMetrics).filter((c) => c.campaignName).sort((a, b) => b.spend - a.spend).slice(0, 10);
   if (campaigns.length > 0) {
@@ -259,9 +259,10 @@ function buildChartDatasets(store: MemoryStore): ExportChartData[] {
     });
   }
 
-  const totalSales = store.totalStoreSales || store.storeMetrics.totalSales;
-  const adSales = store.totalAdSales;
-  const organic = Math.max(0, totalSales - adSales);
+  const canonical = executeMetricEngineForStore(store, overrides);
+  const totalSales = canonical.totalSales;
+  const adSales = canonical.totalAdSales;
+  const organic = canonical.organicSales;
   if (totalSales > 0) {
     charts.push({
       id: 'organic-vs-ad',
@@ -277,15 +278,15 @@ function buildChartDatasets(store: MemoryStore): ExportChartData[] {
   return charts;
 }
 
-export function buildFullExportData(store: MemoryStore): FullExportData {
+export function buildFullExportData(store: MemoryStore, overrides?: OverrideState): FullExportData {
   const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;
   return {
     title: 'Amazon Advertising Performance Audit',
     generatedAt: new Date().toLocaleString(),
-    kpis: hasData ? buildKpis(store) : [],
+    kpis: hasData ? buildKpis(store, overrides) : [],
     patterns: hasData ? buildPatterns(store) : [],
     opportunities: hasData ? buildOpportunities(store) : [],
     tables: hasData ? buildTables(store) : [],
-    chartDatasets: hasData ? buildChartDatasets(store) : [],
+    chartDatasets: hasData ? buildChartDatasets(store, overrides) : [],
   };
 }

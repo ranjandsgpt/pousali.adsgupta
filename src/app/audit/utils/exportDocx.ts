@@ -5,6 +5,7 @@
 import type { MemoryStore } from './reportParser';
 import { exportCrystalBohemiaDocx } from './exportAuditTemplateDocx';
 import { buildFullExportData } from './exportDataBuilder';
+import type { OverrideState } from '@/services/overrideEngine';
 import {
   Document,
   Packer,
@@ -53,8 +54,8 @@ export async function exportAuditDocx(store: MemoryStore, options?: { brandName?
 }
 
 /** Legacy full audit export (KPIs, patterns, opportunities, all tables, chart data). */
-export async function exportAuditDocxLegacy(store: MemoryStore): Promise<void> {
-  const data = buildFullExportData(store);
+export async function exportAuditDocxLegacy(store: MemoryStore, overrides?: OverrideState): Promise<void> {
+  const data = buildFullExportData(store, overrides);
   const children: (Paragraph | Table)[] = [
     new Paragraph({
       children: [new TextRun({ text: data.title, bold: true, size: 28 })],

@@ -5,6 +5,7 @@ import type { KPIMetric, PatternDetection, OpportunityDetection, TabTableConfig,
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
 import type { DetectedCurrency } from '../utils/currencyDetector';
 import { MetricFeedbackButtons } from '../components/MetricFeedbackButtons';
+import type { FeedbackSnapshot, OverrideSuggestion } from '@/services/feedbackLearningEngine';
 
 export interface VerificationMeta {
   confidencePercent: number;
@@ -37,11 +38,15 @@ export function TabKPISummary({
   currency,
   verificationMeta,
   showFeedback = false,
+  feedbackSnapshot,
+  onOverrideSuggestion,
 }: {
   metrics: KPIMetric[];
   currency: DetectedCurrency;
   verificationMeta?: VerificationMeta;
   showFeedback?: boolean;
+  feedbackSnapshot?: FeedbackSnapshot;
+  onOverrideSuggestion?: (suggestion: OverrideSuggestion) => void;
 }) {
   if (metrics.length === 0) return null;
   return (
@@ -73,6 +78,8 @@ export function TabKPISummary({
                   metricId={metricId}
                   value={k.value}
                   artifactType="metrics"
+                  feedbackSnapshot={feedbackSnapshot}
+                  onOverrideSuggestion={onOverrideSuggestion}
                 />
               )}
             </div>

@@ -90,6 +90,14 @@ export interface BrandMetricsSnapshot {
   competitorSales: number;
 }
 
+/** Self-healing: active overrides applied to metric parsing (e.g. currency sanitization). */
+export interface ActiveOverridesSnapshot {
+  reasoning?: string;
+  sanitizeCurrency?: boolean;
+  preferredReport?: string;
+  overrideSalesColumn?: string;
+}
+
 export interface AuditContextInput {
   metrics: MetricItem[];
   tables: TableArtifact[];
@@ -104,6 +112,10 @@ export interface AuditContextInput {
   conversationMemory?: ConversationMemory;
   /** Brand Intelligence: branded / generic / competitor sales (from Brand Intelligence Agent). */
   brandMetrics?: BrandMetricsSnapshot;
+  /** Validation warnings (e.g. from DiagnosticAgent, consistency checks). */
+  validationWarnings?: string[];
+  /** Self-healing: overrides currently applied so Copilot can explain them. */
+  activeOverrides?: ActiveOverridesSnapshot;
 }
 
 export interface AuditContext {
@@ -118,6 +130,7 @@ export interface AuditContext {
   chartSignals: string;
   conversationMemory: string;
   brandMetrics: string;
+  validationAndOverrides: string;
   /** Full text for Gemini prompt */
   summary: string;
 }
@@ -243,6 +256,26 @@ function formatBrandMetrics(brand: BrandMetricsSnapshot | undefined): string {
   return `Branded sales: ${brand.brandedSales.toFixed(2)} | Generic sales: ${brand.genericSales.toFixed(2)} | Competitor sales: ${brand.competitorSales.toFixed(2)}`;
 }
 
+function formatValidationAndOverrides(
+  validationWarnings: string[] | undefined,
+  activeOverrides: ActiveOverridesSnapshot | undefined
+): string {
+  const parts: string[] = [];
+  if (validationWarnings?.length) {
+    parts.push('Validation warnings:', ...validationWarnings.map((w) => `- ${w}`));
+  }
+  if (activeOverrides?.reasoning || activeOverrides?.sanitizeCurrency || activeOverrides?.overrideSalesColumn || activeOverrides?.preferredReport) {
+    parts.push(
+      'Active self-healing overrides (applied to metric parsing):',
+      activeOverrides.reasoning ? `Reasoning: ${activeOverrides.reasoning}` : '',
+      activeOverrides.sanitizeCurrency ? 'Currency sanitization: enabled' : '',
+      activeOverrides.overrideSalesColumn ? `Sales column override: ${activeOverrides.overrideSalesColumn}` : '',
+      activeOverrides.preferredReport ? `Preferred report: ${activeOverrides.preferredReport}` : ''
+    );
+  }
+  return parts.filter(Boolean).join('\n') || 'No validation warnings or overrides.';
+}
+
 /** Build structured audit context for the Copilot. */
 export function buildAuditContext(input: AuditContextInput): AuditContext {
   const metrics = formatMetrics(input.metrics);
@@ -259,6 +292,7 @@ export function buildAuditContext(input: AuditContextInput): AuditContext {
   const chartSignals = formatChartSignals(input.chartSignals);
   const conversationMemory = input.conversationMemory ? formatMemoryForPrompt(input.conversationMemory) : '';
   const brandMetrics = formatBrandMetrics(input.brandMetrics);
+  const validationAndOverrides = formatValidationAndOverrides(input.validationWarnings, input.activeOverrides);
 
   const summaryParts = [
     '--- Metrics ---',
@@ -267,6 +301,8 @@ export function buildAuditContext(input: AuditContextInput): AuditContext {
     profit,
     '--- Brand Intelligence (branded / generic / competitor sales) ---',
     brandMetrics,
+    '--- Validation & self-healing ---',
+    validationAndOverrides,
     '--- Agent signals (deterministic) ---',
     agentSignals,
     '--- Detected issues (patterns) ---',
@@ -297,6 +333,7 @@ export function buildAuditContext(input: AuditContextInput): AuditContext {
     chartSignals,
     conversationMemory,
     brandMetrics,
+    validationAndOverrides,
     summary,
   };
 }

@@ -10,27 +10,39 @@ import {
 import type { MemoryStore } from '../utils/reportParser';
 import { createEmptyStore } from '../utils/reportParser';
 import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
+import type { OverrideState } from '@/services/overrideEngine';
+
+export interface LearnedOverride {
+  accountId?: string;
+  overrides: OverrideState;
+  reasoning: string;
+}
 
 export interface AuditState {
   store: MemoryStore;
   /** Derived for UI */
   globalTACOS: number;
   blendedROAS: number;
+  /** Self-healing: overrides learned from Dislike feedback; applied on next metric run */
+  learnedOverrides: LearnedOverride | null;
 }
 
 const defaultState: AuditState = {
   store: createEmptyStore(),
   globalTACOS: 0,
   blendedROAS: 0,
+  learnedOverrides: null,
 };
 
 const AuditStoreContext = createContext<{
   state: AuditState;
-  setStore: (store: MemoryStore) => void;
+  setStore: (store: MemoryStore, appliedOverrides?: LearnedOverride | null) => void;
+  setLearnedOverrides: (learned: LearnedOverride | null) => void;
   reset: () => void;
 }>({
   state: defaultState,
   setStore: () => {},
+  setLearnedOverrides: () => {},
   reset: () => {},
 });
 
@@ -43,13 +55,20 @@ export function useAuditStore() {
 export function AuditStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuditState>(defaultState);
 
-  const setStore = useCallback((store: MemoryStore) => {
-    const canonical = executeMetricEngineForStore(store);
-    setState({
+  const setStore = useCallback((store: MemoryStore, appliedOverrides?: LearnedOverride | null) => {
+    const overrides = appliedOverrides?.overrides ?? state.learnedOverrides?.overrides;
+    const canonical = executeMetricEngineForStore(store, overrides);
+    setState((prev) => ({
+      ...prev,
       store,
       globalTACOS: canonical.tacos * 100,
       blendedROAS: canonical.roas,
-    });
+      ...(appliedOverrides != null ? { learnedOverrides: appliedOverrides } : {}),
+    }));
+  }, [state.learnedOverrides?.overrides]);
+
+  const setLearnedOverrides = useCallback((learned: LearnedOverride | null) => {
+    setState((prev) => ({ ...prev, learnedOverrides: learned }));
   }, []);
 
   const reset = useCallback(() => {
@@ -57,11 +76,12 @@ export function AuditStoreProvider({ children }: { children: ReactNode }) {
       store: createEmptyStore(),
       globalTACOS: 0,
       blendedROAS: 0,
+      learnedOverrides: null,
     });
   }, []);
 
   return (
-    <AuditStoreContext.Provider value={{ state, setStore, reset }}>
+    <AuditStoreContext.Provider value={{ state, setStore, setLearnedOverrides, reset }}>
       {children}
     </AuditStoreContext.Provider>
   );

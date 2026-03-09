@@ -12,6 +12,7 @@ import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
 import { useGeminiReport } from './GeminiReportContext';
 import { exportAuditPdf } from '../utils/exportPdf';
 import { runDataTrustAgent } from '@/agents/dataTrustAgent';
+import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
 
 export type ExportProgressStatus = 'idle' | 'queued' | 'rendering' | 'verifying' | 'retrying' | 'ready' | 'error';
 
@@ -44,16 +45,18 @@ export function ExportProvider({ children }: { children: ReactNode }) {
   const { validated } = useValidatedArtifacts();
   const { report } = useGeminiReport();
   const store = state.store;
+  const overrides = state.learnedOverrides?.overrides;
 
   const buildExportPayload = useCallback(() => {
-    const totalAdSpend = store.totalAdSpend;
-    const totalAdSales = store.totalAdSales;
-    const totalStoreSales = store.totalStoreSales ?? store.storeMetrics.totalSales;
-    const acos = totalAdSales > 0 ? (totalAdSpend / totalAdSales) * 100 : 0;
-    const roas = totalAdSpend > 0 ? totalAdSales / totalAdSpend : 0;
-    const tacos = totalStoreSales > 0 ? (totalAdSpend / totalStoreSales) * 100 : 0;
-    const totalClicks = store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
-    const cpc = totalClicks > 0 ? totalAdSpend / totalClicks : 0;
+    const canonical = executeMetricEngineForStore(store, overrides);
+    const totalAdSpend = canonical.totalAdSpend;
+    const totalAdSales = canonical.totalAdSales;
+    const totalStoreSales = canonical.totalSales;
+    const acos = canonical.acos * 100;
+    const roas = canonical.roas;
+    const tacos = canonical.tacos * 100;
+    const totalClicks = canonical.totalClicks > 0 ? canonical.totalClicks : store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
+    const cpc = canonical.cpc > 0 ? canonical.cpc : totalClicks > 0 ? totalAdSpend / totalClicks : 0;
     const metrics = [
       { label: 'Ad Spend', value: totalAdSpend },
       { label: 'Ad Sales', value: totalAdSales },
@@ -63,7 +66,7 @@ export function ExportProvider({ children }: { children: ReactNode }) {
       { label: 'TACOS', value: `${tacos.toFixed(1)}%` },
       { label: 'Sessions', value: store.totalSessions },
       { label: 'Clicks', value: totalClicks },
-      { label: 'Orders', value: store.totalOrders ?? 0 },
+      { label: 'Orders', value: canonical.totalOrders ?? store.totalOrders ?? 0 },
       { label: 'CPC', value: cpc.toFixed(2) },
     ];
     const campaigns = Object.values(store.campaignMetrics)
@@ -83,7 +86,7 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     const insights = (validated?.insights ?? []).map((i) => ({ title: i.title, description: i.description, recommendedAction: i.recommendedAction }));
     const dataTrustReport = runDataTrustAgent(store);
     return { executiveNarrative: report ?? '', insights, metrics, campaigns, keywords, waste, dataTrustReport };
-  }, [store, validated?.insights, report]);
+  }, [store, overrides, validated?.insights, report]);
 
   const triggerDownload = useCallback((blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
@@ -116,7 +119,7 @@ export function ExportProvider({ children }: { children: ReactNode }) {
 
   const onDownloadPdf = useCallback(async () => {
     if (!hasData) {
-      exportAuditPdf(store);
+      exportAuditPdf(store, overrides);
       return;
     }
     setExportError(null);
@@ -150,7 +153,7 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     } finally {
       setExportGenerating(false);
     }
-  }, [store, buildExportPayload, hasData, triggerDownload, validated?.insights, report, fetchBoardroomNarrative]);
+  }, [store, overrides, buildExportPayload, hasData, triggerDownload, validated?.insights, report, fetchBoardroomNarrative]);
 
   const onDownloadPptx = useCallback(async () => {
     if (!hasData) return;
@@ -185,7 +188,7 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     } finally {
       setExportGenerating(false);
     }
-  }, [store, buildExportPayload, hasData, triggerDownload, validated?.insights, report, fetchBoardroomNarrative]);
+  }, [buildExportPayload, hasData, triggerDownload, validated?.insights, report, fetchBoardroomNarrative]);
 
   const onRefreshExports = useCallback(async () => {
     if (exportGenerating) return;
