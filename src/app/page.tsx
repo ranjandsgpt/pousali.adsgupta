@@ -5,6 +5,12 @@ import { CaseStudiesSection } from '@/components/case-studies-section';
 import { InsightsSection } from '@/components/insights-section';
 import { ContactSection } from '@/components/contact-section';
 
+export const metadata = {
+  title: 'Pousali Dasgupta | Amazon Ads Consultant',
+  description:
+    'Amazon Ads consultant helping brands improve ACOS, scale PPC campaigns and grow marketplace revenue through data-driven PPC strategy.',
+};
+
 export default function HomePage() {
   return (
     <>

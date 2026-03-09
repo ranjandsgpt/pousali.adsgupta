@@ -1,11 +1,32 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Amazon ACOS Optimization',
+  title: 'ACOS Optimization | Pousali Dasgupta',
   description:
-    'Understanding ACOS, reducing ACOS, campaign restructuring, and search term optimization.',
+    'ACOS optimization and Amazon campaign management: reduce ACOS, campaign restructuring, and search term optimization.',
+  openGraph: {
+    images: '/og/default.png',
+  },
+};
+
+const breadcrumbSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://pousali.adsgupta.com' },
+    { '@type': 'ListItem', position: 2, name: 'Insights', item: 'https://pousali.adsgupta.com/insights' },
+    { '@type': 'ListItem', position: 3, name: 'Amazon ACOS Optimization' },
+  ],
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      {children}
+    </>
+  );
 }

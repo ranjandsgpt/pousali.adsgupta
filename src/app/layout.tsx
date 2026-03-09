@@ -22,12 +22,16 @@ export const metadata: Metadata = {
     url: 'https://pousali.adsgupta.com',
     siteName: 'Pousali Dasgupta Portfolio',
     type: 'website',
+    images: '/og/default.png',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Pousali Dasgupta | Amazon Ads Specialist',
     description:
       'Amazon Ads specialist focused on ACOS optimization, PPC strategy and marketplace growth.',
+  },
+  alternates: {
+    canonical: 'https://pousali.adsgupta.com',
   },
 };
 
@@ -39,6 +43,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={plusJakarta.variable} suppressHydrationWarning>
       <head>
+        <meta name="google-site-verification" content="GOOGLE_VERIFICATION_CODE" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -49,6 +54,18 @@ export default function RootLayout({
               jobTitle: 'Amazon Ads Specialist',
               url: 'https://pousali.adsgupta.com',
               sameAs: ['https://www.linkedin.com/in/pousalidasgupta'],
+            }),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: 'adsgupta',
+              url: 'https://adsgupta.com',
+              sameAs: ['https://www.linkedin.com/in/pousali-dasgupta/'],
             }),
           }}
         />

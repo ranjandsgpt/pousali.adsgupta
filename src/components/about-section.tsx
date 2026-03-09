@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
-const bio = `I help brands scale on Amazon through data-driven advertising, listing optimization, and marketplace growth strategies.
-
-With experience managing multi-marketplace accounts across US and UAE, I specialize in building scalable advertising frameworks that improve TACoS, ACOS, and organic ranking.`;
+const bioParagraphs = [
+  <>I help brands scale on Amazon as an <Link href="/amazon-ads-consultant" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon Ads consultant</Link>, through data-driven advertising, listing optimization, and marketplace growth strategies.</>,
+  <>With experience managing multi-marketplace accounts across US and UAE, I specialize in building scalable advertising frameworks that improve TACoS, ACOS, and organic ranking.</>,
+];
 
 export function AboutSection() {
   return (
@@ -28,7 +29,7 @@ export function AboutSection() {
           About
         </h2>
         <div className="space-y-4 text-[var(--color-text-muted)] leading-relaxed">
-          {bio.split('\n\n').map((para, i) => (
+          {bioParagraphs.map((para, i) => (
             <p key={i}>{para}</p>
           ))}
         </div>
