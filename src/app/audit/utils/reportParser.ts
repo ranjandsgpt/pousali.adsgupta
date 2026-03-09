@@ -87,9 +87,17 @@ function createEmptyStore(): MemoryStore {
 
 const EMPTY_STORE = createEmptyStore();
 
+function sanitizeCurrency(value: string | number): number {
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  if (!value) return 0;
+  const cleaned = value.toString().replace(/[^\d.-]/g, '');
+  const num = parseFloat(cleaned);
+  return Number.isNaN(num) ? 0 : num;
+}
+
 function getNumeric(row: Record<string, unknown>, rawKey: string | undefined): number {
   if (!rawKey || row[rawKey] == null) return 0;
-  return sanitizeNumeric(row[rawKey]);
+  return sanitizeCurrency(row[rawKey] as any);
 }
 
 function getStr(row: Record<string, unknown>, rawKey: string | undefined): string {
@@ -336,7 +344,9 @@ export async function parseReportsStreaming(
   onStageUpdate?.('report_parsing', 'running');
 
   const businessFiles = fileInfos.filter((f) => f.type === 'business');
-  const adFiles = fileInfos.filter((f) => f.type === 'advertising');
+  const adFiles = fileInfos
+    .filter((f) => f.type === 'advertising')
+    .map((f) => ({ ...f, subtype: classifyAdvertisingReportSubtype(f.headerMap) }));
   const otherFiles = fileInfos.filter((f) => f.type === 'unknown');
 
   const skuToAsinMap: SkuToAsinMap = {};
@@ -344,18 +354,30 @@ export async function parseReportsStreaming(
     await parseBusinessFile(file, store, skuToAsinMap, onProgress);
   }
 
-  const campaignFiles = adFiles.filter((f) => classifyAdvertisingReportSubtype(f.file.name) === 'campaign');
-  const otherAdFiles = adFiles.filter((f) => classifyAdvertisingReportSubtype(f.file.name) !== 'campaign');
-  const useCampaignOnlyForTotals = campaignFiles.length > 0;
+  const campaignFiles = adFiles.filter((f) => f.subtype === 'campaign');
+  const advertisedProductFiles = adFiles.filter((f) => f.subtype === 'advertised_product');
+  const targetingFiles = adFiles.filter((f) => f.subtype === 'targeting');
+  const searchTermFiles = adFiles.filter((f) => f.subtype === 'search_term');
+  const otherAdFiles = adFiles.filter((f) => f.subtype === 'unknown');
 
-  for (const { file } of campaignFiles) {
+  let adSourceForTotals: 'campaign' | 'advertised_product' | 'targeting' | 'none' = 'none';
+  if (campaignFiles.length > 0) adSourceForTotals = 'campaign';
+  else if (advertisedProductFiles.length > 0) adSourceForTotals = 'advertised_product';
+  else if (targetingFiles.length > 0) adSourceForTotals = 'targeting';
+
+  const allAdGroups = [
+    ...campaignFiles,
+    ...advertisedProductFiles,
+    ...targetingFiles,
+    ...searchTermFiles,
+    ...otherAdFiles,
+  ];
+
+  for (const { file, subtype } of allAdGroups) {
+    const contributeToTotals =
+      subtype === adSourceForTotals;
     await parseAdvertisingFile(file, store, skuToAsinMap, seenRows, onProgress, {
-      contributeToTotals: true,
-    });
-  }
-  for (const { file } of otherAdFiles) {
-    await parseAdvertisingFile(file, store, skuToAsinMap, seenRows, onProgress, {
-      contributeToTotals: !useCampaignOnlyForTotals,
+      contributeToTotals,
     });
   }
 
@@ -365,8 +387,8 @@ export async function parseReportsStreaming(
     if (hasSales && !hasSpend) {
       await parseBusinessFile(file, store, skuToAsinMap, onProgress);
     } else if (hasSpend) {
-      const subtype = classifyAdvertisingReportSubtype(file.name);
-      const contributeToTotals = subtype === 'campaign' || !useCampaignOnlyForTotals;
+      const subtype = classifyAdvertisingReportSubtype(headerMap);
+      const contributeToTotals = subtype === 'campaign' || subtype === 'advertised_product' || subtype === 'targeting';
       await parseAdvertisingFile(file, store, skuToAsinMap, seenRows, onProgress, {
         contributeToTotals,
       });

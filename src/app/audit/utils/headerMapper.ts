@@ -292,11 +292,23 @@ export type AdvertisingReportSubtype =
   | 'advertised_product'
   | 'unknown';
 
-export function classifyAdvertisingReportSubtype(fileName: string): AdvertisingReportSubtype {
-  const lower = fileName.toLowerCase();
-  if (lower.includes('search term') || lower.includes('customer search')) return 'search_term';
-  if (lower.includes('targeting') && !lower.includes('advertised')) return 'targeting';
-  if (lower.includes('advertised product') || lower.includes('product ad')) return 'advertised_product';
-  if (lower.includes('campaign')) return 'campaign';
+export function classifyAdvertisingReportSubtype(map: HeaderMap): AdvertisingReportSubtype {
+  const hasCampaign = !!map.campaignName;
+  const hasSkuOrAsin = !!map.sku || !!map.asin;
+  const hasSearchTerm = !!map.searchTerm;
+
+  if (hasSearchTerm && map.searchTerm) {
+    const norm = normalizeHeader(map.searchTerm);
+    if (norm.includes('customersearchterm')) return 'search_term';
+  }
+
+  if (hasCampaign && hasSkuOrAsin) return 'advertised_product';
+  if (hasCampaign && hasSearchTerm) return 'targeting';
+  if (hasCampaign) return 'campaign';
+
+  // Fallbacks when campaign name is missing
+  if (hasSkuOrAsin) return 'advertised_product';
+  if (hasSearchTerm) return 'targeting';
+
   return 'unknown';
 }
