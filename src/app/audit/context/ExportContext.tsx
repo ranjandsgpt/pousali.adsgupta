@@ -192,13 +192,15 @@ export function ExportProvider({ children }: { children: ReactNode }) {
 
   const onRefreshExports = useCallback(async () => {
     if (exportGenerating) return;
+    setExportError(null);
+    setExportStatusState('queued');
+    setExportStatusMessage('Queued export regeneration…');
     try {
       await fetch('/api/export-invalidate', { method: 'POST' });
     } catch {
-      //
+      // ignore refresh errors; user can retry download
     }
-    onDownloadPptx();
-  }, [exportGenerating, onDownloadPptx]);
+  }, [exportGenerating]);
 
   const value: ExportContextValue = {
     exportGenerating,
