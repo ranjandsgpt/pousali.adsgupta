@@ -2,6 +2,11 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { FAQSection } from '@/components/faq-section';
+import { LandingCtaSection } from '@/components/landing-cta-section';
+import { ConsultationCta } from '@/components/consultation-cta';
+import { RelatedCaseStudies } from '@/components/related-case-studies';
+import type { FAQItem } from '@/components/faq-section';
 
 const sections = [
   { title: 'Amazon PPC Management', description: 'End-to-end management of Sponsored Products, Brands, and Display campaigns to maximize ROAS and scale profitably.' },
@@ -9,6 +14,39 @@ const sections = [
   { title: 'Keyword Strategy', description: 'Research, harvesting, and structure for exact, phrase, and broad match to capture demand without waste.' },
   { title: 'Product Launch Support', description: 'Launch playbooks combining paid and organic levers to build velocity and rank for target keywords.' },
 ];
+
+const faqItems: FAQItem[] = [
+  {
+    question: 'What does an Amazon Ads consultant do?',
+    answer:
+      'An Amazon Ads consultant helps brands improve campaign performance through keyword strategy, campaign optimization and advertising analytics.',
+  },
+  {
+    question: 'How much does Amazon PPC management cost?',
+    answer:
+      'Costs vary by scope—audits, ongoing management, and launch support are typically priced per project or monthly retainer based on ad spend and complexity.',
+  },
+  {
+    question: 'How long does it take to reduce ACOS?',
+    answer:
+      'Initial improvements often show within 2–4 weeks; sustained ACOS reduction depends on account size, competition, and how quickly changes are implemented.',
+  },
+  {
+    question: 'What results can Amazon advertising deliver?',
+    answer:
+      'Brands can see higher ROAS, lower ACOS, better keyword rankings, and scalable revenue when campaigns are structured and optimized consistently.',
+  },
+];
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqItems.map((item) => ({
+    '@type': 'Question',
+    name: item.question,
+    acceptedAnswer: { '@type': 'Answer', text: item.answer },
+  })),
+};
 
 export default function AmazonAdsConsultantPage() {
   return (
@@ -24,7 +62,7 @@ export default function AmazonAdsConsultantPage() {
             Amazon Ads Consultant
           </h1>
           <p className="text-lg text-[var(--color-text-muted)] max-w-2xl leading-relaxed">
-            Helping brands scale through advanced Amazon PPC strategies, keyword research, and marketplace optimization.
+            Helping brands scale through advanced Amazon PPC strategies, keyword research, and marketplace optimization. For more <Link href="/amazon-advertising-resources" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon advertising guides</Link>, visit the resource hub.
           </p>
         </motion.header>
 
@@ -68,6 +106,19 @@ export default function AmazonAdsConsultantPage() {
             Contact for Amazon Ads Consultation
           </Link>
         </motion.section>
+
+        <FAQSection
+          id="faq"
+          headingId="faq-heading"
+          title="Frequently Asked Questions"
+          items={faqItems}
+          schema={faqSchema}
+        />
+
+        <LandingCtaSection />
+
+        <div className="mb-12"><ConsultationCta /></div>
+        <RelatedCaseStudies />
 
         <p className="text-sm text-[var(--color-text-muted)]">
           <Link href="/work" className="text-cyan-500 hover:underline">Work</Link>

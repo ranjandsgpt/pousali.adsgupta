@@ -38,9 +38,25 @@ export default function InsightsPageContent() {
             Insights
           </h1>
           <p className="text-lg text-[var(--color-text-muted)] max-w-2xl">
-            Amazon marketing and advertising strategies, frameworks, and best practices.
+            Amazon marketing and advertising strategies, frameworks, and best practices—from{' '}
+            <Link href="/amazon-ads-consultant" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon Ads consultant</Link> insights to <Link href="/amazon-ppc-strategy" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon PPC strategy</Link> and             <Link href="/acos-optimization" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">ACOS optimization</Link>. Browse the full <Link href="/amazon-advertising-resources" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon advertising resources</Link> hub for guides and service pages.
           </p>
         </motion.header>
+
+        <section aria-labelledby="author-heading" className="mb-16 rounded-2xl border border-white/10 bg-[var(--color-surface-elevated)] p-6 md:p-8">
+          <h2 id="author-heading" className="sr-only">Author</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1">
+              <Link href="/about" className="text-xl font-bold text-[var(--color-text)] hover:text-cyan-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">
+                Pousali Dasgupta
+              </Link>
+              <p className="text-sm font-medium text-cyan-500 mt-0.5">Amazon Ads Specialist</p>
+              <p className="text-[var(--color-text-muted)] text-sm mt-2 max-w-xl">
+                Helping brands grow through Amazon PPC optimization, marketplace analytics and data-driven advertising strategies.
+              </p>
+            </div>
+          </div>
+        </section>
 
         <section aria-labelledby="landing-pages-heading" className="mb-16">
           <h2 id="landing-pages-heading" className="text-2xl font-bold text-[var(--color-text)] mb-6">
@@ -72,6 +88,38 @@ export default function InsightsPageContent() {
               </motion.li>
             ))}
           </ul>
+        </section>
+
+        <section aria-labelledby="guides-heading" className="mb-16">
+          <h2 id="guides-heading" className="text-2xl font-bold text-[var(--color-text)] mb-6">
+            Amazon Advertising Guides
+          </h2>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-4" role="list">
+            <li><Link href="/amazon-ppc-management" className="text-cyan-500 hover:underline">Amazon PPC Management</Link></li>
+            <li><Link href="/amazon-ppc-audit" className="text-cyan-500 hover:underline">Amazon PPC Audit</Link></li>
+            <li><Link href="/amazon-keyword-research" className="text-cyan-500 hover:underline">Amazon Keyword Research</Link></li>
+            <li><Link href="/reduce-amazon-acos" className="text-cyan-500 hover:underline">Reduce Amazon ACOS</Link></li>
+            <li><Link href="/amazon-ppc-strategy" className="text-cyan-500 hover:underline">Amazon PPC Strategy</Link></li>
+          </ul>
+          <p className="mt-4 text-[var(--color-text-muted)]">
+            <Link href="/tools" className="text-cyan-500 hover:underline">Explore upcoming Amazon advertising tools.</Link>
+          </p>
+        <section aria-labelledby="guides-heading" className="mb-16">
+          <h2 id="guides-heading" className="text-2xl font-bold text-[var(--color-text)] mb-6">
+            Amazon Advertising Guides
+          </h2>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-4" role="list">
+            <li><Link href="/amazon-ppc-management" className="text-cyan-500 hover:underline">Amazon PPC Management</Link></li>
+            <li><Link href="/amazon-ppc-audit" className="text-cyan-500 hover:underline">Amazon PPC Audit</Link></li>
+            <li><Link href="/amazon-keyword-research" className="text-cyan-500 hover:underline">Amazon Keyword Research</Link></li>
+            <li><Link href="/reduce-amazon-acos" className="text-cyan-500 hover:underline">Reduce Amazon ACOS</Link></li>
+            <li><Link href="/amazon-ppc-strategy" className="text-cyan-500 hover:underline">Amazon PPC Strategy</Link></li>
+          </ul>
+          <p className="mt-4 text-[var(--color-text-muted)]">
+            <Link href="/tools" className="text-cyan-500 hover:underline">Explore upcoming Amazon advertising tools.</Link>
+          </p>
+        </section>
+
         </section>
 
         <section aria-labelledby="blog-heading">

@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 
 const bioParagraphs = [
   <>I help brands scale on Amazon as an <Link href="/amazon-ads-consultant" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon Ads consultant</Link>, through data-driven advertising, listing optimization, and marketplace growth strategies.</>,
-  <>With experience managing multi-marketplace accounts across US and UAE, I specialize in building scalable advertising frameworks that improve TACoS, ACOS, and organic ranking.</>,
+  <>With experience managing multi-marketplace accounts across US and UAE, I specialize in building scalable advertising frameworks that improve TACoS, <Link href="/acos-optimization" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">ACOS optimization</Link>, and organic ranking—backed by a clear <Link href="/amazon-ppc-strategy" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon PPC strategy</Link>. Explore more in my <Link href="/amazon-advertising-resources" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon advertising resources</Link>.</>,
 ];
 
 export function AboutSection() {

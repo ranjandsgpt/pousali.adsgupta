@@ -2,6 +2,11 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { FAQSection } from '@/components/faq-section';
+import { LandingCtaSection } from '@/components/landing-cta-section';
+import { ConsultationCta } from '@/components/consultation-cta';
+import { RelatedCaseStudies } from '@/components/related-case-studies';
+import type { FAQItem } from '@/components/faq-section';
 
 const sections = [
   { title: 'Understanding ACOS', description: 'Advertising Cost of Sales—what it measures, how it differs from TACoS, and when to optimize for each.' },
@@ -9,6 +14,39 @@ const sections = [
   { title: 'Campaign Restructuring', description: 'Reorganizing campaigns by performance and intent to isolate winners and cut waste.' },
   { title: 'Search Term Optimization', description: 'Using search term reports to add negatives, harvest winners, and improve match-type allocation.' },
 ];
+
+const faqItems: FAQItem[] = [
+  {
+    question: 'What is ACOS and why does it matter?',
+    answer:
+      'ACOS (Advertising Cost of Sales) is ad spend divided by attributed sales. It shows how efficiently ads drive sales; lower ACOS with stable or growing revenue usually means better profitability.',
+  },
+  {
+    question: 'How can I reduce my Amazon ACOS?',
+    answer:
+      'Reduce ACOS through smarter bids and budgets, negative keywords, placement adjustments, and campaign restructuring so high performers get more budget and underperformers are trimmed.',
+  },
+  {
+    question: 'What is the difference between ACOS and TACoS?',
+    answer:
+      'ACOS measures paid advertising efficiency; TACoS includes total marketing cost (including promotions, deals) vs. total revenue. Both matter—optimize ACOS for paid efficiency and TACoS for overall margin.',
+  },
+  {
+    question: 'How long does ACOS optimization take?',
+    answer:
+      'Initial changes can show impact in 2–4 weeks. Sustained improvement depends on account size, competition, and consistent optimization; many accounts see meaningful results within 1–3 months.',
+  },
+];
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqItems.map((item) => ({
+    '@type': 'Question',
+    name: item.question,
+    acceptedAnswer: { '@type': 'Answer', text: item.answer },
+  })),
+};
 
 export default function AcosOptimizationPage() {
   return (
@@ -65,6 +103,19 @@ export default function AcosOptimizationPage() {
             Optimize Your Campaigns
           </Link>
         </motion.section>
+
+        <FAQSection
+          id="faq"
+          headingId="faq-heading"
+          title="Frequently Asked Questions"
+          items={faqItems}
+          schema={faqSchema}
+        />
+
+        <LandingCtaSection />
+
+        <div className="mb-12"><ConsultationCta /></div>
+        <RelatedCaseStudies />
 
         <p className="text-sm text-[var(--color-text-muted)]">
           <Link href="/work" className="text-cyan-500 hover:underline">Work</Link>

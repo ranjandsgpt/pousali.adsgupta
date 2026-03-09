@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   openGraph: {
     images: '/og/default.png',
   },
+  other: {
+    'article:modified_time': new Date().toISOString(),
+  },
 };
 
 const breadcrumbSchema = {

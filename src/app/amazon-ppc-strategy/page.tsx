@@ -2,6 +2,11 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { FAQSection } from '@/components/faq-section';
+import { LandingCtaSection } from '@/components/landing-cta-section';
+import { ConsultationCta } from '@/components/consultation-cta';
+import { RelatedCaseStudies } from '@/components/related-case-studies';
+import type { FAQItem } from '@/components/faq-section';
 
 const sections = [
   { title: 'How Amazon PPC Works', description: 'Sponsored Products, Brands, and Display—how they interact, attribution windows, and how to allocate budget across the funnel.' },
@@ -9,6 +14,39 @@ const sections = [
   { title: 'Campaign Structuring', description: 'Portfolio structure by goal, product, and match type for clear reporting and scalable optimization.' },
   { title: 'Scaling Profitable Campaigns', description: 'When and how to increase budget and bids on winning campaigns while protecting ACOS and ROAS.' },
 ];
+
+const faqItems: FAQItem[] = [
+  {
+    question: 'What is Amazon PPC and how does it work?',
+    answer:
+      'Amazon PPC (pay-per-click) includes Sponsored Products, Brands, and Display. You bid on keywords or placements; you pay when shoppers click. Campaigns can drive sales and visibility while you optimize for ACOS and ROAS.',
+  },
+  {
+    question: 'How do I structure Amazon PPC campaigns?',
+    answer:
+      'Structure by goal (awareness vs. conversion), product line, and match type. Separate campaigns make reporting and optimization clearer and help scale winners while cutting waste.',
+  },
+  {
+    question: 'When should I scale my Amazon PPC budget?',
+    answer:
+      'Scale when campaigns show stable or improving ACOS/ROAS over several weeks. Increase budget and bids gradually on top performers and use search term reports to expand keyword coverage.',
+  },
+  {
+    question: 'How does keyword strategy affect PPC performance?',
+    answer:
+      'Strong keyword strategy—exact, phrase, and broad with negatives and search term harvesting—improves relevance, reduces wasted spend, and helps capture high-intent demand.',
+  },
+];
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqItems.map((item) => ({
+    '@type': 'Question',
+    name: item.question,
+    acceptedAnswer: { '@type': 'Answer', text: item.answer },
+  })),
+};
 
 export default function AmazonPpcStrategyPage() {
   return (
@@ -56,6 +94,19 @@ export default function AmazonPpcStrategyPage() {
             Discuss PPC Strategy
           </Link>
         </motion.section>
+
+        <FAQSection
+          id="faq"
+          headingId="faq-heading"
+          title="Frequently Asked Questions"
+          items={faqItems}
+          schema={faqSchema}
+        />
+
+        <LandingCtaSection />
+
+        <div className="mb-12"><ConsultationCta /></div>
+        <RelatedCaseStudies />
 
         <p className="text-sm text-[var(--color-text-muted)]">
           <Link href="/work" className="text-cyan-500 hover:underline">Work</Link>

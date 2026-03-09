@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import { caseStudies } from '@/data/case-studies';
 import WorkCard from '@/components/work-card';
 
@@ -18,9 +19,15 @@ export default function WorkPageContent() {
             Work & Case Studies
           </h1>
           <p className="text-lg text-[var(--color-text-muted)] max-w-2xl">
-            Selected projects in Amazon PPC, product launch, and marketplace growth.
+            Selected projects in Amazon PPC, product launch, and marketplace growth—delivered through <Link href="/amazon-ads-consultant" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon Ads consultant</Link> support, <Link href="/amazon-ppc-strategy" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon PPC strategy</Link>, and <Link href="/acos-optimization" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">ACOS optimization</Link>.
           </p>
         </motion.header>
+
+        <p className="mb-12">
+          <Link href="/case-studies" className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-cyan-500 text-black font-semibold hover:bg-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">
+            View Detailed Case Studies
+          </Link>
+        </p>
 
         <ul className="space-y-12" role="list">
           {caseStudies.map((study, i) => (
