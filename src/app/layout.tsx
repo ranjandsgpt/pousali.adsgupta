@@ -11,39 +11,24 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: {
-    default: 'Pousali Dasgupta | Amazon Ads Specialist & Marketplace Growth Strategist',
-    template: '%s | Pousali Dasgupta',
-  },
+  title: 'Pousali Dasgupta | Amazon Ads Specialist',
   description:
-    'I help brands scale on Amazon through data-driven advertising, listing optimization, and marketplace growth strategies. Amazon PPC, TACoS, ACOS optimization.',
-  keywords: [
-    'Amazon Ads',
-    'Amazon PPC',
-    'Marketplace Growth',
-    'TACoS',
-    'ACOS',
-    'Listing Optimization',
-    'Brand Performance',
-  ],
-  authors: [{ name: 'Pousali Dasgupta', url: 'https://pousali.adsgupta.com' }],
-  creator: 'Pousali Dasgupta',
+    'Portfolio of Pousali Dasgupta, an Amazon Ads strategist specializing in PPC optimization, keyword strategy, and marketplace growth.',
+  metadataBase: new URL('https://pousali.adsgupta.com'),
   openGraph: {
-    type: 'website',
-    locale: 'en_US',
-    url: 'https://pousali.adsgupta.com',
-    siteName: 'Pousali Dasgupta',
-    title: 'Pousali Dasgupta | Amazon Ads Specialist & Marketplace Growth',
+    title: 'Pousali Dasgupta | Amazon Ads Specialist',
     description:
-      'Data-driven Amazon advertising, listing optimization, and marketplace growth. US & UAE.',
+      'Amazon advertising specialist helping brands grow through PPC optimization, keyword strategy and marketplace growth.',
+    url: 'https://pousali.adsgupta.com',
+    siteName: 'Pousali Dasgupta Portfolio',
+    type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Pousali Dasgupta | Amazon Ads & Marketplace Growth',
-    description: 'Amazon PPC, TACoS, listing optimization, product launch strategy.',
+    title: 'Pousali Dasgupta | Amazon Ads Specialist',
+    description:
+      'Amazon Ads specialist focused on ACOS optimization, PPC strategy and marketplace growth.',
   },
-  robots: { index: true, follow: true },
-  metadataBase: new URL('https://pousali.adsgupta.com'),
 };
 
 export default function RootLayout({
@@ -61,13 +46,9 @@ export default function RootLayout({
               '@context': 'https://schema.org',
               '@type': 'Person',
               name: 'Pousali Dasgupta',
+              jobTitle: 'Amazon Ads Specialist',
               url: 'https://pousali.adsgupta.com',
-              jobTitle: 'Amazon Ads Specialist & Marketplace Growth Strategist',
-              description:
-                'I help brands scale on Amazon through data-driven advertising, listing optimization, and marketplace growth strategies.',
-              sameAs: [
-                'https://www.linkedin.com/in/pousalidasgupta',
-              ],
+              sameAs: ['https://www.linkedin.com/in/pousalidasgupta'],
             }),
           }}
         />

@@ -216,6 +216,7 @@ export default function Footer() {
           </div>
         </div>
       </div>
+      {/* adsgupta ecosystem footer script will be injected here */}
     </footer>
   );
 }
