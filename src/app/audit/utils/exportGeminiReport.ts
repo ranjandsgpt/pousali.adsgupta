@@ -6,6 +6,7 @@
 import type { MemoryStore } from './reportParser';
 import { runSanityChecks } from './sanityChecks';
 import { runDiagnosticEngines } from '../engines';
+import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
 
 const SECTION_TITLES = [
   'Executive Summary',
@@ -112,12 +113,13 @@ export async function exportAmazonPerformancePptx(store: MemoryStore): Promise<v
   const pptxgen = (await import('pptxgenjs')).default;
   const pres = new pptxgen();
 
-  const totalStoreSales = store.totalStoreSales || store.storeMetrics.totalSales;
-  const totalAdSales = store.totalAdSales;
-  const totalAdSpend = store.totalAdSpend;
-  const organicSales = totalStoreSales - totalAdSales;
-  const acos = totalAdSales > 0 ? (totalAdSpend / totalAdSales) * 100 : 0;
-  const roas = totalAdSpend > 0 ? totalAdSales / totalAdSpend : 0;
+  const canonical = executeMetricEngineForStore(store);
+  const totalStoreSales = canonical.totalSales;
+  const totalAdSales = canonical.totalAdSales;
+  const totalAdSpend = canonical.totalAdSpend;
+  const organicSales = canonical.organicSales;
+  const acos = canonical.acos * 100;
+  const roas = canonical.roas;
 
   // Title slide
   const titleSlide = pres.addSlide();

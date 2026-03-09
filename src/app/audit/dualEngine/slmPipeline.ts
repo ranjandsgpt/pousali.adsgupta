@@ -5,6 +5,7 @@
 
 import type { MemoryStore } from '../utils/reportParser';
 import { runDiagnosticEngines } from '../engines';
+import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
 import { runSanityChecks } from '../utils/sanityChecks';
 import type {
   EngineArtifacts,
@@ -16,17 +17,30 @@ import type {
 
 function buildSlmMetrics(store: MemoryStore): MetricItem[] {
   const m = store.storeMetrics;
-  const acos = store.totalAdSales > 0 ? (store.totalAdSpend / store.totalAdSales) * 100 : 0;
-  const totalClicks = store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
-  const cpc = totalClicks > 0 ? store.totalAdSpend / totalClicks : 0;
-  const roas = store.totalAdSpend > 0 ? store.totalAdSales / store.totalAdSpend : 0;
+  const canonical = executeMetricEngineForStore(store);
+
+  const acos = canonical.acos * 100;
+  const tacos = canonical.tacos * 100;
+  const roas = canonical.roas;
+
+  const totalClicks =
+    canonical.totalClicks > 0
+      ? canonical.totalClicks
+      : store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
+
+  const cpc = canonical.cpc > 0 ? canonical.cpc : totalClicks > 0 ? store.totalAdSpend / totalClicks : 0;
   return [
     { label: 'Total Ad Spend', value: store.totalAdSpend, numericValue: store.totalAdSpend, status: 'neutral' },
     { label: 'Total Ad Sales', value: store.totalAdSales, numericValue: store.totalAdSales, status: 'neutral' },
-    { label: 'Total Store Sales', value: store.totalStoreSales || m.totalSales, numericValue: store.totalStoreSales || m.totalSales, status: 'neutral' },
+    {
+      label: 'Total Store Sales',
+      value: store.totalStoreSales || m.totalSales,
+      numericValue: store.totalStoreSales || m.totalSales,
+      status: 'neutral',
+    },
     { label: 'ACOS', value: acos, numericValue: acos, status: acos > 30 ? 'bad' : acos < 20 ? 'good' : 'warn' },
     { label: 'ROAS', value: roas, numericValue: roas, status: roas >= 3 ? 'good' : roas < 1.5 ? 'bad' : 'warn' },
-    { label: 'TACOS', value: m.tacos, numericValue: m.tacos, status: 'neutral' },
+    { label: 'TACOS', value: tacos, numericValue: tacos, status: 'neutral' },
     { label: 'Clicks', value: totalClicks, numericValue: totalClicks, status: 'neutral' },
     { label: 'CPC', value: cpc, numericValue: cpc, status: 'neutral' },
     { label: 'Sessions', value: store.totalSessions, numericValue: store.totalSessions, status: 'neutral' },

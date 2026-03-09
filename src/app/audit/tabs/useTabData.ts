@@ -9,6 +9,7 @@ import type { DetectedCurrency } from '../utils/currencyDetector';
 import { runDiagnosticEngines, type DiagnosticEnginesResult } from '../engines';
 import { runSanityChecks, type SanityCheckResults } from '../utils/sanityChecks';
 import { getInsightRankingHints } from '@/agents/learningOptimizationAgent';
+import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
 
 /** Primary tabs: distributed analysis, deep-dive modules, Gemini Insights, reference UX. */
 export type TabId =
@@ -23,22 +24,48 @@ export type TabId =
 
 function buildKPIs(store: MemoryStore): KPIMetric[] {
   const m = store.storeMetrics;
-  const acos = store.totalAdSales > 0 ? (store.totalAdSpend / store.totalAdSales) * 100 : 0;
-  const totalClicks = store.totalClicks > 0 ? store.totalClicks : Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
-  const totalImpressions = store.totalImpressions || 0;
-  const totalOrders = store.totalOrders || 0;
-  const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : totalClicks > 0 ? (totalClicks / Math.max(totalClicks * 50, 1)) * 100 : 0;
-  const cvr = m.conversionRate > 0 ? m.conversionRate : totalClicks > 0 ? (totalOrders / totalClicks) * 100 : 0;
-  const cpc = totalClicks > 0 ? store.totalAdSpend / totalClicks : 0;
+  const canonical = executeMetricEngineForStore(store);
+
+  const acosPct = canonical.acos * 100;
+  const tacosPct = canonical.tacos * 100;
+  const totalClicks =
+    canonical.totalClicks > 0
+      ? canonical.totalClicks
+      : store.totalClicks > 0
+        ? store.totalClicks
+        : Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
+  const totalImpressions =
+    canonical.totalImpressions > 0 ? canonical.totalImpressions : store.totalImpressions || 0;
+  const totalOrders =
+    canonical.totalOrders > 0 ? canonical.totalOrders : store.totalOrders || 0;
+
+  const ctrPct = canonical.ctr > 0
+    ? canonical.ctr * 100
+    : totalImpressions > 0
+      ? (totalClicks / totalImpressions) * 100
+      : totalClicks > 0
+        ? (totalClicks / Math.max(totalClicks * 50, 1)) * 100
+        : 0;
+
+  const cvrPct =
+    canonical.cvr > 0
+      ? canonical.cvr * 100
+      : m.conversionRate > 0
+        ? m.conversionRate
+        : totalClicks > 0
+          ? (totalOrders / totalClicks) * 100
+          : 0;
+
+  const cpc = canonical.cpc > 0 ? canonical.cpc : totalClicks > 0 ? store.totalAdSpend / totalClicks : 0;
   const sym = store.currency ? formatCurrency(0, store.currency).replace('0.00', '') : '$';
   return [
     { label: 'Spend', value: `${sym}${store.totalAdSpend.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, status: store.totalAdSpend > 0 ? 'neutral' : undefined },
     { label: 'Sales', value: `${sym}${(store.totalAdSales || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, status: 'neutral' },
-    { label: 'ACOS', value: formatPercent(acos), status: acos > 30 ? 'bad' : acos < 20 ? 'good' : 'warn' },
+    { label: 'ACOS', value: formatPercent(acosPct), status: acosPct > 30 ? 'bad' : acosPct < 20 ? 'good' : 'warn' },
     { label: 'ROAS', value: `${m.roas.toFixed(2)}×`, status: m.roas >= 3 ? 'good' : m.roas < 1.5 ? 'bad' : 'warn' },
-    { label: 'TACOS', value: formatPercent(m.tacos), status: m.tacos > 25 ? 'bad' : 'good' },
-    { label: 'CTR', value: formatPercent(ctr), status: 'neutral' },
-    { label: 'CVR', value: formatPercent(cvr), status: cvr >= 8 ? 'good' : cvr < 3 ? 'warn' : 'neutral' },
+    { label: 'TACOS', value: formatPercent(tacosPct), status: tacosPct > 25 ? 'bad' : 'good' },
+    { label: 'CTR', value: formatPercent(ctrPct), status: 'neutral' },
+    { label: 'CVR', value: formatPercent(cvrPct), status: cvrPct >= 8 ? 'good' : cvrPct < 3 ? 'warn' : 'neutral' },
     { label: 'Orders', value: String(totalOrders), status: 'neutral' },
     { label: 'CPC', value: `${sym}${cpc.toFixed(2)}`, status: 'neutral' },
     { label: 'Impressions', value: totalImpressions > 0 ? totalImpressions.toLocaleString() : '—', status: 'neutral' },

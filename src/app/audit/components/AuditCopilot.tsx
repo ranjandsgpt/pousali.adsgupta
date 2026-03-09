@@ -21,6 +21,7 @@ import { runDiagnosticEngines } from '../engines';
 import { runProfitabilityAgent } from '../agents/profitabilityAgent';
 import { runTrendAgent } from '../agents/trendAgent';
 import { runPerformanceDriftAgent } from '../agents/performanceDriftAgent';
+import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
 
 const SUGGESTED_QUESTIONS = [
   'Why is ACOS so high?',
@@ -41,8 +42,12 @@ interface ChatMessage {
 
 function buildStoreSummarySnapshot(store: MemoryStore): StoreSummarySnapshot {
   const m = store.storeMetrics;
-  const totalClicks = store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
-  const cpc = totalClicks > 0 ? store.totalAdSpend / totalClicks : 0;
+  const canonical = executeMetricEngineForStore(store);
+  const totalClicks =
+    canonical.totalClicks > 0
+      ? canonical.totalClicks
+      : store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
+  const cpc = canonical.cpc > 0 ? canonical.cpc : totalClicks > 0 ? store.totalAdSpend / totalClicks : 0;
   const campaigns = Object.values(store.campaignMetrics)
     .filter((c) => c.campaignName)
     .sort((a, b) => b.spend - a.spend)
@@ -69,16 +74,16 @@ function buildStoreSummarySnapshot(store: MemoryStore): StoreSummarySnapshot {
 
   return {
     metrics: {
-      totalAdSpend: store.totalAdSpend,
-      totalAdSales: store.totalAdSales,
-      totalStoreSales: store.totalStoreSales || m.totalSales,
+      totalAdSpend: canonical.totalAdSpend,
+      totalAdSales: canonical.totalAdSales,
+      totalStoreSales: canonical.totalSales,
       totalSessions: store.totalSessions,
       totalClicks,
-      totalOrders: store.totalOrders,
+      totalOrders: canonical.totalOrders || store.totalOrders,
       buyBoxPercent: store.buyBoxPercent,
-      roas: m.roas,
-      acos: store.totalAdSales > 0 ? (store.totalAdSpend / store.totalAdSales) * 100 : 0,
-      tacos: m.tacos,
+      roas: canonical.roas,
+      acos: canonical.acos * 100,
+      tacos: canonical.tacos * 100,
       cpc,
       currency: store.currency,
     },

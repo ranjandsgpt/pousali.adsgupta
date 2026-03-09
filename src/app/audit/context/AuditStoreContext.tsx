@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { MemoryStore } from '../utils/reportParser';
 import { createEmptyStore } from '../utils/reportParser';
+import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
 
 export interface AuditState {
   store: MemoryStore;
@@ -43,11 +44,11 @@ export function AuditStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuditState>(defaultState);
 
   const setStore = useCallback((store: MemoryStore) => {
-    const m = store.storeMetrics;
+    const canonical = executeMetricEngineForStore(store);
     setState({
       store,
-      globalTACOS: m.tacos,
-      blendedROAS: m.roas,
+      globalTACOS: canonical.tacos * 100,
+      blendedROAS: canonical.roas,
     });
   }, []);
 
