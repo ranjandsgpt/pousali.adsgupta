@@ -170,6 +170,10 @@ function parseBusinessFile(
       complete: () => {
         if (buyBoxCount > 0) store.buyBoxPercent = buyBoxSum / buyBoxCount;
         store.files.push({ name: fileName, rows: rowCount, type: 'business' });
+        if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
+          // eslint-disable-next-line no-console
+          console.log('[ParserDebug] Business rows parsed:', rowCount);
+        }
         resolve();
       },
       error: (err) => reject(err),
@@ -297,6 +301,10 @@ function parseAdvertisingFile(
       },
       complete: () => {
         store.files.push({ name: fileName, rows: rowCount, type: 'advertising' });
+        if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
+          // eslint-disable-next-line no-console
+          console.log('[ParserDebug] Advertising rows parsed:', rowCount);
+        }
         resolve();
       },
       error: (err) => reject(err),
