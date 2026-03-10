@@ -7,6 +7,7 @@ import AuditProcessingPanel from './components/AuditProcessingPanel';
 import AuditSummaryBlock from './components/AuditSummaryBlock';
 import AuditTabs from './components/AuditTabs';
 import ExportBar from './components/ExportBar';
+import ReconciliationDiagnosticsPanel from './components/ReconciliationDiagnosticsPanel';
 import PrivacyNote from './components/PrivacyNote';
 import { AuditStoreProvider, useAuditStore } from './context/AuditStoreContext';
 import { GeminiReportProvider, useGeminiReport } from './context/GeminiReportContext';
@@ -48,6 +49,7 @@ function DashboardWithExport({
         onRefreshExports={exportCtx?.onRefreshExports}
         exportGenerating={exportCtx?.exportGenerating ?? false}
       />
+      <ReconciliationDiagnosticsPanel />
       <AuditTabs activeTab={activeTab} onTabChange={setActiveTab} />
       <ExportBar
         onDownloadPdf={exportCtx?.onDownloadPdf}

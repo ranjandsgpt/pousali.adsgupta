@@ -11,24 +11,31 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Pousali Dasgupta | Amazon Ads Specialist',
+  title: 'Pousali Dasgupta | Ecommerce Growth Consultant',
   description:
-    'Portfolio of Pousali Dasgupta, an Amazon Ads strategist specializing in PPC optimization, keyword strategy, and marketplace growth.',
+    'Pousali Dasgupta is an ecommerce growth consultant specializing in marketplace advertising across Amazon, Walmart and Google Ads.',
   metadataBase: new URL('https://pousali.adsgupta.com'),
   openGraph: {
-    title: 'Pousali Dasgupta | Amazon Ads Specialist',
+    title: 'Pousali Dasgupta | Ecommerce Growth Consultant',
     description:
-      'Amazon advertising specialist helping brands grow through PPC optimization, keyword strategy and marketplace growth.',
+      'Ecommerce growth consultant helping brands scale through Amazon advertising, Walmart marketplace optimization, and Google Ads strategies.',
     url: 'https://pousali.adsgupta.com',
-    siteName: 'Pousali Dasgupta Portfolio',
+    siteName: 'Pousali Dasgupta',
     type: 'website',
-    images: '/og/default.png',
+    images: [
+      {
+        url: '/og/default.png',
+        width: 1200,
+        height: 630,
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Pousali Dasgupta | Amazon Ads Specialist',
+    title: 'Pousali Dasgupta | Ecommerce Growth Consultant',
     description:
-      'Amazon Ads specialist focused on ACOS optimization, PPC strategy and marketplace growth.',
+      'Ecommerce growth consultant specializing in Amazon PPC, Walmart marketplace growth, and Google Ads optimization.',
+    images: ['/og/default.png'],
   },
   alternates: {
     canonical: 'https://pousali.adsgupta.com',
@@ -51,9 +58,9 @@ export default function RootLayout({
               '@context': 'https://schema.org',
               '@type': 'Person',
               name: 'Pousali Dasgupta',
-              jobTitle: 'Amazon Ads Specialist',
+              jobTitle: 'Ecommerce Growth Consultant',
               url: 'https://pousali.adsgupta.com',
-              sameAs: ['https://www.linkedin.com/in/pousalidasgupta'],
+              sameAs: ['https://www.linkedin.com/in/pousali-dasgupta/'],
             }),
           }}
         />
@@ -63,7 +70,7 @@ export default function RootLayout({
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@type': 'Organization',
-              name: 'adsgupta',
+              name: 'AdsGupta',
               url: 'https://adsgupta.com',
               sameAs: ['https://www.linkedin.com/in/pousali-dasgupta/'],
             }),

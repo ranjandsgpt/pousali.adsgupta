@@ -76,6 +76,13 @@ export default function ServicesPage() {
           {' · '}
           <Link href="/contact" className="text-cyan-500 hover:underline">Contact</Link>
         </p>
+        <p className="mt-4 text-sm text-[var(--color-text-muted)]">
+          Marketplace advertising services are led by{' '}
+          <Link href="/pousali-dasgupta" className="text-cyan-500 hover:underline">
+            Pousali Dasgupta
+          </Link>
+          , an ecommerce growth consultant for marketplace brands.
+        </p>
       </div>
     </div>
   );

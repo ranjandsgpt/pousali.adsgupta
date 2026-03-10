@@ -4,6 +4,9 @@ export const metadata: Metadata = {
   title: 'Insights',
   description:
     'Amazon marketing insights: PPC mistakes, TACoS reduction, keyword strategy, product launch ad framework.',
+  alternates: {
+    canonical: 'https://pousali.adsgupta.com/insights',
+  },
 };
 
 const articleSchema = {

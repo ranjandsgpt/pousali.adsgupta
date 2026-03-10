@@ -3,6 +3,10 @@ import { AMAZON_SALES_ATTRIBUTION_COLUMN } from '@/config/amazonAttribution';
 import type { MemoryStore } from '@/app/audit/utils/reportParser';
 import { sanitizeNumeric } from '@/utils/sanitizeNumeric';
 import { applyOverrides, type OverrideState } from './overrideEngine';
+import {
+  runMetricReconciliationAgent,
+  reconciliationInputFromMetricInput,
+} from './metricReconciliationAgent';
 
 export interface MetricExecutionInput {
   campaignReport?: any[];
@@ -41,27 +45,98 @@ export interface CanonicalMetrics {
   ctr: number;
 }
 
-export function executeMetricEngine(input: MetricExecutionInput, overrides?: OverrideState): CanonicalMetrics {
+/** Prefer canonical fields (schema-mapper output); fallback to raw header names. */
+function getRowSpend(r: any): number {
+  return sanitizeNumeric(r.spend ?? r.Spend ?? r.Cost);
+}
+function getRowSales(r: any): number {
+  const raw =
+    r.sales7d ??
+    r[AMAZON_SALES_ATTRIBUTION_COLUMN] ??
+    r['7 Day Total Sales'] ??
+    r['Attributed Sales'] ??
+    r.sales ??
+    r.Sales;
+  return sanitizeNumeric(raw);
+}
+function getRowClicks(r: any): number {
+  return sanitizeNumeric(r.clicks ?? r.Clicks);
+}
+function getRowImpressions(r: any): number {
+  return sanitizeNumeric(r.impressions ?? r.Impressions);
+}
+function getRowOrders(r: any): number {
+  const raw =
+    r.orders ??
+    r.Orders ??
+    r['7 Day Total Orders'] ??
+    r['Total Order Items'] ??
+    r['Units Sold'] ??
+    r.units ??
+    r.Units;
+  return sanitizeNumeric(raw);
+}
+
+/** Build MetricExecutionInput from MemoryStore (for reconciliation and store-based execution). */
+export function buildMetricInputFromStore(store: MemoryStore): MetricExecutionInput {
+  const totalStoreSales = (store.totalStoreSales || store.storeMetrics?.totalSales) ?? 0;
+  return {
+    campaignReport: [
+      {
+        spend: store.totalAdSpend,
+        [AMAZON_SALES_ATTRIBUTION_COLUMN]: store.totalAdSales,
+        clicks: store.totalClicks,
+        impressions: store.totalImpressions,
+        orders: store.totalOrders,
+      },
+    ],
+    businessReport: [{ 'Ordered Product Sales': totalStoreSales }],
+  };
+}
+
+export function executeMetricEngine(
+  input: MetricExecutionInput,
+  overrides?: OverrideState
+): CanonicalMetrics {
   const raw = overrides ? applyOverrides(input, overrides) : input;
   const input_ = raw;
-  // ----- Global ad totals (single source of truth) -----
   const campaignRows = input_.campaignReport ?? [];
   const advertisedRows = input_.advertisedProductReport ?? [];
   const targetingRows = input_.targetingReport ?? [];
+  const searchTermRows = input_.searchTermReport ?? [];
 
+  const reconciliation = runMetricReconciliationAgent(reconciliationInputFromMetricInput(input_));
+  if (reconciliation.issues.length > 0) {
+    reconciliation.issues.forEach((issue) => {
+      // eslint-disable-next-line no-console
+      console.warn('[Reconciliation]', issue);
+    });
+  }
+  if (reconciliation.status === 'error') {
+    // eslint-disable-next-line no-console
+    console.error('[Reconciliation] status: error. Proceeding with metrics but review issues above.');
+  }
+
+  if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
+    // eslint-disable-next-line no-console
+    console.log('[MetricEngineInput] advertisedProductRows:', advertisedRows.length);
+    // eslint-disable-next-line no-console
+    console.log('[MetricEngineInput] targetingRows:', targetingRows.length);
+    // eslint-disable-next-line no-console
+    console.log('[MetricEngineInput] campaignRows:', campaignRows.length);
+    // eslint-disable-next-line no-console
+    console.log('[MetricEngineInput] searchTermRows:', searchTermRows.length);
+  }
+
+  // ----- Global ad totals (single source of truth) -----
   let adSourceRows: any[] = [];
-  // Canonical hierarchy:
-  // 1) Advertised Product Report (primary)
-  // 2) Targeting / Keyword Report (secondary)
-  // 3) Campaign Report (fallback)
+  // Hierarchy: Advertised Product → Targeting → Campaign. Search Term never used for totals.
   if (advertisedRows.length > 0) {
     adSourceRows = advertisedRows;
   } else if (targetingRows.length > 0) {
     adSourceRows = targetingRows;
   } else if (campaignRows.length > 0) {
     adSourceRows = campaignRows;
-  } else {
-    adSourceRows = [];
   }
 
   let totalAdSpend = 0;
@@ -70,39 +145,20 @@ export function executeMetricEngine(input: MetricExecutionInput, overrides?: Ove
   let totalAdImpressions = 0;
   let totalAdOrders = 0;
 
-  // Per-report diagnostics (development only)
-  let diagCampaign = { spend: 0, sales: 0, clicks: 0, impressions: 0, orders: 0 };
-  let diagAdvertised = { spend: 0, sales: 0, clicks: 0, impressions: 0, orders: 0 };
-  let diagTargeting = { spend: 0, sales: 0, clicks: 0, impressions: 0, orders: 0 };
+  const diagCampaign = { spend: 0, sales: 0, clicks: 0, impressions: 0, orders: 0 };
+  const diagAdvertised = { spend: 0, sales: 0, clicks: 0, impressions: 0, orders: 0 };
+  const diagTargeting = { spend: 0, sales: 0, clicks: 0, impressions: 0, orders: 0 };
+  const diagSearchTerm = { spend: 0, sales: 0, clicks: 0, impressions: 0, orders: 0 };
 
-  const accumulateDiag = (rows: any[], diag: typeof diagCampaign) => {
+  const accumulateDiag = (rows: any[], diag: { spend: number; sales: number; clicks: number; impressions: number; orders: number }) => {
     for (const row of rows) {
       if (!row || typeof row !== 'object') continue;
       const r: any = row;
-      const spend = sanitizeNumeric(r.spend ?? r.Spend ?? r.Cost);
-      const adSalesRaw =
-        r[AMAZON_SALES_ATTRIBUTION_COLUMN] ??
-        r['7 Day Total Sales'] ??
-        r.sales7d ??
-        r['Attributed Sales'] ??
-        r.sales ??
-        r.Sales;
-      const clicks = sanitizeNumeric(r.clicks ?? r.Clicks);
-      const impressions = sanitizeNumeric(r.impressions ?? r.Impressions);
-      const ordersRaw =
-        r.orders ??
-        r.Orders ??
-        r['7 Day Total Orders'] ??
-        r['Total Order Items'] ??
-        r['Units Sold'] ??
-        r.units ??
-        r.Units;
-
-      diag.spend += spend;
-      diag.sales += sanitizeNumeric(adSalesRaw);
-      diag.clicks += clicks;
-      diag.impressions += impressions;
-      diag.orders += sanitizeNumeric(ordersRaw);
+      diag.spend += getRowSpend(r);
+      diag.sales += getRowSales(r);
+      diag.clicks += getRowClicks(r);
+      diag.impressions += getRowImpressions(r);
+      diag.orders += getRowOrders(r);
     }
   };
 
@@ -110,37 +166,25 @@ export function executeMetricEngine(input: MetricExecutionInput, overrides?: Ove
     accumulateDiag(campaignRows, diagCampaign);
     accumulateDiag(advertisedRows, diagAdvertised);
     accumulateDiag(targetingRows, diagTargeting);
+    accumulateDiag(searchTermRows, diagSearchTerm);
     // eslint-disable-next-line no-console
-    console.log('[AuditDebug] Campaign Report totals:', diagCampaign);
+    console.log('[ReportTotals] AdvertisedProductReport:', { spend: diagAdvertised.spend, sales: diagAdvertised.sales });
     // eslint-disable-next-line no-console
-    console.log('[AuditDebug] Advertised Product Report totals:', diagAdvertised);
+    console.log('[ReportTotals] TargetingReport:', { spend: diagTargeting.spend, sales: diagTargeting.sales });
     // eslint-disable-next-line no-console
-    console.log('[AuditDebug] Targeting Report totals:', diagTargeting);
+    console.log('[ReportTotals] CampaignReport:', { spend: diagCampaign.spend, sales: diagCampaign.sales });
+    // eslint-disable-next-line no-console
+    console.log('[ReportTotals] SearchTermReport:', { spend: diagSearchTerm.spend, sales: diagSearchTerm.sales });
   }
 
   for (const row of adSourceRows) {
     if (!row || typeof row !== 'object') continue;
     const r: any = row;
-    totalAdSpend += sanitizeNumeric(r.spend ?? r.Spend ?? r.Cost);
-    const adSalesRaw =
-      r[AMAZON_SALES_ATTRIBUTION_COLUMN] ??
-      r['7 Day Total Sales'] ??
-      r.sales7d ??
-      r['Attributed Sales'] ??
-      r.sales ??
-      r.Sales;
-    totalAdSales += sanitizeNumeric(adSalesRaw);
-    totalAdClicks += sanitizeNumeric(r.clicks ?? r.Clicks);
-    totalAdImpressions += sanitizeNumeric(r.impressions ?? r.Impressions);
-    const ordersRaw =
-      r.orders ??
-      r.Orders ??
-      r['7 Day Total Orders'] ??
-      r['Total Order Items'] ??
-      r['Units Sold'] ??
-      r.units ??
-      r.Units;
-    totalAdOrders += sanitizeNumeric(ordersRaw);
+    totalAdSpend += getRowSpend(r);
+    totalAdSales += getRowSales(r);
+    totalAdClicks += getRowClicks(r);
+    totalAdImpressions += getRowImpressions(r);
+    totalAdOrders += getRowOrders(r);
   }
 
   // ----- Global store totals (Business Report preferred) -----
@@ -183,12 +227,6 @@ export function executeMetricEngine(input: MetricExecutionInput, overrides?: Ove
 
   if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
     // eslint-disable-next-line no-console
-    console.log('[MetricEngine] campaign rows processed:', campaignRows.length);
-    // eslint-disable-next-line no-console
-    console.log('[MetricEngine] advertised rows processed:', advertisedRows.length);
-    // eslint-disable-next-line no-console
-    console.log('[MetricEngine] targeting rows processed:', targetingRows.length);
-    // eslint-disable-next-line no-console
     console.table({
       totalAdSpend,
       totalAdSales,
@@ -228,24 +266,27 @@ export function executeMetricEngine(input: MetricExecutionInput, overrides?: Ove
   };
 }
 
-export function executeMetricEngineForStore(store: MemoryStore, overrides?: OverrideState): CanonicalMetrics {
-  const totalStoreSales = store.totalStoreSales || store.storeMetrics.totalSales;
+export function executeMetricEngineForStore(
+  store: MemoryStore,
+  overrides?: OverrideState
+): CanonicalMetrics {
+  if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true' && store.reportTypeTotals) {
+    const rt = store.reportTypeTotals;
+    if (rt.advertised_product)
+      // eslint-disable-next-line no-console
+      console.log('[ReportTotals] AdvertisedProductReport (parser):', { spend: rt.advertised_product.spend, sales: rt.advertised_product.sales });
+    if (rt.targeting)
+      // eslint-disable-next-line no-console
+      console.log('[ReportTotals] TargetingReport (parser):', { spend: rt.targeting.spend, sales: rt.targeting.sales });
+    if (rt.campaign)
+      // eslint-disable-next-line no-console
+      console.log('[ReportTotals] CampaignReport (parser):', { spend: rt.campaign.spend, sales: rt.campaign.sales });
+    if (rt.search_term)
+      // eslint-disable-next-line no-console
+      console.log('[ReportTotals] SearchTermReport (parser):', { spend: rt.search_term.spend, sales: rt.search_term.sales });
+  }
 
-  return executeMetricEngine({
-    campaignReport: [
-      {
-        spend: store.totalAdSpend,
-        [AMAZON_SALES_ATTRIBUTION_COLUMN]: store.totalAdSales,
-        clicks: store.totalClicks,
-        impressions: store.totalImpressions,
-        orders: store.totalOrders,
-      },
-    ],
-    businessReport: [
-      {
-        'Ordered Product Sales': totalStoreSales,
-      },
-    ],
-  }, overrides);
+  const input = buildMetricInputFromStore(store);
+  return executeMetricEngine(input, overrides);
 }
 

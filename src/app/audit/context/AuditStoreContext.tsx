@@ -9,8 +9,16 @@ import {
 } from 'react';
 import type { MemoryStore } from '../utils/reportParser';
 import { createEmptyStore } from '../utils/reportParser';
-import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
+import {
+  executeMetricEngineForStore,
+  buildMetricInputFromStore,
+} from '@/services/metricExecutionEngine';
 import type { OverrideState } from '@/services/overrideEngine';
+import {
+  runMetricReconciliationAgent,
+  reconciliationInputFromMetricInput,
+  type ReconciliationOutput,
+} from '@/services/metricReconciliationAgent';
 
 export interface LearnedOverride {
   accountId?: string;
@@ -25,6 +33,8 @@ export interface AuditState {
   blendedROAS: number;
   /** Self-healing: overrides learned from Dislike feedback; applied on next metric run */
   learnedOverrides: LearnedOverride | null;
+  /** Metric reconciliation result (run before metrics on upload/analysis) */
+  reconciliation: ReconciliationOutput | null;
 }
 
 const defaultState: AuditState = {
@@ -32,6 +42,7 @@ const defaultState: AuditState = {
   globalTACOS: 0,
   blendedROAS: 0,
   learnedOverrides: null,
+  reconciliation: null,
 };
 
 const AuditStoreContext = createContext<{
@@ -57,12 +68,27 @@ export function AuditStoreProvider({ children }: { children: ReactNode }) {
 
   const setStore = useCallback((store: MemoryStore, appliedOverrides?: LearnedOverride | null) => {
     const overrides = appliedOverrides?.overrides ?? state.learnedOverrides?.overrides;
+    const metricInput = buildMetricInputFromStore(store);
+    const reconciliation = runMetricReconciliationAgent(
+      reconciliationInputFromMetricInput(metricInput)
+    );
+    if (reconciliation.issues.length > 0) {
+      reconciliation.issues.forEach((issue) => {
+        // eslint-disable-next-line no-console
+        console.warn('[Reconciliation]', issue);
+      });
+    }
+    if (reconciliation.status === 'error') {
+      // eslint-disable-next-line no-console
+      console.error('[Reconciliation] status: error. Review issues above.');
+    }
     const canonical = executeMetricEngineForStore(store, overrides);
     setState((prev) => ({
       ...prev,
       store,
       globalTACOS: canonical.tacos * 100,
       blendedROAS: canonical.roas,
+      reconciliation,
       ...(appliedOverrides != null ? { learnedOverrides: appliedOverrides } : {}),
     }));
   }, [state.learnedOverrides?.overrides]);
@@ -77,6 +103,7 @@ export function AuditStoreProvider({ children }: { children: ReactNode }) {
       globalTACOS: 0,
       blendedROAS: 0,
       learnedOverrides: null,
+      reconciliation: null,
     });
   }, []);
 

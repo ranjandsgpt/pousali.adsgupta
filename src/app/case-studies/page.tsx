@@ -36,6 +36,8 @@ export default function CaseStudiesPage() {
           <Link href="/work" className="text-cyan-500 hover:underline">Work</Link>
           {' · '}
           <Link href="/contact" className="text-cyan-500 hover:underline">Contact</Link>
+          {' · '}
+          <Link href="/pousali-dasgupta" className="text-cyan-500 hover:underline">Pousali Dasgupta</Link>
         </p>
       </div>
     </div>

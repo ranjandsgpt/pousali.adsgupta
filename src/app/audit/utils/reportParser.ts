@@ -7,7 +7,14 @@
 
 import Papa from 'papaparse';
 import { PARSER_CHUNK_SIZE, MAX_ROWS_PER_FILE } from './constants';
-import { mapHeaders, classifyReportType, classifyAdvertisingReportSubtype, type HeaderMap } from './headerMapper';
+import {
+  mapHeaders,
+  normalizeHeader,
+  classifyReportType,
+  classifyAdvertisingReportSubtype,
+  type HeaderMap,
+  type AdvertisingReportSubtype,
+} from './headerMapper';
 import { sanitizeNumeric } from './sanitizeNumeric';
 import { detectCurrencyFromValues, type DetectedCurrency } from './currencyDetector';
 import { normalizeDate } from './dateNormalizer';
@@ -57,6 +64,13 @@ export interface MemoryStore {
   attributedSales7d: number;
   attributedSales14d: number;
   attributedUnitsOrdered: number;
+  /** Per-report-type totals for reconciliation debug (only when NEXT_PUBLIC_AUDIT_METRICS_DEBUG=true) */
+  reportTypeTotals?: Partial<
+    Record<
+      AdvertisingReportSubtype,
+      { spend: number; sales: number; clicks: number; impressions: number; orders: number }
+    >
+  >;
 }
 
 function createEmptyStore(): MemoryStore {
@@ -87,6 +101,39 @@ function createEmptyStore(): MemoryStore {
 
 const EMPTY_STORE = createEmptyStore();
 
+/** Known Amazon column names used to detect the true header row in first 10 rows. */
+const KNOWN_AMAZON_HEADERS = [
+  'Campaign Name',
+  'Campaign',
+  'Advertised SKU',
+  'Advertised ASIN',
+  'Customer Search Term',
+  'Search Term',
+  'Keyword Text',
+  'Ordered Product Sales',
+  'Spend',
+  '7 Day Total Sales',
+  'Sessions',
+  'Units Ordered',
+  'Total Order Items',
+].map((h) => normalizeHeader(h));
+
+/**
+ * Scan the first maxRows lines to find the first row that looks like a CSV header
+ * (contains at least one known Amazon column name). Returns row index (0-based).
+ */
+function detectHeaderRowIndex(lines: string[], maxRows = 10): number {
+  for (let i = 0; i < Math.min(maxRows, lines.length); i++) {
+    const line = lines[i];
+    if (!line || typeof line !== 'string') continue;
+    const cells = line.split(',').map((c) => normalizeHeader(c.trim()));
+    for (const known of KNOWN_AMAZON_HEADERS) {
+      if (cells.some((c) => c === known || c.includes(known) || known.includes(c))) return i;
+    }
+  }
+  return 0;
+}
+
 function sanitizeCurrency(value: string | number): number {
   if (typeof value === 'number' && !Number.isNaN(value)) return value;
   if (!value) return 0;
@@ -105,9 +152,11 @@ function getStr(row: Record<string, unknown>, rawKey: string | undefined): strin
   return String(row[rawKey]).trim();
 }
 
-/** Parse business file: SKU→ASIN, totalStoreSales, Sessions, Page Views, Buy Box %, Units (Section 3). */
-function parseBusinessFile(
-  file: File,
+/** Parse business file from CSV string (first line = header). */
+function parseBusinessFileFromContent(
+  contentFromHeader: string,
+  fileName: string,
+  headerRowIndex: number,
   store: MemoryStore,
   skuToAsinMap: SkuToAsinMap,
   onProgress?: (file: string, rows: number) => void
@@ -119,9 +168,8 @@ function parseBusinessFile(
     let buyBoxCount = 0;
     let unitSessionSum = 0;
     let unitSessionCount = 0;
-    const fileName = file.name;
 
-    Papa.parse(file, {
+    Papa.parse(contentFromHeader, {
       header: true,
       skipEmptyLines: true,
       chunkSize: PARSER_CHUNK_SIZE,
@@ -172,21 +220,50 @@ function parseBusinessFile(
         store.files.push({ name: fileName, rows: rowCount, type: 'business' });
         if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
           // eslint-disable-next-line no-console
-          console.log('[ParserDebug] Business rows parsed:', rowCount);
+          console.log('[ParserDebug] File:', fileName);
+          // eslint-disable-next-line no-console
+          console.log('[ParserDebug] Rows parsed:', rowCount);
+          // eslint-disable-next-line no-console
+          console.log('[ParserDebug] Header detected at row:', headerRowIndex);
+          // eslint-disable-next-line no-console
+          console.log('[SchemaDebug] Report type: Business');
+          // eslint-disable-next-line no-console
+          console.log('[SchemaDebug] Rows after mapping:', rowCount);
         }
         resolve();
       },
-      error: (err) => reject(err),
+      error: (err: unknown) => reject(err),
     });
   });
 }
 
-/** Parse advertising file: dedupe, resolve ASIN, aggregate. Section 1: only Campaign Report rows contribute to store totals. */
-function parseAdvertisingFile(
-  file: File,
+const REPORT_TYPE_LABEL: Record<AdvertisingReportSubtype, string> = {
+  campaign: 'Campaign',
+  advertised_product: 'Advertised Product',
+  targeting: 'Targeting',
+  search_term: 'Search Term',
+  unknown: 'Unknown',
+};
+
+function ensureReportTypeTotals(
+  store: MemoryStore,
+  subtype: AdvertisingReportSubtype
+): { spend: number; sales: number; clicks: number; impressions: number; orders: number } {
+  if (!store.reportTypeTotals) store.reportTypeTotals = {};
+  if (!store.reportTypeTotals[subtype])
+    store.reportTypeTotals[subtype] = { spend: 0, sales: 0, clicks: 0, impressions: 0, orders: 0 };
+  return store.reportTypeTotals[subtype]!;
+}
+
+/** Parse advertising file from CSV string (first line = header). */
+function parseAdvertisingFileFromContent(
+  contentFromHeader: string,
+  fileName: string,
+  headerRowIndex: number,
   store: MemoryStore,
   skuToAsinMap: SkuToAsinMap,
   seenRows: Set<string>,
+  subtype: AdvertisingReportSubtype,
   onProgress?: (file: string, rows: number) => void,
   options?: { contributeToTotals: boolean }
 ): Promise<void> {
@@ -194,9 +271,9 @@ function parseAdvertisingFile(
   return new Promise((resolve, reject) => {
     let headerMap: HeaderMap | null = null;
     let rowCount = 0;
-    const fileName = file.name;
+    const diag = ensureReportTypeTotals(store, subtype);
 
-    Papa.parse(file, {
+    Papa.parse(contentFromHeader, {
       header: true,
       skipEmptyLines: true,
       chunkSize: PARSER_CHUNK_SIZE,
@@ -234,6 +311,12 @@ function parseAdvertisingFile(
         const clicks = getNumeric(row, headerMap!.clicks);
         const impressions = getNumeric(row, headerMap!.impressions);
         const orders = getNumeric(row, headerMap!.orders) || getNumeric(row, headerMap!.units);
+
+        diag.spend += spend;
+        diag.sales += sales;
+        diag.clicks += clicks;
+        diag.impressions += impressions;
+        diag.orders += orders;
 
         if (contributeToTotals) {
           store.totalAdSpend += spend;
@@ -303,31 +386,30 @@ function parseAdvertisingFile(
         store.files.push({ name: fileName, rows: rowCount, type: 'advertising' });
         if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
           // eslint-disable-next-line no-console
-          console.log('[ParserDebug] Advertising rows parsed:', rowCount);
+          console.log('[ParserDebug] File:', fileName);
+          // eslint-disable-next-line no-console
+          console.log('[ParserDebug] Rows parsed:', rowCount);
+          // eslint-disable-next-line no-console
+          console.log('[ParserDebug] Header detected at row:', headerRowIndex);
+          // eslint-disable-next-line no-console
+          console.log('[SchemaDebug] Report type:', REPORT_TYPE_LABEL[subtype]);
+          // eslint-disable-next-line no-console
+          console.log('[SchemaDebug] Rows after mapping:', rowCount);
         }
         resolve();
       },
-      error: (err) => reject(err),
+      error: (err: unknown) => reject(err),
     });
   });
 }
 
-/** First row only to get header map and type. */
-function getHeaderMapFromFile(file: File): Promise<{ headerMap: HeaderMap; type: ReportType }> {
-  return new Promise((resolve, reject) => {
-    Papa.parse(file, {
-      header: true,
-      preview: 1,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const row = results.data?.[0] as Record<string, unknown> | undefined;
-        const fields = row ? Object.keys(row) : (results.meta?.fields ?? []);
-        const headerMap = mapHeaders(fields);
-        resolve({ headerMap, type: classifyReportType(headerMap) });
-      },
-      error: (err) => reject(err),
-    });
-  });
+/** Get header map and report type from CSV content (first line = header). */
+function getHeaderMapFromText(csvContentFromHeader: string): { headerMap: HeaderMap; type: ReportType } {
+  const parsed = Papa.parse(csvContentFromHeader, { header: true, preview: 1, skipEmptyLines: true });
+  const row = parsed.data?.[0] as Record<string, unknown> | undefined;
+  const fields = row ? Object.keys(row) : (parsed.meta?.fields ?? []);
+  const headerMap = mapHeaders(fields);
+  return { headerMap, type: classifyReportType(headerMap) };
 }
 
 export type PipelineStageCallback = (stage: string, status: 'running' | 'completed' | 'failed', error?: string) => void;
@@ -341,10 +423,22 @@ export async function parseReportsStreaming(
   const seenRows = new Set<string>();
 
   onStageUpdate?.('header_detection', 'running');
-  const fileInfos: Array<{ file: File; type: ReportType; headerMap: HeaderMap }> = [];
+  const fileInfos: Array<{
+    file: File;
+    type: ReportType;
+    headerMap: HeaderMap;
+    headerRowIndex: number;
+    contentFromHeader: string;
+    subtype?: AdvertisingReportSubtype;
+  }> = [];
   for (const file of files) {
-    const { headerMap, type } = await getHeaderMapFromFile(file);
-    fileInfos.push({ file, type, headerMap });
+    const text = await file.text();
+    const lines = text.split(/\r?\n/);
+    const headerRowIndex = detectHeaderRowIndex(lines);
+    const contentFromHeader = lines.slice(headerRowIndex).join('\n');
+    const { headerMap, type } = getHeaderMapFromText(contentFromHeader);
+    const subtype = type === 'advertising' ? classifyAdvertisingReportSubtype(headerMap) : undefined;
+    fileInfos.push({ file, type, headerMap, headerRowIndex, contentFromHeader, subtype });
   }
   onStageUpdate?.('header_detection', 'completed');
   onStageUpdate?.('report_type_classification', 'completed');
@@ -352,14 +446,19 @@ export async function parseReportsStreaming(
   onStageUpdate?.('report_parsing', 'running');
 
   const businessFiles = fileInfos.filter((f) => f.type === 'business');
-  const adFiles = fileInfos
-    .filter((f) => f.type === 'advertising')
-    .map((f) => ({ ...f, subtype: classifyAdvertisingReportSubtype(f.headerMap) }));
+  const adFiles = fileInfos.filter((f) => f.type === 'advertising');
   const otherFiles = fileInfos.filter((f) => f.type === 'unknown');
 
   const skuToAsinMap: SkuToAsinMap = {};
-  for (const { file } of businessFiles) {
-    await parseBusinessFile(file, store, skuToAsinMap, onProgress);
+  for (const info of businessFiles) {
+    await parseBusinessFileFromContent(
+      info.contentFromHeader,
+      info.file.name,
+      info.headerRowIndex,
+      store,
+      skuToAsinMap,
+      onProgress
+    );
   }
 
   const campaignFiles = adFiles.filter((f) => f.subtype === 'campaign');
@@ -381,25 +480,50 @@ export async function parseReportsStreaming(
     ...otherAdFiles,
   ];
 
-  for (const { file, subtype } of allAdGroups) {
-    const contributeToTotals =
-      subtype === adSourceForTotals;
-    await parseAdvertisingFile(file, store, skuToAsinMap, seenRows, onProgress, {
-      contributeToTotals,
-    });
+  for (const info of allAdGroups) {
+    const subtype = info.subtype ?? 'unknown';
+    const contributeToTotals = subtype === adSourceForTotals;
+    await parseAdvertisingFileFromContent(
+      info.contentFromHeader,
+      info.file.name,
+      info.headerRowIndex,
+      store,
+      skuToAsinMap,
+      seenRows,
+      subtype,
+      onProgress,
+      { contributeToTotals }
+    );
   }
 
-  for (const { file, headerMap } of otherFiles) {
+  for (const info of otherFiles) {
+    const { headerMap, contentFromHeader, file, headerRowIndex } = info;
     const hasSpend = !!headerMap.spend;
     const hasSales = !!headerMap.orderedProductSales || !!headerMap.sales;
     if (hasSales && !hasSpend) {
-      await parseBusinessFile(file, store, skuToAsinMap, onProgress);
+      await parseBusinessFileFromContent(
+        contentFromHeader,
+        file.name,
+        headerRowIndex,
+        store,
+        skuToAsinMap,
+        onProgress
+      );
     } else if (hasSpend) {
       const subtype = classifyAdvertisingReportSubtype(headerMap);
-      const contributeToTotals = subtype === 'campaign' || subtype === 'advertised_product' || subtype === 'targeting';
-      await parseAdvertisingFile(file, store, skuToAsinMap, seenRows, onProgress, {
-        contributeToTotals,
-      });
+      const contributeToTotals =
+        subtype === 'campaign' || subtype === 'advertised_product' || subtype === 'targeting';
+      await parseAdvertisingFileFromContent(
+        contentFromHeader,
+        file.name,
+        headerRowIndex,
+        store,
+        skuToAsinMap,
+        seenRows,
+        subtype,
+        onProgress,
+        { contributeToTotals }
+      );
     }
   }
   onStageUpdate?.('report_parsing', 'completed');

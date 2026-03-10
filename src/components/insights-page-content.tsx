@@ -39,7 +39,15 @@ export default function InsightsPageContent() {
           </h1>
           <p className="text-lg text-[var(--color-text-muted)] max-w-2xl">
             Amazon marketing and advertising strategies, frameworks, and best practices—from{' '}
-            <Link href="/amazon-ads-consultant" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon Ads consultant</Link> insights to <Link href="/amazon-ppc-strategy" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon PPC strategy</Link> and             <Link href="/acos-optimization" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">ACOS optimization</Link>. Browse the full <Link href="/amazon-advertising-resources" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon advertising resources</Link> hub for guides and service pages.
+            <Link href="/amazon-ads-consultant" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon Ads consultant</Link>{' '}
+            insights to <Link href="/amazon-ppc-strategy" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon PPC strategy</Link> and{' '}
+            <Link href="/acos-optimization" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">ACOS optimization</Link>. Browse the full{' '}
+            <Link href="/amazon-advertising-resources" className="text-cyan-500 font-medium hover:text-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded">Amazon advertising resources</Link>{' '}
+            hub for guides and service pages, authored by{' '}
+            <Link href="/pousali-dasgupta" className="text-cyan-500 font-semibold hover:text-cyan-400">
+              Pousali Dasgupta
+            </Link>
+            .
           </p>
         </motion.header>
 
