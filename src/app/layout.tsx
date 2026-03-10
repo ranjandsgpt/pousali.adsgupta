@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from 'next/font/google';
 import '@/styles/globals.css';
 import Navbar from '@/components/navbar';
 import Footer from '@/components/footer';
+import { Analytics } from '@vercel/analytics/next';
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -99,6 +100,7 @@ export default function RootLayout({
           {children}
         </main>
         <Footer />
+        <Analytics />
       </body>
     </html>
   );
