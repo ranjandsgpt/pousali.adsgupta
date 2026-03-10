@@ -8,6 +8,12 @@ import {
   reconciliationInputFromMetricInput,
 } from './metricReconciliationAgent';
 
+/**
+ * Metric calculations must only occur in metricExecutionEngine.ts.
+ * Agents must never modify metric outputs.
+ * Agents are verification-only.
+ */
+
 export interface MetricExecutionInput {
   campaignReport?: any[];
   targetingReport?: any[];
