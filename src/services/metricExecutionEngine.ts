@@ -129,6 +129,12 @@ export function executeMetricEngine(input: MetricExecutionInput, overrides?: Ove
 
   if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
     // eslint-disable-next-line no-console
+    console.log('[MetricEngine] campaign rows processed:', campaignRows.length);
+    // eslint-disable-next-line no-console
+    console.log('[MetricEngine] advertised rows processed:', advertisedRows.length);
+    // eslint-disable-next-line no-console
+    console.log('[MetricEngine] targeting rows processed:', targetingRows.length);
+    // eslint-disable-next-line no-console
     console.table({
       totalAdSpend,
       totalAdSales,
