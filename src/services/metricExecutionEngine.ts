@@ -102,9 +102,56 @@ export function buildMetricInputFromStore(store: MemoryStore): MetricExecutionIn
   };
 }
 
+function computeAcos(totalAdSpend: number, totalAdSales: number, overrides?: OverrideState): number {
+  const variant = overrides?.formulaOverrides?.ACOS ?? 'default';
+  switch (variant) {
+    case 'default':
+    default:
+      return safeDivide(totalAdSpend, totalAdSales);
+  }
+}
+
+function computeTacos(totalAdSpend: number, totalStoreSales: number, overrides?: OverrideState): number {
+  const variant = overrides?.formulaOverrides?.TACOS ?? 'default';
+  switch (variant) {
+    case 'default':
+    default:
+      return safeDivide(totalAdSpend, totalStoreSales);
+  }
+}
+
+function computeRoas(totalAdSpend: number, totalAdSales: number, overrides?: OverrideState): number {
+  const variant = overrides?.formulaOverrides?.ROAS ?? 'default';
+  switch (variant) {
+    case 'default':
+    default:
+      return safeDivide(totalAdSales, totalAdSpend);
+  }
+}
+
+function computeOrganicSales(
+  totalStoreSales: number,
+  totalAdSales: number,
+  store: MemoryStore | null,
+  overrides?: OverrideState
+): number {
+  const strategy = overrides?.organicSplitStrategy ?? 'residual';
+  if (strategy === 'asin_join' && store && store.asinMetrics) {
+    const asinMetrics = Object.values(store.asinMetrics);
+    if (asinMetrics.length > 0) {
+      const asinTotalSales = asinMetrics.reduce((s, a) => s + (a.totalSales ?? 0), 0);
+      const asinAdSales = asinMetrics.reduce((s, a) => s + (a.adSales ?? 0), 0);
+      const organic = asinTotalSales - asinAdSales;
+      if (organic >= 0) return organic;
+    }
+  }
+  return Math.max(0, totalStoreSales - totalAdSales);
+}
+
 export function executeMetricEngine(
   input: MetricExecutionInput,
-  overrides?: OverrideState
+  overrides?: OverrideState,
+  storeForContext: MemoryStore | null = null
 ): CanonicalMetrics {
   const raw = overrides ? applyOverrides(input, overrides) : input;
   const input_ = raw;
@@ -141,7 +188,18 @@ export function executeMetricEngine(
   let adSourceRows: any[] = [];
   let sourceType: 'advertisedProduct' | 'targeting' | 'campaign' = 'campaign';
   // Hierarchy: Advertised Product → Targeting → Campaign. Search Term never used for totals.
-  if (advertisedRows.length > 0) {
+  // Allow OverrideState to override the default source choice when self-healing decides it is safer.
+  const preferred = overrides?.adSourceOverride;
+  if (preferred === 'advertised_product' && advertisedRows.length > 0) {
+    adSourceRows = advertisedRows;
+    sourceType = 'advertisedProduct';
+  } else if (preferred === 'targeting' && targetingRows.length > 0) {
+    adSourceRows = targetingRows;
+    sourceType = 'targeting';
+  } else if (preferred === 'campaign' && campaignRows.length > 0) {
+    adSourceRows = campaignRows;
+    sourceType = 'campaign';
+  } else if (advertisedRows.length > 0) {
     adSourceRows = advertisedRows;
     sourceType = 'advertisedProduct';
   } else if (targetingRows.length > 0) {
@@ -278,11 +336,11 @@ export function executeMetricEngine(
   }
 
   // ----- Derived metrics (deterministic formulas) -----
-  const organicSales = Math.max(0, totalStoreSales - totalAdSales);
+  const organicSales = computeOrganicSales(totalStoreSales, totalAdSales, storeForContext, overrides);
 
-  const tacos = safeDivide(totalAdSpend, totalStoreSales);
-  const acos = safeDivide(totalAdSpend, totalAdSales);
-  const roas = safeDivide(totalAdSales, totalAdSpend);
+  const tacos = computeTacos(totalAdSpend, totalStoreSales, overrides);
+  const acos = computeAcos(totalAdSpend, totalAdSales, overrides);
+  const roas = computeRoas(totalAdSpend, totalAdSales, overrides);
   const cvr = safeDivide(totalAdOrders, totalAdClicks);
   const cpc = safeDivide(totalAdSpend, totalAdClicks);
   const ctr = safeDivide(totalAdClicks, totalAdImpressions);

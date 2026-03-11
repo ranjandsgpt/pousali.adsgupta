@@ -6,9 +6,38 @@
 import type { MetricExecutionInput } from './metricExecutionEngine';
 
 export interface OverrideState {
+  /** Enable currency sanitization on all numeric-like fields (default: true). */
   sanitizeCurrency?: boolean;
+
+  /**
+   * Legacy hint from Gemini self-healing for which report to prefer.
+   * New code should use adSourceOverride instead.
+   */
   preferredReport?: string;
+
+  /** Legacy override for which business-report column to treat as Ordered Product Sales. */
   overrideSalesColumn?: string;
+
+  /**
+   * Preferred ad source for global ad totals. When set, overrides the default
+   * advertised_product → targeting → campaign hierarchy in metricExecutionEngine.
+   */
+  adSourceOverride?: 'advertised_product' | 'targeting' | 'campaign';
+
+  /**
+   * Optional per-metric formula variants (e.g. alternative ACOS/ROAS definitions)
+   * chosen by self-healing controller. Keys are metric IDs such as 'ACOS', 'ROAS'.
+   */
+  formulaOverrides?: {
+    [metricId: string]: 'default' | 'alt1' | 'alt2';
+  };
+
+  /**
+   * Strategy for computing organic sales.
+   * - 'residual' (default): totalStoreSales - totalAdSales
+   * - 'asin_join': use ASIN-level split from store.asinMetrics where available.
+   */
+  organicSplitStrategy?: 'residual' | 'asin_join';
 }
 
 /** Strip £ $ € , and any other non-numeric characters for parsing. */
