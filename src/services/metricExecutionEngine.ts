@@ -4,9 +4,9 @@ import type { MemoryStore } from '@/app/audit/utils/reportParser';
 import { sanitizeNumeric } from '@/utils/sanitizeNumeric';
 import { applyOverrides, type OverrideState } from './overrideEngine';
 import {
-  runMetricReconciliationAgent,
-  reconciliationInputFromMetricInput,
-} from './metricReconciliationAgent';
+  runSelfVerificationAgent,
+  selfVerificationInputFromMetricInput,
+} from './selfVerificationAgent';
 
 /**
  * Metric calculations must only occur in metricExecutionEngine.ts.
@@ -111,16 +111,17 @@ export function executeMetricEngine(
   const targetingRows = input_.targetingReport ?? [];
   const searchTermRows = input_.searchTermReport ?? [];
 
-  const reconciliation = runMetricReconciliationAgent(reconciliationInputFromMetricInput(input_));
-  if (reconciliation.issues.length > 0) {
-    reconciliation.issues.forEach((issue) => {
+  const verification = runSelfVerificationAgent(selfVerificationInputFromMetricInput(input_));
+  const reconciliation = verification.reconciliation;
+  if (verification.issues.length > 0) {
+    verification.issues.forEach((issue) => {
       // eslint-disable-next-line no-console
-      console.warn('[Reconciliation]', issue);
+      console.warn('[SelfVerification]', issue);
     });
   }
-  if (reconciliation.status === 'error') {
+  if (verification.status === 'error') {
     // eslint-disable-next-line no-console
-    console.error('[Reconciliation] status: error. Proceeding with metrics but review issues above.');
+    console.error('[SelfVerification] status: error. Proceeding with metrics but review issues above.');
   }
 
   if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {

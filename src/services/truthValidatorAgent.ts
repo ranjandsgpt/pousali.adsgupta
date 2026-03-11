@@ -23,6 +23,8 @@ export interface TruthValidatorOutput {
     targeting: { spend: number; sales: number };
     campaign: { spend: number; sales: number };
   };
+  /** Set when differencePercent > 0.01 */
+  issues: string[];
 }
 
 function getRowSpend(row: any): number {
@@ -67,9 +69,11 @@ export function runTruthValidatorAgent(input: TruthValidatorInput): TruthValidat
     differencePercent = Math.abs(engineTotals.spend - baseline.spend) / baseline.spend;
   }
 
+  const issues: string[] = [];
   let status: TruthValidatorOutput['status'] = 'ok';
   if (differencePercent > 0.01) {
     status = 'warning';
+    issues.push('Engine totals diverge from raw row totals');
   }
 
   return {
@@ -81,6 +85,7 @@ export function runTruthValidatorAgent(input: TruthValidatorInput): TruthValidat
       targeting: targetingTotals,
       campaign: campaignTotals,
     },
+    issues,
   };
 }
 

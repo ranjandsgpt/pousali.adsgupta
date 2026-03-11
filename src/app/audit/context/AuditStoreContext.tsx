@@ -14,11 +14,8 @@ import {
   buildMetricInputFromStore,
 } from '@/services/metricExecutionEngine';
 import type { OverrideState } from '@/services/overrideEngine';
-import {
-  runMetricReconciliationAgent,
-  reconciliationInputFromMetricInput,
-  type ReconciliationOutput,
-} from '@/services/metricReconciliationAgent';
+import { runSelfVerificationAgent, selfVerificationInputFromMetricInput } from '@/services/selfVerificationAgent';
+import type { ReconciliationOutput } from '@/services/metricReconciliationAgent';
 
 export interface LearnedOverride {
   accountId?: string;
@@ -69,18 +66,17 @@ export function AuditStoreProvider({ children }: { children: ReactNode }) {
   const setStore = useCallback((store: MemoryStore, appliedOverrides?: LearnedOverride | null) => {
     const overrides = appliedOverrides?.overrides ?? state.learnedOverrides?.overrides;
     const metricInput = buildMetricInputFromStore(store);
-    const reconciliation = runMetricReconciliationAgent(
-      reconciliationInputFromMetricInput(metricInput)
-    );
-    if (reconciliation.issues.length > 0) {
-      reconciliation.issues.forEach((issue) => {
+    const verification = runSelfVerificationAgent(selfVerificationInputFromMetricInput(metricInput));
+    const reconciliation = verification.reconciliation;
+    if (verification.issues.length > 0) {
+      verification.issues.forEach((issue) => {
         // eslint-disable-next-line no-console
-        console.warn('[Reconciliation]', issue);
+        console.warn('[SelfVerification]', issue);
       });
     }
-    if (reconciliation.status === 'error') {
+    if (verification.status === 'error') {
       // eslint-disable-next-line no-console
-      console.error('[Reconciliation] status: error. Review issues above.');
+      console.error('[SelfVerification] status: error. Review issues above.');
     }
     const canonical = executeMetricEngineForStore(store, overrides);
     setState((prev) => ({
