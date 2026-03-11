@@ -163,6 +163,10 @@ export function executeMetricEngine(
     // eslint-disable-next-line no-console
     console.log('METRIC ENGINE ROW COUNT:', adSourceRows.length);
     debugSchemaTotals(adSourceRows);
+    if (adSourceRows.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log('ENGINE SAMPLE ROW:', adSourceRows[0]);
+    }
   }
 
   let totalAdSpend = 0;
