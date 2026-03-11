@@ -245,6 +245,21 @@ const REPORT_TYPE_LABEL: Record<AdvertisingReportSubtype, string> = {
   unknown: 'Unknown',
 };
 
+/** Debug probe: raw CSV totals before schema mapping. Only when NEXT_PUBLIC_AUDIT_METRICS_DEBUG=true. */
+function debugRawAdvertisedTotals(
+  rowCount: number,
+  rawSpend: number,
+  rawSales: number
+): void {
+  if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG !== 'true') return;
+  // eslint-disable-next-line no-console
+  console.log('DEBUG RAW ADVERTISED ROWS:', rowCount);
+  // eslint-disable-next-line no-console
+  console.log('DEBUG RAW ADVERTISED SPEND:', rawSpend);
+  // eslint-disable-next-line no-console
+  console.log('DEBUG RAW ADVERTISED SALES:', rawSales);
+}
+
 function ensureReportTypeTotals(
   store: MemoryStore,
   subtype: AdvertisingReportSubtype
@@ -272,6 +287,8 @@ function parseAdvertisingFileFromContent(
     let headerMap: HeaderMap | null = null;
     let rowCount = 0;
     const diag = ensureReportTypeTotals(store, subtype);
+    let rawDebugSpend = 0;
+    let rawDebugSales = 0;
 
     Papa.parse(contentFromHeader, {
       header: true,
@@ -300,6 +317,21 @@ function parseAdvertisingFileFromContent(
 
         const key = compositeKey({ date: dateNorm, campaign, adGroup, keyword, asin });
         if (isDuplicate(key, seenRows)) return;
+
+        if (
+          process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true' &&
+          subtype === 'advertised_product' &&
+          headerMap!.sku
+        ) {
+          const rawSpendVal =
+            parseFloat(String(row[headerMap!.spend] ?? row['Spend'] ?? 0).replace(/[^0-9.-]/g, '')) || 0;
+          const rawSalesVal =
+            parseFloat(
+              String(row[headerMap!['sales7d']] ?? row['7 Day Total Sales'] ?? 0).replace(/[^0-9.-]/g, '')
+            ) || 0;
+          rawDebugSpend += rawSpendVal;
+          rawDebugSales += rawSalesVal;
+        }
 
         const spend = getNumeric(row, headerMap!.spend);
         const sales =
@@ -384,6 +416,13 @@ function parseAdvertisingFileFromContent(
       },
       complete: () => {
         store.files.push({ name: fileName, rows: rowCount, type: 'advertising' });
+        if (
+          process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true' &&
+          subtype === 'advertised_product' &&
+          headerMap?.sku
+        ) {
+          debugRawAdvertisedTotals(rowCount, rawDebugSpend, rawDebugSales);
+        }
         if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
           // eslint-disable-next-line no-console
           console.log('[ParserDebug] File:', fileName);

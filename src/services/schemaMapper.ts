@@ -37,3 +37,25 @@ export async function mapHeadersToSchema(headers: string[]): Promise<SchemaMappi
 
 /** Alias for mapHeadersToSchema (user-facing name). */
 export const mapHeaders = mapHeadersToSchema;
+
+/**
+ * Debug probe: totals from rows that have canonical fields (spend, sales7d).
+ * Only run when NEXT_PUBLIC_AUDIT_METRICS_DEBUG === "true".
+ * Call from metric engine with rows after schema mapping.
+ */
+export function debugSchemaTotals(rows: any[]): void {
+  if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG !== 'true') return;
+  let spend = 0;
+  let sales = 0;
+  for (const r of rows) {
+    if (!r || typeof r !== 'object') continue;
+    spend += Number(r.spend) || 0;
+    sales += Number(r.sales7d) || 0;
+  }
+  // eslint-disable-next-line no-console
+  console.log('DEBUG SCHEMA ROWS:', rows.length);
+  // eslint-disable-next-line no-console
+  console.log('DEBUG SCHEMA SPEND:', spend);
+  // eslint-disable-next-line no-console
+  console.log('DEBUG SCHEMA SALES:', sales);
+}

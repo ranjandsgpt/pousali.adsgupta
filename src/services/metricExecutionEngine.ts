@@ -7,6 +7,7 @@ import {
   runSelfVerificationAgent,
   selfVerificationInputFromMetricInput,
 } from './selfVerificationAgent';
+import { debugSchemaTotals } from './schemaMapper';
 
 /**
  * Metric calculations must only occur in metricExecutionEngine.ts.
@@ -137,13 +138,25 @@ export function executeMetricEngine(
 
   // ----- Global ad totals (single source of truth) -----
   let adSourceRows: any[] = [];
+  let sourceType: 'advertisedProduct' | 'targeting' | 'campaign' = 'campaign';
   // Hierarchy: Advertised Product → Targeting → Campaign. Search Term never used for totals.
   if (advertisedRows.length > 0) {
     adSourceRows = advertisedRows;
+    sourceType = 'advertisedProduct';
   } else if (targetingRows.length > 0) {
     adSourceRows = targetingRows;
+    sourceType = 'targeting';
   } else if (campaignRows.length > 0) {
     adSourceRows = campaignRows;
+    sourceType = 'campaign';
+  }
+
+  if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
+    // eslint-disable-next-line no-console
+    console.log('METRIC ENGINE SOURCE TYPE:', sourceType);
+    // eslint-disable-next-line no-console
+    console.log('METRIC ENGINE ROW COUNT:', adSourceRows.length);
+    debugSchemaTotals(adSourceRows);
   }
 
   let totalAdSpend = 0;
@@ -169,11 +182,32 @@ export function executeMetricEngine(
     }
   };
 
+  function debugReportTotals(rows: any[], label: string): void {
+    if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG !== 'true') return;
+    let spend = 0;
+    let sales = 0;
+    for (const r of rows) {
+      if (!r || typeof r !== 'object') continue;
+      spend += sanitizeNumeric(r.spend ?? r.Spend ?? r.Cost);
+      sales += sanitizeNumeric(r.sales7d ?? r['7 Day Total Sales'] ?? r['Attributed Sales'] ?? r.sales ?? r.Sales);
+    }
+    // eslint-disable-next-line no-console
+    console.log(`${label} ROWS:`, rows.length);
+    // eslint-disable-next-line no-console
+    console.log(`${label} SPEND:`, spend);
+    // eslint-disable-next-line no-console
+    console.log(`${label} SALES:`, sales);
+  }
+
   if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
     accumulateDiag(campaignRows, diagCampaign);
     accumulateDiag(advertisedRows, diagAdvertised);
     accumulateDiag(targetingRows, diagTargeting);
     accumulateDiag(searchTermRows, diagSearchTerm);
+    debugReportTotals(advertisedRows, 'Advertised Product report');
+    debugReportTotals(targetingRows, 'Targeting report');
+    debugReportTotals(searchTermRows, 'Search Term report');
+    debugReportTotals(campaignRows, 'Campaign report');
     // eslint-disable-next-line no-console
     console.log('[ReportTotals] AdvertisedProductReport:', { spend: diagAdvertised.spend, sales: diagAdvertised.sales });
     // eslint-disable-next-line no-console
@@ -182,6 +216,20 @@ export function executeMetricEngine(
     console.log('[ReportTotals] CampaignReport:', { spend: diagCampaign.spend, sales: diagCampaign.sales });
     // eslint-disable-next-line no-console
     console.log('[ReportTotals] SearchTermReport:', { spend: diagSearchTerm.spend, sales: diagSearchTerm.sales });
+  }
+
+  let debugSpend = 0;
+  let debugSales = 0;
+  for (const r of adSourceRows) {
+    if (!r || typeof r !== 'object') continue;
+    debugSpend += sanitizeNumeric(r.spend);
+    debugSales += sanitizeNumeric(r.sales7d);
+  }
+  if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
+    // eslint-disable-next-line no-console
+    console.log('ENGINE SPEND:', debugSpend);
+    // eslint-disable-next-line no-console
+    console.log('ENGINE SALES:', debugSales);
   }
 
   for (const row of adSourceRows) {
