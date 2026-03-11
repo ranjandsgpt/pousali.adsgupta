@@ -1,7 +1,53 @@
 /**
  * Self-Healing Pipeline: Map uploaded Amazon report headers to canonical metric fields.
- * Uses Gemini via audit-self-healing API. Locale/variant headers are normalized to a single schema.
+ * Canonical mapping for Amazon reports is hardcoded below; API remains for optional self-healing.
  */
+
+import { sanitizeNumeric } from '@/utils/sanitizeNumeric';
+
+/** Explicit Amazon column → canonical field mapping. No dynamic/fuzzy detection for metrics. */
+export const AMAZON_COLUMN_MAP = {
+  spend: ['Spend', 'Cost'],
+  sales7d: [
+    '7 Day Total Sales',
+    '7-Day Total Sales',
+    '7 Day Advertised Sales',
+    'Sales',
+    'Attributed Sales',
+  ],
+  clicks: ['Clicks'],
+  impressions: ['Impressions'],
+  orders: ['7 Day Total Orders (#)', 'Total Orders', 'Orders'],
+  totalSales: ['Ordered Product Sales'],
+} as const;
+
+export function extractCanonicalValue(row: any, aliases: readonly string[]): number {
+  for (const col of aliases) {
+    if (row[col] !== undefined) {
+      return sanitizeNumeric(row[col]);
+    }
+  }
+  return 0;
+}
+
+/** Return a row with only canonical fields for metric engine consumption. */
+export function canonicalizeRow(row: any): {
+  spend: number;
+  sales7d: number;
+  clicks: number;
+  impressions: number;
+  orders: number;
+  totalSales: number;
+} {
+  return {
+    spend: extractCanonicalValue(row, AMAZON_COLUMN_MAP.spend),
+    sales7d: extractCanonicalValue(row, AMAZON_COLUMN_MAP.sales7d),
+    clicks: extractCanonicalValue(row, AMAZON_COLUMN_MAP.clicks),
+    impressions: extractCanonicalValue(row, AMAZON_COLUMN_MAP.impressions),
+    orders: extractCanonicalValue(row, AMAZON_COLUMN_MAP.orders),
+    totalSales: extractCanonicalValue(row, AMAZON_COLUMN_MAP.totalSales),
+  };
+}
 
 export interface SchemaMapping {
   totalSales?: string;

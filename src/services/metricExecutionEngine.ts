@@ -2,6 +2,7 @@ import { safeDivide } from '@/app/audit/utils/mathEngine';
 import { AMAZON_SALES_ATTRIBUTION_COLUMN } from '@/config/amazonAttribution';
 import type { MemoryStore } from '@/app/audit/utils/reportParser';
 import { sanitizeNumeric } from '@/utils/sanitizeNumeric';
+import { canonicalizeRow } from './schemaMapper';
 import { applyOverrides, type OverrideState } from './overrideEngine';
 import {
   runSelfVerificationAgent,
@@ -84,20 +85,20 @@ function getRowOrders(r: any): number {
   return sanitizeNumeric(raw);
 }
 
-/** Build MetricExecutionInput from MemoryStore (for reconciliation and store-based execution). */
+/** Build MetricExecutionInput from MemoryStore with canonical row (spend, sales7d, etc.). */
 export function buildMetricInputFromStore(store: MemoryStore): MetricExecutionInput {
   const totalStoreSales = (store.totalStoreSales || store.storeMetrics?.totalSales) ?? 0;
   return {
     campaignReport: [
       {
         spend: store.totalAdSpend,
-        [AMAZON_SALES_ATTRIBUTION_COLUMN]: store.totalAdSales,
+        sales7d: store.totalAdSales,
         clicks: store.totalClicks,
         impressions: store.totalImpressions,
         orders: store.totalOrders,
       },
     ],
-    businessReport: [{ 'Ordered Product Sales': totalStoreSales }],
+    businessReport: [{ totalSales: totalStoreSales }],
   };
 }
 
@@ -150,6 +151,11 @@ export function executeMetricEngine(
     adSourceRows = campaignRows;
     sourceType = 'campaign';
   }
+
+  // Canonicalize so aggregation only reads spend, sales7d, clicks, impressions, orders
+  adSourceRows = adSourceRows.map((row: any) =>
+    row && typeof row === 'object' ? canonicalizeRow(row) : row
+  );
 
   if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
     // eslint-disable-next-line no-console
@@ -218,28 +224,20 @@ export function executeMetricEngine(
     console.log('[ReportTotals] SearchTermReport:', { spend: diagSearchTerm.spend, sales: diagSearchTerm.sales });
   }
 
-  let debugSpend = 0;
-  let debugSales = 0;
   for (const r of adSourceRows) {
     if (!r || typeof r !== 'object') continue;
-    debugSpend += sanitizeNumeric(r.spend);
-    debugSales += sanitizeNumeric(r.sales7d);
-  }
-  if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
-    // eslint-disable-next-line no-console
-    console.log('ENGINE SPEND:', debugSpend);
-    // eslint-disable-next-line no-console
-    console.log('ENGINE SALES:', debugSales);
+    totalAdSpend += sanitizeNumeric(r.spend);
+    totalAdSales += sanitizeNumeric(r.sales7d);
+    totalAdClicks += sanitizeNumeric(r.clicks);
+    totalAdImpressions += sanitizeNumeric(r.impressions);
+    totalAdOrders += sanitizeNumeric(r.orders);
   }
 
-  for (const row of adSourceRows) {
-    if (!row || typeof row !== 'object') continue;
-    const r: any = row;
-    totalAdSpend += getRowSpend(r);
-    totalAdSales += getRowSales(r);
-    totalAdClicks += getRowClicks(r);
-    totalAdImpressions += getRowImpressions(r);
-    totalAdOrders += getRowOrders(r);
+  if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
+    // eslint-disable-next-line no-console
+    console.log('ENGINE SPEND:', totalAdSpend);
+    // eslint-disable-next-line no-console
+    console.log('ENGINE SALES:', totalAdSales);
   }
 
   // ----- Global store totals (Business Report preferred) -----
@@ -268,6 +266,11 @@ export function executeMetricEngine(
     // Fallback: 100% ad-dependent scenario
     totalStoreSales = totalAdSales;
     totalStoreOrders = totalAdOrders;
+  }
+
+  if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
+    // eslint-disable-next-line no-console
+    console.log('ENGINE STORE SALES:', totalStoreSales);
   }
 
   // ----- Derived metrics (deterministic formulas) -----

@@ -16,6 +16,7 @@ import {
   type AdvertisingReportSubtype,
 } from './headerMapper';
 import { sanitizeNumeric } from './sanitizeNumeric';
+import { extractCanonicalValue, AMAZON_COLUMN_MAP } from '@/services/schemaMapper';
 import { detectCurrencyFromValues, type DetectedCurrency } from './currencyDetector';
 import { normalizeDate } from './dateNormalizer';
 import { resolveAsin, type SkuToAsinMap } from './skuToAsin';
@@ -333,16 +334,13 @@ function parseAdvertisingFileFromContent(
           rawDebugSales += rawSalesVal;
         }
 
-        const spend = getNumeric(row, headerMap!.spend);
-        const sales =
-          getNumeric(row, headerMap!.sales) ||
-          getNumeric(row, headerMap!['sales14d']) ||
-          getNumeric(row, headerMap!['sales7d']);
-        const sales7d = getNumeric(row, headerMap!['sales7d']);
+        const spend = extractCanonicalValue(row, AMAZON_COLUMN_MAP.spend);
+        const sales7d = extractCanonicalValue(row, AMAZON_COLUMN_MAP.sales7d);
+        const sales = sales7d || getNumeric(row, headerMap!['sales14d']);
         const sales14d = getNumeric(row, headerMap!['sales14d']);
-        const clicks = getNumeric(row, headerMap!.clicks);
-        const impressions = getNumeric(row, headerMap!.impressions);
-        const orders = getNumeric(row, headerMap!.orders) || getNumeric(row, headerMap!.units);
+        const clicks = extractCanonicalValue(row, AMAZON_COLUMN_MAP.clicks);
+        const impressions = extractCanonicalValue(row, AMAZON_COLUMN_MAP.impressions);
+        const orders = extractCanonicalValue(row, AMAZON_COLUMN_MAP.orders) || getNumeric(row, headerMap!.units);
 
         diag.spend += spend;
         diag.sales += sales;
