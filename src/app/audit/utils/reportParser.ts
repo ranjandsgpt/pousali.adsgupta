@@ -505,9 +505,10 @@ export async function parseReportsStreaming(
   const otherAdFiles = adFiles.filter((f) => f.subtype === 'unknown');
 
   let adSourceForTotals: 'campaign' | 'advertised_product' | 'targeting' | 'none' = 'none';
-  if (campaignFiles.length > 0) adSourceForTotals = 'campaign';
-  else if (advertisedProductFiles.length > 0) adSourceForTotals = 'advertised_product';
+  // Match metricExecutionEngine hierarchy: Advertised Product → Targeting → Campaign
+  if (advertisedProductFiles.length > 0) adSourceForTotals = 'advertised_product';
   else if (targetingFiles.length > 0) adSourceForTotals = 'targeting';
+  else if (campaignFiles.length > 0) adSourceForTotals = 'campaign';
 
   const allAdGroups = [
     ...campaignFiles,
