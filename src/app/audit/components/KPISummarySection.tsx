@@ -29,8 +29,8 @@ const METRIC_ORDER: Array<{
   {
     id: 'roas',
     label: 'ROAS',
-    status: (s) => (s.blendedROAS >= 4 ? 'green' : s.blendedROAS >= 2 ? 'orange' : s.blendedROAS > 0 ? 'red' : 'blue'),
-    value: (s) => (s.blendedROAS > 0 ? `${s.blendedROAS.toFixed(2)}×` : '—'),
+    status: (s, d) => (d.roas >= 4 ? 'green' : d.roas >= 2 ? 'orange' : d.roas > 0 ? 'red' : 'blue'),
+    value: (s, d) => (d.roas > 0 ? `${d.roas.toFixed(2)}×` : '—'),
   },
   {
     id: 'acos',
@@ -42,8 +42,8 @@ const METRIC_ORDER: Array<{
   {
     id: 'tacos',
     label: 'TACOS',
-    status: (s) => (s.globalTACOS > 0 ? (s.globalTACOS <= 10 ? 'green' : s.globalTACOS <= 25 ? 'orange' : 'red') : 'blue'),
-    value: (s) => (s.globalTACOS > 0 ? formatPercent(s.globalTACOS) : '—'),
+    status: (s, d) => (d.tacos > 0 ? (d.tacos <= 10 ? 'green' : d.tacos <= 25 ? 'orange' : 'red') : 'blue'),
+    value: (s, d) => (d.tacos > 0 ? formatPercent(d.tacos) : '—'),
   },
   {
     id: 'ctr',
@@ -85,6 +85,8 @@ type DerivedMetrics = {
   totalImpressions: number;
   totalClicks: number;
   acos: number | null;
+  roas: number;
+  tacos: number; // as percentage 0–100
   ctr: number | null;
   cvr: number | null;
   cpc: number | null;
@@ -123,6 +125,8 @@ export default function KPISummarySection() {
       totalImpressions: canonical.totalImpressions || (totalClicks > 0 ? totalClicks * 50 : 0),
       totalClicks,
       acos: canonical.acos * 100,
+      roas: canonical.roas,
+      tacos: canonical.tacos * 100,
       ctr: canonical.ctr > 0 ? canonical.ctr * 100 : null,
       cvr,
       cpc: canonical.cpc > 0 ? canonical.cpc : totalClicks > 0 ? store.totalAdSpend / totalClicks : null,

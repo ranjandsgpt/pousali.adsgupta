@@ -10,6 +10,7 @@ import { exportAuditPdf } from '../utils/exportPdf';
 import { computeHealthScore } from '../utils/healthScoreEngine';
 import { runReportVerification } from '../utils/reportVerification';
 import { validateMetrics } from '../utils/statisticalValidator';
+import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
 
 const DISPLAY_NAMES: Record<string, string> = {
   spend: 'Spend', sales: 'Sales', clicks: 'Clicks', impressions: 'Impressions', orders: 'Orders',
@@ -68,10 +69,12 @@ export default function AuditSummaryBlock({
     const confidenceScore = verification.confidenceScore;
     const wastedSpendEstimate = health.wastedSpendEstimate;
 
+    const overrides = state.learnedOverrides?.overrides;
+    const canonical = executeMetricEngineForStore(store, overrides);
     const totalSales = store.totalStoreSales > 0 ? store.totalStoreSales : store.storeMetrics.totalSales;
-    const acos = store.totalAdSales > 0 ? (store.totalAdSpend / store.totalAdSales) * 100 : null;
-    const roas = state.blendedROAS;
-    const tacos = state.globalTACOS;
+    const acos = canonical.acos * 100;
+    const roas = canonical.roas;
+    const tacos = canonical.tacos * 100;
 
     const totalSessions =
       store.totalSessions > 0
@@ -110,8 +113,8 @@ export default function AuditSummaryBlock({
       { label: 'Total Store Sales', value: totalSales > 0 ? formatCurrency(totalSales, store.currency) : '—', sub: '', status: totalSales > 0 ? 'blue' : 'blue' },
       { label: 'Total Ad Spend', value: store.totalAdSpend > 0 ? formatCurrency(store.totalAdSpend, store.currency) : '—', sub: '', status: 'blue' },
       { label: 'Total Ad Sales', value: store.totalAdSales > 0 ? formatCurrency(store.totalAdSales, store.currency) : '—', sub: '', status: 'blue' },
-      { label: 'ROAS', value: roas > 0 ? `${roas.toFixed(2)}×` : '—', sub: '', status: roas >= 3 ? 'green' : roas >= 1.5 ? 'orange' : 'red' },
-      { label: 'ACOS', value: acos != null ? formatPercent(acos) : '—', sub: '', status: acos != null ? (acos > 60 ? 'red' : acos > 30 ? 'orange' : 'green') : 'blue' },
+      { label: 'ROAS', value: roas > 0 ? `${roas.toFixed(2)}×` : '—', sub: '', status: roas >= 3 ? 'green' : roas >= 1.5 ? 'orange' : roas > 0 ? 'red' : 'blue' },
+      { label: 'ACOS', value: Number.isFinite(acos) ? formatPercent(acos) : '—', sub: '', status: Number.isFinite(acos) ? (acos > 60 ? 'red' : acos > 30 ? 'orange' : 'green') : 'blue' },
       { label: 'TACOS', value: tacos > 0 ? formatPercent(tacos) : '—', sub: '', status: tacos > 0 ? (tacos <= 10 ? 'green' : tacos <= 25 ? 'orange' : 'red') : 'blue' },
       { label: 'Sessions', value: totalSessions > 0 ? totalSessions.toLocaleString() : '—', sub: '', status: totalSessions > 0 ? 'blue' : 'blue' },
       { label: 'Conversion Rate', value: conversionRate != null ? formatPercent(conversionRate) : '—', sub: '', status: conversionRate != null ? (conversionRate >= 10 ? 'green' : conversionRate >= 4 ? 'orange' : 'red') : 'blue' },
@@ -121,7 +124,7 @@ export default function AuditSummaryBlock({
       { label: 'CPC', value: totalClicks > 0 ? formatCurrency(cpc, store.currency) : '—', sub: '', status: 'blue' },
     ];
     return { healthScore, healthLabel, criticalCount, summaryCards: cards, confidenceScore, wastedSpendEstimate, statisticalValidation };
-  }, [store, state.blendedROAS, state.globalTACOS]);
+  }, [store, state.learnedOverrides?.overrides]);
 
   const detectedTags = useMemo(() => {
     const columns = Array.from(store.uniqueColumns).filter((c) => c !== 'other');

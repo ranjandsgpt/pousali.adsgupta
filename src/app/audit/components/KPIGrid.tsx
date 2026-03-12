@@ -3,12 +3,14 @@
 import { useMemo } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
+import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
 
 /** Section 24: Full dashboard replication – 11 KPI cards with value, trend, color. */
 export default function KPIGrid() {
   const { state } = useAuditStore();
   const { store } = state;
   const symbol = store.currency ? formatCurrency(0, store.currency).replace('0.00', '') : '$';
+  const overrides = state.learnedOverrides?.overrides;
 
   const derived = useMemo(() => {
     const totalAdClicks = store.totalClicks > 0 ? store.totalClicks : Object.values(store.keywordMetrics).reduce((s, m) => s + m.clicks, 0);
@@ -35,12 +37,15 @@ export default function KPIGrid() {
         : totalSessions > 0 && totalOrders > 0
           ? (totalOrders / totalSessions) * 100
           : null;
+    const canonical = executeMetricEngineForStore(store, overrides);
     return {
       totalAdClicks,
       totalSessions,
       totalOrders,
       buyBoxPct,
       storeAcos,
+      roas: canonical.roas,
+      tacosPct: canonical.tacos * 100,
       conversionRate,
       aov: totalOrders > 0 ? store.totalStoreSales / totalOrders : null,
       adSalesPercent: m.adSalesPercent,
@@ -48,7 +53,7 @@ export default function KPIGrid() {
       revenueConcentrationTop10: m.revenueConcentrationTop10Asin,
       totalPageViews: store.totalPageViews,
     };
-  }, [store]);
+  }, [store, overrides]);
 
   const trendLabel = '—';
   const trendUp = true;
@@ -160,21 +165,21 @@ export default function KPIGrid() {
     {
       id: 'roas',
       label: 'ROAS',
-      value: state.blendedROAS > 0 ? state.blendedROAS.toFixed(2) + '×' : '—',
+      value: derived.roas > 0 ? derived.roas.toFixed(2) + '×' : '—',
       trend: trendLabel,
       status:
-        state.blendedROAS >= 5 ? 'green' : state.blendedROAS >= 3 ? 'orange' : state.blendedROAS > 0 ? 'red' : 'blue',
+        derived.roas >= 5 ? 'green' : derived.roas >= 3 ? 'orange' : derived.roas > 0 ? 'red' : 'blue',
     },
     {
       id: 'tacos',
       label: 'TACOS',
-      value: state.globalTACOS > 0 ? formatPercent(state.globalTACOS) : '—',
+      value: derived.tacosPct > 0 ? formatPercent(derived.tacosPct) : '—',
       trend: trendLabel,
       status:
-        state.globalTACOS > 0
-          ? state.globalTACOS <= 10
+        derived.tacosPct > 0
+          ? derived.tacosPct <= 10
             ? 'green'
-            : state.globalTACOS <= 20
+            : derived.tacosPct <= 20
               ? 'orange'
               : 'red'
           : 'blue',
