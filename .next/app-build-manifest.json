@@ -1,90 +1,335 @@
 {
   "pages": {
     "/_not-found/page": [
-      "static/chunks/webpack-772f23bef3b5b830.js",
-      "static/chunks/fd9d1056-1f1ffbb2a6633e3c.js",
-      "static/chunks/117-b7048f6896e548e5.js",
-      "static/chunks/main-app-e9eba980322fe8a2.js",
-      "static/chunks/app/_not-found/page-0bef6941c74b3917.js"
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/_not-found/page-a9b7ba28d6159ceb.js"
     ],
     "/layout": [
-      "static/chunks/webpack-772f23bef3b5b830.js",
-      "static/chunks/fd9d1056-1f1ffbb2a6633e3c.js",
-      "static/chunks/117-b7048f6896e548e5.js",
-      "static/chunks/main-app-e9eba980322fe8a2.js",
-      "static/css/1aa6b18237f7a464.css",
-      "static/chunks/521-916c4b4aa2c8b4dc.js",
-      "static/chunks/216-070c529a8d489708.js",
-      "static/chunks/app/layout-ac521b6e29f42c7f.js"
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/css/a3104f808a009ab1.css",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/6780-71b46702591b7db3.js",
+      "static/chunks/app/layout-e796c8a28d81f8de.js"
     ],
-    "/page": [
-      "static/chunks/webpack-772f23bef3b5b830.js",
-      "static/chunks/fd9d1056-1f1ffbb2a6633e3c.js",
-      "static/chunks/117-b7048f6896e548e5.js",
-      "static/chunks/main-app-e9eba980322fe8a2.js",
-      "static/chunks/521-916c4b4aa2c8b4dc.js",
-      "static/chunks/216-070c529a8d489708.js",
-      "static/chunks/65-08bd8a574bf2c62a.js",
-      "static/chunks/app/page-40be368b6bade321.js"
+    "/amazon_audit_faq/diagnostics/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/3803-c4faa3b32fa102b0.js",
+      "static/chunks/app/amazon_audit_faq/diagnostics/page-4609d2062bb3a415.js"
     ],
-    "/insights/page": [
-      "static/chunks/webpack-772f23bef3b5b830.js",
-      "static/chunks/fd9d1056-1f1ffbb2a6633e3c.js",
-      "static/chunks/117-b7048f6896e548e5.js",
-      "static/chunks/main-app-e9eba980322fe8a2.js",
-      "static/chunks/521-916c4b4aa2c8b4dc.js",
-      "static/chunks/216-070c529a8d489708.js",
-      "static/chunks/app/insights/page-7a805bc0e827197c.js"
+    "/case-studies/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/case-studies/page-a6fe9ce5cd66878f.js"
     ],
-    "/contact/page": [
-      "static/chunks/webpack-772f23bef3b5b830.js",
-      "static/chunks/fd9d1056-1f1ffbb2a6633e3c.js",
-      "static/chunks/117-b7048f6896e548e5.js",
-      "static/chunks/main-app-e9eba980322fe8a2.js",
-      "static/chunks/521-916c4b4aa2c8b4dc.js",
-      "static/chunks/216-070c529a8d489708.js",
-      "static/chunks/app/contact/page-0af72b6273afdc65.js"
+    "/case-studies/supplement-category-scaling/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/case-studies/supplement-category-scaling/page-fafe0c77966db502.js"
+    ],
+    "/amazon_audit_faq/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/amazon_audit_faq/page-5102f34efb199724.js"
+    ],
+    "/case-studies/maca-root-launch/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/case-studies/maca-root-launch/page-f908f16bc0167ba8.js"
+    ],
+    "/audit-feedback/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/app/audit-feedback/page-166a3054063e4eda.js"
+    ],
+    "/amazon_audit_faq/[article]/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/3803-c4faa3b32fa102b0.js",
+      "static/chunks/6202-ec9ac6addd6aa93c.js",
+      "static/chunks/app/amazon_audit_faq/[article]/page-12e5dfb0c34a9952.js"
+    ],
+    "/pousali-dasgupta/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/app/pousali-dasgupta/page-4bf90cd5057758af.js"
     ],
     "/work/page": [
-      "static/chunks/webpack-772f23bef3b5b830.js",
-      "static/chunks/fd9d1056-1f1ffbb2a6633e3c.js",
-      "static/chunks/117-b7048f6896e548e5.js",
-      "static/chunks/main-app-e9eba980322fe8a2.js",
-      "static/chunks/521-916c4b4aa2c8b4dc.js",
-      "static/chunks/216-070c529a8d489708.js",
-      "static/chunks/app/work/page-25999159b47d0b5c.js"
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/work/page-a9b5339dc89d048b.js"
+    ],
+    "/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/100-478957b80639c3c5.js",
+      "static/chunks/app/page-5e5d719d1120f3ff.js"
+    ],
+    "/contact/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/contact/page-08ad01a32411c473.js"
+    ],
+    "/acos-optimization/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/acos-optimization/page-ed832ac77694a8e1.js"
+    ],
+    "/acos-optimization/layout": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/acos-optimization/layout-b7e748e39c4a7eee.js"
+    ],
+    "/amazon-advertising-resources/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/amazon-advertising-resources/page-9c3c3db36fee98cc.js"
+    ],
+    "/amazon-advertising-resources/layout": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/amazon-advertising-resources/layout-8614814b995a6a07.js"
+    ],
+    "/amazon-keyword-research/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/amazon-keyword-research/page-3c280c9d2c2e0dc0.js"
+    ],
+    "/amazon-keyword-research/layout": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/amazon-keyword-research/layout-236bdfb540490238.js"
+    ],
+    "/amazon-ppc-strategy/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/amazon-ppc-strategy/page-7caad181202123e0.js"
+    ],
+    "/amazon-ppc-strategy/layout": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/amazon-ppc-strategy/layout-d8d9a9dfb23a7595.js"
+    ],
+    "/amazon-ads-consultant/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/amazon-ads-consultant/page-2abff245086226a2.js"
+    ],
+    "/amazon-ads-consultant/layout": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/amazon-ads-consultant/layout-2a3e8cc0c954b1d3.js"
+    ],
+    "/amazon-ppc-management/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/amazon-ppc-management/page-c704101547c4cf22.js"
+    ],
+    "/amazon-ppc-management/layout": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/amazon-ppc-management/layout-04524222914046ab.js"
     ],
     "/audit/page": [
-      "static/chunks/webpack-772f23bef3b5b830.js",
-      "static/chunks/fd9d1056-1f1ffbb2a6633e3c.js",
-      "static/chunks/117-b7048f6896e548e5.js",
-      "static/chunks/main-app-e9eba980322fe8a2.js",
-      "static/chunks/164f4fb6-819f1ff0b363537b.js",
-      "static/chunks/216-070c529a8d489708.js",
-      "static/chunks/310-ba0644969b4d49b0.js",
-      "static/chunks/app/audit/page-f3ae05b60c254054.js"
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/164f4fb6-928789110dfd410d.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/8813-f4196b6c02d6cd41.js",
+      "static/chunks/app/audit/page-069641356167d0df.js"
     ],
     "/audit/layout": [
-      "static/chunks/webpack-772f23bef3b5b830.js",
-      "static/chunks/fd9d1056-1f1ffbb2a6633e3c.js",
-      "static/chunks/117-b7048f6896e548e5.js",
-      "static/chunks/main-app-e9eba980322fe8a2.js",
-      "static/chunks/app/audit/layout-68591f5797d0948e.js"
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/audit/layout-6fc0febd8d8365b4.js"
     ],
     "/about/page": [
-      "static/chunks/webpack-772f23bef3b5b830.js",
-      "static/chunks/fd9d1056-1f1ffbb2a6633e3c.js",
-      "static/chunks/117-b7048f6896e548e5.js",
-      "static/chunks/main-app-e9eba980322fe8a2.js",
-      "static/chunks/521-916c4b4aa2c8b4dc.js",
-      "static/chunks/app/about/page-b0629bb6e78ea329.js"
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/about/page-4bb854fd5d53cc75.js"
     ],
     "/about/layout": [
-      "static/chunks/webpack-772f23bef3b5b830.js",
-      "static/chunks/fd9d1056-1f1ffbb2a6633e3c.js",
-      "static/chunks/117-b7048f6896e548e5.js",
-      "static/chunks/main-app-e9eba980322fe8a2.js",
-      "static/chunks/app/about/layout-d690852bd9f60235.js"
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/about/layout-18647d7430b08d3c.js"
+    ],
+    "/case-studies/omega-3-growth/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/case-studies/omega-3-growth/page-2662b5abd3eaa35a.js"
+    ],
+    "/tools/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/tools/page-f2bede1ad550d20d.js"
+    ],
+    "/tools/layout": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/tools/layout-be5c0127f0c1b806.js"
+    ],
+    "/insights/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/insights/page-c0906f7a4e9fd7be.js"
+    ],
+    "/insights/layout": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/insights/layout-d9b753116aab5b07.js"
+    ],
+    "/reduce-amazon-acos/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/reduce-amazon-acos/page-5558e7938e3e5c9f.js"
+    ],
+    "/reduce-amazon-acos/layout": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/reduce-amazon-acos/layout-baaaaa8043b66d53.js"
+    ],
+    "/services/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/services/page-2e6df54a1ef610ad.js"
+    ],
+    "/services/layout": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/services/layout-d0e6e096845151b2.js"
+    ],
+    "/amazon-ppc-audit/page": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/2972-77f6c80b30230967.js",
+      "static/chunks/521-a029e3915338a198.js",
+      "static/chunks/app/amazon-ppc-audit/page-e2a220f851b35dc2.js"
+    ],
+    "/amazon-ppc-audit/layout": [
+      "static/chunks/webpack-40e72b620114ef6d.js",
+      "static/chunks/fd9d1056-4834a10a2370b93b.js",
+      "static/chunks/2117-ae742e45546437aa.js",
+      "static/chunks/main-app-700598b40b0585e1.js",
+      "static/chunks/app/amazon-ppc-audit/layout-fbc4632ef3d5d1d8.js"
     ]
   }
 }
