@@ -105,23 +105,12 @@ export default function KPISummarySection() {
         : store.totalClicks > 0
           ? store.totalClicks
           : Object.values(store.keywordMetrics).reduce((s, m) => s + m.clicks, 0);
-    const totalSessions =
-      store.totalSessions > 0
-        ? store.totalSessions
-        : Object.values(store.asinMetrics).reduce((s, m) => s + m.sessions, 0);
-    const cvr =
-      store.storeMetrics.conversionRate > 0
-        ? store.storeMetrics.conversionRate
-        : totalClicks > 0 && store.totalOrders > 0
-          ? (store.totalOrders / totalClicks) * 100
-          : totalSessions > 0 && store.totalOrders > 0
-            ? (store.totalOrders / totalSessions) * 100
-            : null;
+    const cvr = canonical.cvr > 0 ? canonical.cvr * 100 : null;
 
     const derived: DerivedMetrics = {
       totalAdSpend: canonical.totalAdSpend,
       totalAdSales: canonical.totalAdSales,
-      totalOrders: canonical.totalOrders ?? store.totalOrders ?? 0,
+      totalOrders: canonical.totalAdOrders ?? store.totalOrders ?? 0,
       totalImpressions: canonical.totalImpressions || (totalClicks > 0 ? totalClicks * 50 : 0),
       totalClicks,
       acos: canonical.acos * 100,

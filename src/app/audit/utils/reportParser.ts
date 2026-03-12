@@ -190,8 +190,6 @@ function parseBusinessFileFromContent(
 
         const sales = getNumeric(row, headerMap!.orderedProductSales) || getNumeric(row, headerMap!.sales);
         store.totalStoreSales += sales;
-        const orders = getNumeric(row, headerMap!.orders) || getNumeric(row, headerMap!.units);
-        if (orders > 0) store.totalOrders += orders;
 
         store.totalSessions += getNumeric(row, headerMap!.sessions);
         store.totalPageViews += getNumeric(row, headerMap!.pageViews);

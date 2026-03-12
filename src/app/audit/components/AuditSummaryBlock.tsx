@@ -80,7 +80,7 @@ export default function AuditSummaryBlock({
       store.totalSessions > 0
         ? store.totalSessions
         : Object.values(store.asinMetrics).reduce((s, m) => s + m.sessions, 0);
-    const totalOrders = store.totalOrders ?? 0;
+    const totalOrders = canonical.totalAdOrders ?? store.totalOrders ?? 0;
     const buyBoxFromStore = store.buyBoxPercent;
     const buyBoxValues = Object.values(store.asinMetrics)
       .map((m) => m.buyBoxPercent)
@@ -91,12 +91,7 @@ export default function AuditSummaryBlock({
         : buyBoxValues.length > 0
           ? buyBoxValues.reduce((a, b) => a + b, 0) / buyBoxValues.length
           : null;
-    const conversionRate =
-      store.storeMetrics.conversionRate != null && store.storeMetrics.conversionRate > 0
-        ? store.storeMetrics.conversionRate
-        : totalSessions > 0 && totalOrders > 0
-          ? (totalOrders / totalSessions) * 100
-          : null;
+    const conversionRate = canonical.cvr > 0 ? canonical.cvr * 100 : null;
     const totalClicks = store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
     const cpc = totalClicks > 0 ? store.totalAdSpend / totalClicks : 0;
     const cvrPct = totalClicks > 0 && totalOrders > 0 ? (totalOrders / totalClicks) * 100 : undefined;

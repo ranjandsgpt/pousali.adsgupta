@@ -364,6 +364,31 @@ export function executeMetricEngine(
 
   if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
     // eslint-disable-next-line no-console
+    console.log('[AGGREGATION COMPLETE]', {
+      totalAdSpend,
+      totalAdSales,
+      totalAdOrders,
+      totalAdClicks,
+      totalAdImpressions,
+      totalStoreSales,
+      totalSessions: storeForContext?.totalSessions ?? 0,
+      totalUnitsOrdered: storeForContext?.totalUnitsOrdered ?? 0,
+      totalStoreOrders,
+      organicSales,
+      acos,
+      tacos,
+      roas,
+      adCvr: cvr,
+      sessionCvr:
+        storeForContext && storeForContext.totalSessions > 0
+          ? safeDivide(storeForContext.totalUnitsOrdered, storeForContext.totalSessions)
+          : 0,
+      cpc,
+    });
+  }
+
+  if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
+    // eslint-disable-next-line no-console
     console.table({
       totalAdSpend,
       totalAdSales,
@@ -424,6 +449,6 @@ export function executeMetricEngineForStore(
   }
 
   const input = buildMetricInputFromStore(store);
-  return executeMetricEngine(input, overrides);
+  return executeMetricEngine(input, overrides, store);
 }
 
