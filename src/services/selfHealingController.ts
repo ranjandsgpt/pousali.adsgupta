@@ -59,14 +59,12 @@ export function runSelfHealingController(ctx: SelfHealingContext): SelfHealingRe
 
     const adv = rt?.advertised_product;
     const camp = rt?.campaign;
-    const targ = rt?.targeting;
 
     const diff = (x?: { sales: number }) =>
       x ? Math.abs((x.sales ?? 0) - totalStoreSales) : Number.POSITIVE_INFINITY;
 
-    const cand: Array<{ src: 'advertised_product' | 'campaign' | 'targeting'; d: number }> = [];
+    const cand: Array<{ src: 'advertised_product' | 'campaign'; d: number }> = [];
     if (adv) cand.push({ src: 'advertised_product', d: diff(adv) });
-    if (targ) cand.push({ src: 'targeting', d: diff(targ) });
     if (camp) cand.push({ src: 'campaign', d: diff(camp) });
 
     if (cand.length > 0) {

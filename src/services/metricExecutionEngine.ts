@@ -185,26 +185,13 @@ export function executeMetricEngine(
   }
 
   // ----- Global ad totals (single source of truth) -----
+  // Account-level ad totals MUST come from SP Advertised Product Report.
+  // Targeting and Search Term reports are analysis-only and never used for totals.
   let adSourceRows: any[] = [];
   let sourceType: 'advertisedProduct' | 'targeting' | 'campaign' = 'campaign';
-  // Hierarchy: Advertised Product → Targeting → Campaign. Search Term never used for totals.
-  // Allow OverrideState to override the default source choice when self-healing decides it is safer.
-  const preferred = overrides?.adSourceOverride;
-  if (preferred === 'advertised_product' && advertisedRows.length > 0) {
+  if (advertisedRows.length > 0) {
     adSourceRows = advertisedRows;
     sourceType = 'advertisedProduct';
-  } else if (preferred === 'targeting' && targetingRows.length > 0) {
-    adSourceRows = targetingRows;
-    sourceType = 'targeting';
-  } else if (preferred === 'campaign' && campaignRows.length > 0) {
-    adSourceRows = campaignRows;
-    sourceType = 'campaign';
-  } else if (advertisedRows.length > 0) {
-    adSourceRows = advertisedRows;
-    sourceType = 'advertisedProduct';
-  } else if (targetingRows.length > 0) {
-    adSourceRows = targetingRows;
-    sourceType = 'targeting';
   } else if (campaignRows.length > 0) {
     adSourceRows = campaignRows;
     sourceType = 'campaign';
@@ -344,6 +331,36 @@ export function executeMetricEngine(
   const cvr = safeDivide(totalAdOrders, totalAdClicks);
   const cpc = safeDivide(totalAdSpend, totalAdClicks);
   const ctr = safeDivide(totalAdClicks, totalAdImpressions);
+
+  // Structural validation checks (ratio-based, no hardcoded thresholds).
+  if (totalAdSales > totalStoreSales && totalStoreSales > 0) {
+    // eslint-disable-next-line no-console
+    console.error('[VALIDATION FAIL] adSales > totalSales — check report source or dedup bug', {
+      totalAdSales,
+      totalStoreSales,
+    });
+  }
+
+  if (organicSales < 0) {
+    // eslint-disable-next-line no-console
+    console.error('[VALIDATION FAIL] organicSales is negative — adSales is overcounted', {
+      totalAdSales,
+      totalStoreSales,
+      organicSales,
+    });
+  }
+
+  if (totalStoreSales > 0) {
+    const reconstructed = totalAdSales + organicSales;
+    const drift = Math.abs(reconstructed - totalStoreSales) / totalStoreSales;
+    if (drift > 0.001) {
+      // eslint-disable-next-line no-console
+      console.error(
+        '[VALIDATION FAIL] adSales + organicSales !== totalSales',
+        { totalAdSales, organicSales, totalStoreSales, drift }
+      );
+    }
+  }
 
   if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
     // eslint-disable-next-line no-console

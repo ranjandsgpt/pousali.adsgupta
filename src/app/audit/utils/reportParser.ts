@@ -316,8 +316,12 @@ function parseAdvertisingFileFromContent(
         const keyword = getStr(row, headerMap!.searchTerm);
         const asin = resolveAsin(row, headerMap!.asin, headerMap!.sku, skuToAsinMap);
 
-        const key = compositeKey({ date: dateNorm, campaign, adGroup, keyword, asin });
-        if (isDuplicate(key, seenRows)) return;
+        // IMPORTANT: Never deduplicate SP Advertised Product Report rows.
+        // Deduplication by composite key is only allowed for non-advertised_product subtypes.
+        if (subtype !== 'advertised_product') {
+          const key = compositeKey({ date: dateNorm, campaign, adGroup, keyword, asin });
+          if (isDuplicate(key, seenRows)) return;
+        }
 
         if (
           process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true' &&
@@ -505,10 +509,9 @@ export async function parseReportsStreaming(
   const otherAdFiles = adFiles.filter((f) => f.subtype === 'unknown');
 
   let adSourceForTotals: 'campaign' | 'advertised_product' | 'targeting' | 'none' = 'none';
-  // Match metricExecutionEngine hierarchy: Advertised Product → Targeting → Campaign
+  // Account-level ad totals MUST come from SP Advertised Product Report only.
+  // Targeting and Search Term reports are analysis-only and never contribute to totals.
   if (advertisedProductFiles.length > 0) adSourceForTotals = 'advertised_product';
-  else if (targetingFiles.length > 0) adSourceForTotals = 'targeting';
-  else if (campaignFiles.length > 0) adSourceForTotals = 'campaign';
 
   const allAdGroups = [
     ...campaignFiles,
@@ -549,8 +552,8 @@ export async function parseReportsStreaming(
       );
     } else if (hasSpend) {
       const subtype = classifyAdvertisingReportSubtype(headerMap);
-      const contributeToTotals =
-        subtype === 'campaign' || subtype === 'advertised_product' || subtype === 'targeting';
+      // Only SP Advertised Product Report contributes to account-level ad totals.
+      const contributeToTotals = subtype === 'advertised_product';
       await parseAdvertisingFileFromContent(
         contentFromHeader,
         file.name,
