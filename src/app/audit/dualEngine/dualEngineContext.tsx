@@ -29,6 +29,7 @@ import type {
 import { runMultiAgentPipeline } from '../agents/multiAgentPipeline';
 import { buildBlackboardRunVerification } from '../blackboard';
 import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
+import { runPipelineGuards, PipelineAbortError } from '../agents/pipelineGuards';
 
 /** Merge recovered fields into store for display (e.g. sessions, buyBox from Gemini when SLM missed). */
 export function mergeRecoveredIntoStore(store: MemoryStore, recovered: RecoveredFields): MemoryStore {
@@ -246,6 +247,28 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       setError(null);
       setGeminiVerificationPending(false);
+
+      try {
+        const warnings = runPipelineGuards(store);
+        if (warnings.length > 0) {
+          // eslint-disable-next-line no-console
+          console.warn('[PipelineWarnings]', warnings);
+        }
+      } catch (e) {
+        if (e instanceof PipelineAbortError) {
+          // eslint-disable-next-line no-console
+          console.error('[PipelineAbort]', e);
+          setLoading(false);
+          setError(e.message);
+          const aborted: DualEngineResult = {
+            ...EMPTY_RESULT,
+            ready: false,
+          };
+          setResult(aborted);
+          return aborted;
+        }
+        throw e;
+      }
 
       const slmArtifacts = buildSlmArtifacts(store);
       const datasetSummary = buildDatasetSummary(store);
