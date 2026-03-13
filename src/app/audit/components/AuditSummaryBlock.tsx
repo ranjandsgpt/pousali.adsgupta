@@ -195,11 +195,23 @@ export default function AuditSummaryBlock({
     auditNotes.push(dualEngine.error);
   }
 
+  const failedInvariants = (store.invariantResults ?? []).filter((r) => !r.passed && r.severity === 'error');
+
   return (
     <section
       aria-label="Audit summary and detected metrics"
       className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 sm:p-4 space-y-3"
     >
+      {failedInvariants.length > 0 && (
+        <div
+          role="alert"
+          className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
+        >
+          <span className="font-medium">⚠️ Data integrity issue detected</span>
+          {' — '}
+          {failedInvariants.map((r) => r.name).join(', ')}: results may be inaccurate. {failedInvariants[0]?.description}
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 className="text-lg sm:text-xl font-bold text-[var(--color-text)]">
           Amazon Advertising Performance Audit

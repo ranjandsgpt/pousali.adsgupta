@@ -33,6 +33,7 @@ import {
   type CampaignMetrics,
 } from './aggregation';
 import { aggregateReports, type AggregatedMetrics } from '@/lib/aggregateReports';
+import { runInvariants, type InvariantResult } from '@/lib/invariants';
 
 export type ReportType = 'business' | 'advertising' | 'unknown';
 
@@ -80,6 +81,8 @@ export interface MemoryStore {
   rawBusinessRows: Record<string, string>[];
   /** Result of aggregateReports(); used by all metric tiles and agents. */
   aggregatedMetrics?: AggregatedMetrics;
+  /** Result of runInvariants(); failed errors surface in UI banner. */
+  invariantResults?: InvariantResult[];
 }
 
 function createEmptyStore(): MemoryStore {
@@ -619,6 +622,16 @@ export async function parseReportsStreaming(
   store.buyBoxPercent = result.buyBoxPct ?? 0;
   store.attributedSales7d = result.adSales;
   store.attributedUnitsOrdered = result.adOrders;
+
+  const invariantResults = runInvariants(result);
+  store.invariantResults = invariantResults;
+  const failedErrors = invariantResults.filter((r) => !r.passed && r.severity === 'error');
+  if (failedErrors.length > 0) {
+    failedErrors.forEach((r) => {
+      // eslint-disable-next-line no-console
+      console.error('[INVARIANT FAIL]', r.name, r.description, { passed: r.passed });
+    });
+  }
 
   if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
     // eslint-disable-next-line no-console
