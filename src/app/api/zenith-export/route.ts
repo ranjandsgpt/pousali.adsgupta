@@ -589,7 +589,7 @@ export async function POST(request: NextRequest) {
     const footerText = premiumState.dataTrustReport != null
       ? `Generated ${premiumState.generatedAt} | ${premiumState.modelVerificationStatus ?? 'Zenith'} | Audit Confidence: ${Math.round(premiumState.dataTrustReport.trustScore * 100)}%${judge.status === 'PASSED' ? ' | Verified' : ''}`
       : `Generated ${premiumState.generatedAt} | ${premiumState.modelVerificationStatus ?? 'Zenith'}${judge.status === 'PASSED' ? ' | Verified' : ' | Visual layout simplified due to data density.'}`;
-    pres.addSlide().addText(footerText, { x: 0.5, y: 5.2, w: 9, h: 0.4, fontSize: 8, color: THEME.accent });
+    pres.addSlide().addText(footerText, { x: 0.5, y: 5.2, w: 9, h: 0.4, fontSize: 8, color: THEME.text });
 
     const buffer = await pres.write({ outputType: 'nodebuffer' });
     const buf = buffer instanceof Buffer ? buffer : Buffer.from(buffer as ArrayBuffer);
