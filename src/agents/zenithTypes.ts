@@ -200,4 +200,13 @@ export interface PremiumState {
   impactScoredInsights?: ImpactScoredInsight[];
   /** Phase 23 — Cause → effect graph for narratives. */
   insightGraph?: InsightGraphNode[];
+  /** Phase 1 Prompt 2 — Conflicts between SLM and Gemini model outputs. */
+  modelConflicts?: Array<{
+    metric: string;
+    slmValue: number;
+    geminiValue: number;
+    deviationPercent: number;
+    winner: 'SLM' | 'Gemini';
+    timestamp: string;
+  }>;
 }

@@ -20,6 +20,7 @@ export interface GeminiData {
   insights: Array<{ title: string; description: string; recommendedAction?: string; verificationScore?: number; sourceEngine?: 'slm' | 'gemini' }>;
   riskSignals?: string[];
   recommendations?: string[];
+  metrics?: { label: string; numericValue?: number }[];
 }
 
 /**
@@ -42,6 +43,45 @@ export function syncModels(store: MemoryStore, slm: SlmData, gemini: GeminiData)
     }
   }
 
+  const conflicts: PremiumState['modelConflicts'] = [];
+  if (gemini.metrics && gemini.metrics.length > 0) {
+    const now = new Date().toISOString();
+    for (const gm of gemini.metrics) {
+      if (typeof gm.numericValue !== 'number' || !Number.isFinite(gm.numericValue)) continue;
+      const label = gm.label;
+      // SLM-first priority: find SLM metric with same label
+      const slmMetric = slm.charts
+        .flatMap((c) => c.dataset)
+        .find((row) => (row as { label?: string }).label === label || (row as { name?: string }).name === label) as
+        | { value?: number }
+        | undefined;
+      const slmValue = slmMetric && typeof slmMetric.value === 'number' ? slmMetric.value : undefined;
+      if (slmValue == null) continue;
+      const slmNum = slmValue;
+      const gemNum = gm.numericValue;
+      if (slmNum === 0) continue;
+      const deviationPercent = Math.abs((slmNum - gemNum) / slmNum * 100);
+      if (deviationPercent > 1) {
+        conflicts.push({
+          metric: label,
+          slmValue: slmNum,
+          geminiValue: gemNum,
+          deviationPercent,
+          winner: 'SLM',
+          timestamp: now,
+        });
+        // eslint-disable-next-line no-console
+        console.warn('[ModelSyncController] Metric conflict', {
+          metric: label,
+          slmValue: slmNum,
+          geminiValue: gemNum,
+          deviationPercent,
+          winner: 'SLM',
+        });
+      }
+    }
+  }
+
   const input: ZenithOrchestratorInput = {
     store,
     executiveNarrative: gemini.executiveNarrative,
@@ -50,7 +90,11 @@ export function syncModels(store: MemoryStore, slm: SlmData, gemini: GeminiData)
     tables,
   };
 
-  return runZenithExportOrchestrator(input);
+  const premium = runZenithExportOrchestrator(input);
+  if (conflicts.length > 0) {
+    premium.modelConflicts = conflicts;
+  }
+  return premium;
 }
 
 // Re-export for consumers that only need sync_models name
