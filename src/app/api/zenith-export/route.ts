@@ -12,6 +12,9 @@ import type { PremiumState, VerifiedMetric, VerifiedInsight } from '@/agents/zen
 import { setExportStatus } from '@/services/exportStatusStore';
 import { writeCache } from '@/services/exportCache';
 import { checkExportConsistency } from '@/services/exportConsistencyGuard';
+import { verifyPptxOutput } from '@/agents/ExportVerificationAgent';
+import { generateSlideContent, type SlideManifest } from '@/agents/ClaudeSlideDataAgent';
+import type { AggregatedMetrics } from '@/lib/aggregateReports';
 
 const THEME = {
   navy: '1A3FAA',
@@ -216,6 +219,88 @@ export async function POST(request: NextRequest) {
       opacity: 0.08,
     } as const;
 
+    let slideManifest: SlideManifest | null = null;
+    let metricsForEngine: AggregatedMetrics | null = null;
+    try {
+      const metricMap = new Map<string, number>();
+      exportedMetrics.forEach((m) => {
+        if (typeof m.value === 'number') {
+          metricMap.set(m.label, m.value);
+        }
+      });
+      const currencyForEngine = premiumState.currency ?? '£';
+      const aggLike: AggregatedMetrics = {
+        adSpend: metricMap.get('Ad Spend') ?? 0,
+        adSales: metricMap.get('Ad Sales') ?? 0,
+        totalStoreSales: metricMap.get('Store Sales') ?? 0,
+        adClicks: metricMap.get('Clicks') ?? 0,
+        adImpressions: 0,
+        adOrders: metricMap.get('Orders') ?? 0,
+        storeOrders: metricMap.get('Orders') ?? 0,
+        sessions: metricMap.get('Sessions') ?? 0,
+        unitsOrdered: 0,
+        buyBoxPct: null,
+        organicSales: 0,
+        acos: (() => {
+          const v = premiumState.verifiedMetrics.find((m) => m.label === 'ACOS')?.value;
+          if (typeof v === 'string') {
+            const n = parseFloat(v.replace(/[^0-9.\-]/g, ''));
+            return Number.isNaN(n) ? null : n / 100;
+          }
+          return null;
+        })(),
+        tacos: (() => {
+          const v = premiumState.verifiedMetrics.find((m) => m.label === 'TACOS')?.value;
+          if (typeof v === 'string') {
+            const n = parseFloat(v.replace(/[^0-9.\-]/g, ''));
+            return Number.isNaN(n) ? null : n / 100;
+          }
+          return null;
+        })(),
+        roas: (() => {
+          const v = premiumState.verifiedMetrics.find((m) => m.label === 'ROAS')?.value;
+          if (typeof v === 'number') return v;
+          if (typeof v === 'string') {
+            const n = parseFloat(v.replace(/[^0-9.\-]/g, ''));
+            return Number.isNaN(n) ? null : n;
+          }
+          return null;
+        })(),
+        cpc: null,
+        ctr: null,
+        adCvr: null,
+        sessionCvr: null,
+        currency: currencyForEngine,
+        rowCounts: { spAdvertised: 0, spTargeting: 0, spSearchTerm: 0, business: 0 },
+        _ingestionLog: [],
+      };
+      metricsForEngine = aggLike;
+      const campaigns = premiumState.campaignAnalysis.map((c) => ({
+        name: c.campaignName,
+        spend: c.spend,
+        sales: c.sales,
+        acos: c.acos,
+      }));
+      const wasteTerms = premiumState.wasteAnalysis.map((w) => ({
+        searchTerm: w.searchTerm,
+        spend: w.spend,
+      }));
+      const opportunities = premiumState.recommendations.slice(0, 3).map((title) => ({
+        title,
+        estimatedImpact: 0,
+      }));
+      slideManifest = await generateSlideContent(aggLike, campaigns, wasteTerms, opportunities);
+      // eslint-disable-next-line no-console
+      console.log('[Zenith PPTX]', {
+        model: slideManifest._engineMeta?.modelUsed,
+        fallback: slideManifest._engineMeta?.fallbackUsed,
+        confidence: slideManifest._engineMeta?.confidence,
+        warnings: slideManifest._engineMeta?.warnings,
+      });
+    } catch {
+      slideManifest = null;
+    }
+
     // Slide 1 — Cover
     {
       const slide = pres.addSlide();
@@ -227,7 +312,10 @@ export async function POST(request: NextRequest) {
         h: pres.presLayout.height ?? 5.63,
         fill: { color: THEME.navy },
       });
-      slide.addText('Amazon Advertising Performance Audit', {
+      slide.addText(
+        (slideManifest?.executiveSummary?.headline ||
+          'Amazon Advertising Performance Audit').slice(0, 80),
+        {
         x: 0.6,
         y: 1.2,
         w: 4,
@@ -324,7 +412,11 @@ export async function POST(request: NextRequest) {
       slide.background = { color: 'FFFFFF' };
       addHeader(slide, 'Executive Summary');
       const narrative = premiumState.executiveNarrative || '';
-      const text = narrative || 'Executive verdict will appear here once analysis is complete.';
+      const engineVerdict = slideManifest?.executiveSummary?.verdict;
+      const text =
+        (engineVerdict && engineVerdict.trim().length > 0
+          ? engineVerdict
+          : narrative || 'Executive verdict will appear here once analysis is complete.');
       slide.addText(text.slice(0, 400), {
         x: 0.8,
         y: 0.9,
@@ -512,20 +604,40 @@ export async function POST(request: NextRequest) {
     };
 
     // Slide 4 — Campaign Performance (simple list placeholder for bar/pie)
-    addSimpleSlide(
-      'Campaign Performance',
-      premiumState.campaignAnalysis.slice(0, 8).map(
-        (c) => `${c.campaignName.slice(0, 40)} — ACOS ${c.acos.toFixed(1)}%, Spend ${currency}${c.spend.toFixed(0)}`
-      )
-    );
+    {
+      const baseLines = premiumState.campaignAnalysis.slice(0, 8).map(
+        (c) =>
+          `${c.campaignName.slice(0, 40)} — ACOS ${c.acos.toFixed(
+            1
+          )}%, Spend ${currency}${c.spend.toFixed(0)}`
+      );
+      const campaignInsight = slideManifest?.slides.find(
+        (s) => s.id === 'campaign_intelligence'
+      )?.insight;
+      const lines =
+        campaignInsight && campaignInsight.trim().length > 0
+          ? [campaignInsight.slice(0, 180), ...baseLines]
+          : baseLines;
+      addSimpleSlide('Campaign Performance', lines);
+    }
 
     // Slide 5 — Waste & Opportunity
-    addSimpleSlide(
-      'Waste & Opportunity',
-      premiumState.wasteAnalysis.slice(0, 5).map(
-        (w) => `${w.searchTerm.slice(0, 40)} — Spend ${currency}${w.spend.toFixed(0)}, Clicks ${w.clicks}`
-      )
-    );
+    {
+      const baseLines = premiumState.wasteAnalysis.slice(0, 5).map(
+        (w) =>
+          `${w.searchTerm.slice(0, 40)} — Spend ${currency}${w.spend.toFixed(
+            0
+          )}, Clicks ${w.clicks}`
+      );
+      const wasteInsight = slideManifest?.slides.find(
+        (s) => s.id === 'waste_analysis'
+      )?.insight;
+      const lines =
+        wasteInsight && wasteInsight.trim().length > 0
+          ? [wasteInsight.slice(0, 180), ...baseLines]
+          : baseLines;
+      addSimpleSlide('Waste & Opportunity', lines);
+    }
 
     // Slide 6 — ASIN Intelligence
     addSimpleSlide(
@@ -544,10 +656,24 @@ export async function POST(request: NextRequest) {
     );
 
     // Slide 8 — 3 Priority Actions
-    addSimpleSlide(
-      '3 Priority Actions',
-      premiumState.recommendations.slice(0, 3).map((r, idx) => `${idx + 1}. ${r}`)
-    );
+    {
+      const actions =
+        slideManifest?.slides.find((s) => s.id === 'priority_actions')?.actions;
+      let lines: string[];
+      if (actions && actions.length > 0) {
+        lines = actions.slice(0, 3).map((a) => {
+          const main = `${a.number}. ${a.title}`;
+          const detail = `${a.detail}`;
+          const meta = `${a.impact} • Effort: ${a.effort} • ${a.timeframe}`;
+          return `${main} — ${detail} (${meta})`.slice(0, 180);
+        });
+      } else {
+        lines = premiumState.recommendations
+          .slice(0, 3)
+          .map((r, idx) => `${idx + 1}. ${r}`);
+      }
+      addSimpleSlide('3 Priority Actions', lines);
+    }
 
     // Slide 9 — Health Score Detail
     addSimpleSlide(
@@ -594,13 +720,37 @@ export async function POST(request: NextRequest) {
     const buffer = await pres.write({ outputType: 'nodebuffer' });
     const buf = buffer instanceof Buffer ? buffer : Buffer.from(buffer as ArrayBuffer);
     console.log('[Zenith export] Slides composed, buffer length:', buf.length);
+
+    if (metricsForEngine) {
+      const verification = verifyPptxOutput(buf, metricsForEngine, 10);
+      if (!verification.passed) {
+        // eslint-disable-next-line no-console
+        console.warn('[Zenith export] PPTX verification warnings', verification.warnings);
+      }
+      setExportStatus('ready', 'Export ready');
+      await writeCache(auditId, buf, null);
+      console.log('[Zenith export] Export ready, returning PPTX');
+      const res = new Response(new Uint8Array(buf), {
+        status: 200,
+        headers: {
+          'Content-Type':
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'Content-Disposition': 'attachment; filename="audit-report.pptx"',
+        },
+      });
+      res.headers.set('X-Export-Verified', verification.passed ? 'true' : 'false');
+      res.headers.set('X-Export-Warnings', JSON.stringify(verification.warnings));
+      return res;
+    }
+
     setExportStatus('ready', 'Export ready');
     await writeCache(auditId, buf, null);
     console.log('[Zenith export] Export ready, returning PPTX');
     return new Response(new Uint8Array(buf), {
       status: 200,
       headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'Content-Type':
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'Content-Disposition': 'attachment; filename="audit-report.pptx"',
       },
     });

@@ -181,9 +181,21 @@ export function ExportProvider({ children }: { children: ReactNode }) {
         throw new Error((err as { error?: string }).error || 'PPTX export failed');
       }
       const blob = await res.blob();
+      const verified = res.headers.get('X-Export-Verified');
+      const warningsHeader = res.headers.get('X-Export-Warnings');
+      if (verified === 'false') {
+        console.warn(
+          '[Export] PPTX verification warnings',
+          warningsHeader ? JSON.parse(warningsHeader) : []
+        );
+        setExportStatusMessage(
+          'Export complete — some metrics may be incomplete. Check your uploaded reports.'
+        );
+      } else {
+        setExportStatusMessage('Export ready');
+      }
       triggerDownload(blob, 'audit-report.pptx');
       setExportStatusState('ready');
-      setExportStatusMessage('Export ready');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'PPTX export failed';
       console.error('Zenith export', e);

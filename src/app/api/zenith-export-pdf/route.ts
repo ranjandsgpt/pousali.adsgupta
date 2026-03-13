@@ -14,6 +14,8 @@ import { writeCache, getCacheDir } from '@/services/exportCache';
 import { renderPremiumAssets } from '@/services/renderPremiumAssets';
 import { checkExportConsistency } from '@/services/exportConsistencyGuard';
 import { renderNodePdf } from '@/services/renderNodePdf';
+import { generatePdfNarrative } from '@/agents/PdfNarrativeAgent';
+import type { AggregatedMetrics } from '@/lib/aggregateReports';
 
 function buildPremiumStateFromPayload(body: {
   executiveNarrative?: string;
@@ -121,7 +123,48 @@ export async function POST(request: NextRequest) {
     if (!pdfBuffer || pdfBuffer.length === 0) {
       console.warn('Python PDF failed — fallback to Node PDF');
       setExportStatus('rendering', 'Generating PDF (Node fallback)…');
-      pdfBuffer = renderNodePdf(premiumState);
+      try {
+        const metricsForEngine: AggregatedMetrics = {
+          adSpend: (premiumState.verifiedMetrics.find((m) => m.label === 'Ad Spend')?.value as number) ?? 0,
+          adSales: (premiumState.verifiedMetrics.find((m) => m.label === 'Ad Sales')?.value as number) ?? 0,
+          totalStoreSales: (premiumState.verifiedMetrics.find((m) => m.label === 'Store Sales')?.value as number) ?? 0,
+          adClicks: (premiumState.verifiedMetrics.find((m) => m.label === 'Clicks')?.value as number) ?? 0,
+          adImpressions: 0,
+          adOrders: (premiumState.verifiedMetrics.find((m) => m.label === 'Orders')?.value as number) ?? 0,
+          storeOrders: (premiumState.verifiedMetrics.find((m) => m.label === 'Orders')?.value as number) ?? 0,
+          sessions: (premiumState.verifiedMetrics.find((m) => m.label === 'Sessions')?.value as number) ?? 0,
+          unitsOrdered: 0,
+          buyBoxPct: null,
+          organicSales: 0,
+          acos: null,
+          tacos: null,
+          roas: null,
+          cpc: null,
+          ctr: null,
+          adCvr: null,
+          sessionCvr: null,
+          currency: premiumState.currency ?? '£',
+          rowCounts: { spAdvertised: 0, spTargeting: 0, spSearchTerm: 0, business: 0 },
+          _ingestionLog: [],
+        };
+        const opportunities = premiumState.recommendations.slice(0, 3).map((title) => ({
+          title,
+          estimatedImpact: 0,
+        }));
+        const narrative = await generatePdfNarrative(metricsForEngine, opportunities);
+        // eslint-disable-next-line no-console
+        console.log('[Zenith PDF]', {
+          model: narrative.modelUsed,
+          confidence: narrative.confidence,
+        });
+        const updatedState: PremiumState = {
+          ...premiumState,
+          executiveNarrative: narrative.narrative,
+        };
+        pdfBuffer = renderNodePdf(updatedState);
+      } catch {
+        pdfBuffer = renderNodePdf(premiumState);
+      }
     }
 
     if (!pdfBuffer || pdfBuffer.length === 0) {

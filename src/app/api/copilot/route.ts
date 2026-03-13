@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { GoogleGenAI } from '@google/genai';
 import { COPILOT_SYSTEM, buildCopilotUserMessage } from '@/lib/geminiPromptRegistry';
 import { MAX_TOKENS_NARRATIVE } from '@/lib/geminiPromptRules';
-import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
 import { buildAuditContext, type AuditContextInput, type StoreSummarySnapshot } from '@/lib/copilot/contextBuilder';
 import { validateCopilotResponse } from '@/lib/copilot/validateResponse';
 import { assertNoFileReferences, sanitizeTextForGemini } from '@/lib/geminiRequestGuard';
@@ -13,6 +11,8 @@ import { recordQueryInteraction } from '@/agents/queryInteractionStore';
 import { runInsightDiscoveryAgent } from '@/agents/insightDiscoveryAgent';
 import { getCalculationAnswer } from '@/lib/copilot/calculationKnowledgeRegistry';
 import { getWastedKeywordsExplanation } from '@/agents/wasteKeywordAgent';
+import { aggregateReports } from '@/lib/aggregateReports';
+import { tripleEngine } from '@/lib/tripleEngine';
 
 const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -74,11 +74,6 @@ export interface CopilotResponseBody {
 }
 
 export async function POST(request: NextRequest) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 503 });
-  }
-
   let body: CopilotRequestBody;
   try {
     body = await request.json();
@@ -185,27 +180,48 @@ export async function POST(request: NextRequest) {
     // optional
   }
 
-  const userMessage = buildCopilotUserMessage(
-    context.summary,
-    normalizedQuery,
-    feedbackContext
-  );
+  const userMessage = buildCopilotUserMessage(context.summary, normalizedQuery, feedbackContext);
   const safeMessage = sanitizeTextForGemini(userMessage);
 
-  const contents = [{ role: 'user' as const, parts: [{ text: safeMessage }] }];
-  assertNoFileReferences(contents);
+  const summary = auditContextInput.storeSummary as StoreSummarySnapshot | undefined;
 
-  const ai = new GoogleGenAI({ apiKey });
   let rawText: string;
   const startMs = Date.now();
 
   try {
-    const result = await ai.models.generateContent({
-      model,
-      config: { systemInstruction: COPILOT_SYSTEM, maxOutputTokens: MAX_TOKENS_NARRATIVE },
-      contents,
+    const engineResult = await tripleEngine({
+      task: 'copilot_answer',
+      maxTokens: MAX_TOKENS_NARRATIVE,
+      metrics: {
+        adSpend: summary?.metrics.totalAdSpend ?? 0,
+        adSales: summary?.metrics.totalAdSales ?? 0,
+        totalStoreSales: summary?.metrics.totalStoreSales ?? 0,
+        adClicks: summary?.metrics.totalClicks ?? 0,
+        adImpressions: 0,
+        adOrders: summary?.metrics.totalOrders ?? 0,
+        storeOrders: summary?.metrics.totalOrders ?? 0,
+        sessions: summary?.metrics.totalSessions ?? 0,
+        unitsOrdered: 0,
+        buyBoxPct: summary?.metrics.buyBoxPercent ?? null,
+        organicSales: summary
+          ? summary.metrics.totalStoreSales - summary.metrics.totalAdSales
+          : 0,
+        acos: summary ? summary.metrics.acos / 100 : null,
+        tacos: summary ? summary.metrics.tacos / 100 : null,
+        roas: summary?.metrics.roas ?? null,
+        cpc: summary?.metrics.cpc ?? null,
+        ctr: null,
+        adCvr: null,
+        sessionCvr: null,
+        currency: summary?.metrics.currency ?? '£',
+        rowCounts: { spAdvertised: 0, spTargeting: 0, spSearchTerm: 0, business: 0 },
+        _ingestionLog: [],
+      },
+      system: COPILOT_SYSTEM,
+      prompt: safeMessage,
+      slmTemplate: `Based on the account data, ACOS is {{acos}}%, ROAS is {{roas}}x, and TACoS is {{tacos}}%. For more detailed analysis, please ensure your report files have loaded correctly.`,
     });
-    rawText = extractTextFromGenerateContentResponse(result);
+    rawText = engineResult.text;
     await logGeminiRequest({
       mode: 'copilot',
       promptLength: safeMessage.length,
