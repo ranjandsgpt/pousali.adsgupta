@@ -6,6 +6,7 @@ import { useDualEngine } from '../dualEngine/dualEngineContext';
 import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
 import { FileDown, Presentation, RotateCcw, ThumbsUp, ThumbsDown, RefreshCw } from 'lucide-react';
+import { recordAuditEvent } from '@/lib/behavioralObserver';
 import { exportAuditPdf } from '../utils/exportPdf';
 import { computeHealthScore } from '../utils/healthScoreEngine';
 import { runReportVerification } from '../utils/reportVerification';
@@ -219,7 +220,10 @@ export default function AuditSummaryBlock({
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={onRerunAnalysis}
+            onClick={() => {
+              recordAuditEvent('rerun_analysis', 'summary_block');
+              onRerunAnalysis?.();
+            }}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 font-medium text-sm hover:bg-blue-500/30"
             aria-label="Rerun analysis"
           >
