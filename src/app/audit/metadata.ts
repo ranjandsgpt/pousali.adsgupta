@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Free Amazon Advertising Audit Tool | Instant ACOS ROAS TACOS Analysis',
   description:
-    'Upload your Amazon SP, SB, SD reports and get an instant audit. Find profit leakages, waste spend, and ACOS issues in 60 seconds. No signup. Client-side only.',
+    'Upload your Amazon SP, SB, SD reports and get an instant audit. Find profit leakages, waste spend, and ACOS issues in 60 seconds. No signup.',
   keywords: [
     'Amazon advertising audit tool',
     'Amazon PPC audit',

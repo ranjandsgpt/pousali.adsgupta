@@ -2,10 +2,6 @@
 
 import { Shield } from 'lucide-react';
 
-/**
- * Section 21: Security & Privacy – all processing client-side.
- * No data stored, no server uploads, no cookies, no external APIs.
- */
 export default function PrivacyNote() {
   return (
     <div
@@ -15,7 +11,16 @@ export default function PrivacyNote() {
     >
       <Shield size={18} className="shrink-0 mt-0.5 text-cyan-500/80" aria-hidden />
       <p>
-        <strong className="text-[var(--color-text)]">Client-side only.</strong> All file processing happens in your browser. No data stored, no server uploads, no cookies, no external APIs. Your data remains private.
+        Your files are processed in your browser and never uploaded to any server. AI models are used only to generate insights and narrative copy — your raw data never leaves your device. Metric calculations are fully deterministic and run locally. If any AI-generated insight looks incorrect, please{' '}
+        <a
+          href="https://pousali.adsgupta.com/audit-feedback"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline text-cyan-400 hover:text-cyan-300"
+        >
+          submit feedback
+        </a>
+        .
       </p>
     </div>
   );
