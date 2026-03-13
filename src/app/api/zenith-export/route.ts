@@ -30,7 +30,7 @@ function buildPremiumStateFromPayload(body: {
   insights?: Array<{ title: string; description?: string; recommendedAction?: string }>;
   metrics?: Array<{ label: string; value: string | number }>;
   campaigns?: Array<{ campaignName: string; spend: number; sales: number; acos: number }>;
-  keywords?: Array<{ searchTerm: string; campaign: string; spend: number; sales: number; roas: number }>;
+  keywords?: Array<{ searchTerm: string; campaign: string; matchType?: string; spend: number; sales: number; roas: number }>;
   waste?: Array<{ searchTerm: string; campaign: string; spend: number; clicks: number }>;
   brandNames?: string[];
   competitorBrands?: string[];
@@ -53,6 +53,7 @@ function buildPremiumStateFromPayload(body: {
   const keywordAnalysis = (body.keywords ?? []).map((k) => ({
     searchTerm: k.searchTerm,
     campaign: k.campaign,
+    matchType: k.matchType,
     spend: k.spend,
     sales: k.sales,
     clicks: (k as { clicks?: number }).clicks ?? 0,
@@ -102,15 +103,16 @@ export async function POST(request: NextRequest) {
       insights?: Array<{ title: string; description?: string; recommendedAction?: string }>;
       metrics?: Array<{ label: string; value: string | number }>;
       campaigns?: Array<{ campaignName: string; spend: number; sales: number; acos: number }>;
-      keywords?: Array<{ searchTerm: string; campaign: string; spend: number; sales: number; roas: number }>;
+      keywords?: Array<{ searchTerm: string; campaign: string; matchType?: string; spend: number; sales: number; roas: number }>;
       waste?: Array<{ searchTerm: string; campaign: string; spend: number; clicks: number }>;
+      asins?: Array<{ asin: string; totalSales: number; adSales: number; adSpend: number }>;
     };
 
     const premiumState = buildPremiumStateFromPayload(body);
     const auditId = (body as { auditId?: string }).auditId ?? `audit-${Date.now()}`;
 
     setExportStatus('rendering', 'Building deck…');
-    console.log('[Zenith export] Building deck, slides: 10');
+    console.log('[Zenith export] Building deck, slides: 9');
     const exportedMetrics = premiumState.verifiedMetrics
       .filter((m) => typeof m.value === 'number')
       .map((m) => ({ label: m.label, value: m.value as number }));
@@ -301,401 +303,191 @@ export async function POST(request: NextRequest) {
       slideManifest = null;
     }
 
-    // Slide 1 — Cover
+    // Slide 1 — Overview (cover + narrative)
     {
       const slide = pres.addSlide();
       slide.background = { color: 'FFFFFF' };
-      slide.addShape(pres.ShapeType.rect, {
-        x: 0,
-        y: 0,
-        w: (pres.presLayout.width ?? 10) * 0.36,
-        h: pres.presLayout.height ?? 5.63,
-        fill: { color: THEME.navy },
-      });
-      slide.addText(
-        (slideManifest?.executiveSummary?.headline ||
-          'Amazon Advertising Performance Audit').slice(0, 80),
-        {
-        x: 0.6,
-        y: 1.2,
-        w: 4,
-        h: 1.2,
-        fontFace: 'Calibri',
-        fontSize: 28,
-        bold: true,
-        color: 'FFFFFF',
-      });
-      const accountLabel = 'Account';
-      slide.addText(accountLabel, {
-        x: 0.6,
-        y: 2.4,
-        w: 4,
-        h: 0.4,
-        fontFace: 'Calibri',
-        fontSize: 14,
-        color: 'FFFFFF',
-      });
-      const dateLabel = `Generated ${new Date(premiumState.generatedAt).toLocaleDateString()}`;
-      slide.addText(dateLabel, {
-        x: 0.6,
-        y: 2.9,
-        w: 4,
-        h: 0.4,
-        fontFace: 'Calibri',
-        fontSize: 12,
-        color: 'FFFFFF',
-      });
-
-      const healthColor =
-        healthScore >= 80 ? '00A651' : healthScore >= 60 ? '0070C0' : 'ED7D31';
-      slide.addText(String(healthScore), {
-        x: 6.2,
-        y: 1.4,
-        w: 3,
-        h: 1.2,
-        fontFace: 'Calibri',
-        fontSize: 40,
-        bold: true,
-        color: healthColor,
-      });
-      slide.addText('Health Score', {
-        x: 6.2,
-        y: 2.5,
-        w: 3,
-        h: 0.4,
-        fontFace: 'Calibri',
-        fontSize: 14,
-        color: THEME.text,
-      });
-
-      const rightCards = [
-        { label: 'Total Sales', value: `${currency}${totalSales.toLocaleString()}` },
-        { label: 'Audit Confidence', value: `${auditConfidence}%` },
-        { label: 'Time to Audit', value: '≈ 60 seconds' },
-        { label: 'Critical Issues', value: String(criticalIssuesCount) },
-      ];
-      rightCards.forEach((card, idx) => {
-        slide.addShape(pres.ShapeType.rect, {
-          x: 5.8,
-          y: 3.3 + idx * 0.9,
-          w: 3.5,
-          h: 0.8,
-          fill: { color: THEME.cardFill },
-          line: { color: THEME.cardBorder, width: 1 },
-          shadow: cardShadow,
-        });
-        slide.addText(card.label, {
-          x: 6.0,
-          y: 3.35 + idx * 0.9,
-          w: 3.1,
-          h: 0.3,
-          fontFace: 'Calibri',
-          fontSize: 12,
-          color: THEME.text,
-        });
-        slide.addText(card.value, {
-          x: 6.0,
-          y: 3.6 + idx * 0.9,
-          w: 3.1,
-          h: 0.4,
-          fontFace: 'Calibri',
-          fontSize: 16,
-          bold: true,
-          color: THEME.text,
-        });
-      });
-    }
-
-    // Slide 2 — Executive Summary
-    {
-      const slide = pres.addSlide();
-      slide.background = { color: 'FFFFFF' };
-      addHeader(slide, 'Executive Summary');
+      addHeader(slide, '1. Overview');
       const narrative = premiumState.executiveNarrative || '';
       const engineVerdict = slideManifest?.executiveSummary?.verdict;
       const text =
         (engineVerdict && engineVerdict.trim().length > 0
           ? engineVerdict
-          : narrative || 'Executive verdict will appear here once analysis is complete.');
-      slide.addText(text.slice(0, 400), {
+          : narrative || `Ad spend ${currency}${adSpend.toLocaleString()} generated ${currency}${adSales.toLocaleString()} in ad sales. ROAS ${roasVal.toFixed(2)}×; ACOS ${acosPct.toFixed(1)}%.`);
+      slide.addText(text.slice(0, 380), {
         x: 0.8,
         y: 0.9,
         w: 8.4,
-        h: 2,
+        h: 1.8,
         fontFace: 'Calibri',
         fontSize: 14,
         color: THEME.text,
       });
       const points = [
-        `Store sales: ${currency}${totalSales.toLocaleString()}`,
-        `ACOS: ${acosPct.toFixed(1)}% | ROAS: ${roasVal.toFixed(2)}×`,
-        `TACoS: ${tacosPct.toFixed(1)}% | Audit Confidence: ${auditConfidence}%`,
+        `Store sales: ${currency}${totalSales.toLocaleString()} | ACOS: ${acosPct.toFixed(1)}% | ROAS: ${roasVal.toFixed(2)}×`,
+        `TACoS: ${tacosPct.toFixed(1)}% | Audit Confidence: ${auditConfidence}% | Critical Issues: ${criticalIssuesCount}`,
       ];
       slide.addText(
-        points.map((p) => ({ text: p, options: { fontFace: 'Calibri', fontSize: 14, color: THEME.text, bullet: true } })),
-        { x: 0.9, y: 3.1, w: 8, h: 1.5 }
+        points.map((p) => ({ text: p, options: { fontFace: 'Calibri', fontSize: 12, color: THEME.text, bullet: true } })),
+        { x: 0.9, y: 2.9, w: 8, h: 1.2 }
       );
-      slide.addShape(pres.ShapeType.rect, {
-        x: 0.9,
-        y: 4.9,
-        w: 7.5,
-        h: 0.9,
-        fill: { color: THEME.cardFill },
-        line: { color: THEME.cardBorder, width: 1 },
-        shadow: cardShadow,
-      });
-      slide.addText('3 actions that would move the needle this week', {
-        x: 1.1,
-        y: 5.1,
-        w: 7.1,
-        h: 0.5,
+      slide.addText(`Generated ${new Date(premiumState.generatedAt).toLocaleDateString()} | pousali.adsgupta.com`, {
+        x: 0.8,
+        y: 5.2,
+        w: 8,
+        h: 0.35,
         fontFace: 'Calibri',
-        fontSize: 14,
-        bold: true,
+        fontSize: 9,
         color: THEME.text,
       });
     }
 
-    // Slide 3 — Financial Scorecard
+    // Slide 2 — Campaign Type (SP / SB / SD)
+    const inferAdProduct = (name: string): 'SP' | 'SB' | 'SD' => {
+      const c = (name || '').toLowerCase();
+      if (c.includes('sponsored products') || c.includes('sp ')) return 'SP';
+      if (c.includes('sponsored brands') || c.includes('sb ') || c.includes('hsa') || c.includes('headline')) return 'SB';
+      if (c.includes('sponsored display') || c.includes('sd ')) return 'SD';
+      return 'SP';
+    };
     {
       const slide = pres.addSlide();
       slide.background = { color: 'FFFFFF' };
-      addHeader(slide, 'Financial Scorecard');
-      const kpiCards = [
-        {
-          label: 'TOTAL STORE SALES',
-          value: `${currency}${totalSales.toLocaleString()}`,
-          sub: 'All ordered product sales',
-          color: '0070C0',
-        },
-        {
-          label: 'AD SPEND',
-          value: `${currency}${adSpend.toLocaleString()}`,
-          sub: 'Total advertising investment',
-          color: '0070C0',
-        },
-        {
-          label: 'AD SALES',
-          value: `${currency}${adSales.toLocaleString()}`,
-          sub: 'Revenue attributed to ads',
-          color: '0070C0',
-        },
-        {
-          label: 'ROAS',
-          value: `${roasVal.toFixed(2)}×`,
-          sub: 'Return on ad spend',
-          color: roasVal > 3 ? '00A651' : roasVal >= 2 ? '0070C0' : 'ED7D31',
-        },
-        {
-          label: 'ACOS',
-          value: `${acosPct.toFixed(1)}%`,
-          sub: 'Ad spend as % of ad sales',
-          color: acosPct < 30 ? '00A651' : acosPct <= 50 ? '0070C0' : 'ED7D31',
-        },
-        {
-          label: 'TACOS',
-          value: `${tacosPct.toFixed(1)}%`,
-          sub: 'Ad spend as % of total sales',
-          color: tacosPct < 15 ? '00A651' : tacosPct <= 25 ? '0070C0' : 'ED7D31',
-        },
-      ];
-      kpiCards.forEach((card, idx) => {
-        const row = Math.floor(idx / 3);
-        const col = idx % 3;
-        const x = 0.6 + col * 3.1;
-        const y = 1.0 + row * 1.9;
-        slide.addShape(pres.ShapeType.rect, {
-          x,
-          y,
-          w: 3,
-          h: 1.7,
-          fill: { color: THEME.cardFill },
-          line: { color: THEME.cardBorder, width: 1 },
-          shadow: cardShadow,
-        });
-        slide.addShape(pres.ShapeType.rect, {
-          x,
-          y,
-          w: 0.18,
-          h: 1.7,
-          fill: { color: card.color },
-        });
-        slide.addText(card.label, {
-          x: x + 0.3,
-          y: y + 0.15,
-          w: 2.6,
-          h: 0.3,
-          fontFace: 'Calibri',
-          fontSize: 9,
-          color: THEME.text,
-        });
-        slide.addText(card.value, {
-          x: x + 0.3,
-          y: y + 0.5,
-          w: 2.6,
-          h: 0.7,
-          fontFace: 'Calibri',
-          fontSize: 30,
-          bold: true,
-          color: card.color,
-        });
-        slide.addText(card.sub, {
-          x: x + 0.3,
-          y: y + 1.2,
-          w: 2.6,
-          h: 0.3,
-          fontFace: 'Calibri',
-          fontSize: 11,
-          color: THEME.text,
-        });
+      addHeader(slide, '2. Campaign Type');
+      let sp = 0, sb = 0, sd = 0;
+      premiumState.campaignAnalysis.forEach((c) => {
+        const t = inferAdProduct(c.campaignName);
+        if (t === 'SP') sp += c.sales;
+        else if (t === 'SB') sb += c.sales;
+        else sd += c.sales;
       });
-
-      const rightBadges = [
-        { label: 'SESSIONS', value: sessions.toLocaleString() },
-        { label: 'BUY BOX %', value: '—' },
-        { label: 'CPC', value: `${currency}${cpc.toFixed(2)}` },
-      ];
-      rightBadges.forEach((b, idx) => {
-        slide.addShape(pres.ShapeType.rect, {
-          x: 7.0,
-          y: 1.0 + idx * 1.2,
-          w: 2.2,
-          h: 1.0,
-          fill: { color: THEME.cardFill },
-          line: { color: THEME.cardBorder, width: 1 },
-          shadow: cardShadow,
-        });
-        slide.addText(b.label, {
-          x: 7.15,
-          y: 1.05 + idx * 1.2,
-          w: 2.0,
-          h: 0.3,
-          fontFace: 'Calibri',
-          fontSize: 9,
-          color: THEME.text,
-        });
-        slide.addText(b.value, {
-          x: 7.15,
-          y: 1.35 + idx * 1.2,
-          w: 2.0,
-          h: 0.5,
-          fontFace: 'Calibri',
-          fontSize: 18,
-          bold: true,
-          color: THEME.text,
-        });
-      });
+      const total = sp + sb + sd;
+      const lines = total > 0
+        ? [
+            `SP (Sponsored Products): ${currency}${sp.toFixed(0)} ad sales`,
+            `SB (Sponsored Brands): ${currency}${sb.toFixed(0)} ad sales`,
+            `SD (Sponsored Display): ${currency}${sd.toFixed(0)} ad sales`,
+          ]
+        : ['Insufficient data — upload SP Targeting / Search Term report.'];
+      slide.addText(
+        lines.map((t) => ({ text: t, options: { fontFace: 'Calibri', fontSize: 14, color: THEME.text, bullet: true } })),
+        { x: 0.9, y: 0.9, w: 8, h: 4 }
+      );
     }
 
-    // Slides 4–10: for brevity, include at least simple non-empty content
-    // using campaignAnalysis, wasteAnalysis, keywordAnalysis, profitability,
-    // recommendations so that no slide is empty and all values are data-backed.
-    const addSimpleSlide = (title: string, lines: string[]) => {
+    // Slide 3 — Targeting (Auto vs Manual)
+    {
+      const slide = pres.addSlide();
+      slide.background = { color: 'FFFFFF' };
+      addHeader(slide, '3. Targeting');
+      const kws = premiumState.keywordAnalysis;
+      let autoSpend = 0, manualSpend = 0, autoSales = 0, manualSales = 0;
+      kws.forEach((k) => {
+        const m = (k.matchType ?? '').toLowerCase();
+        const isAuto = m.includes('auto');
+        if (isAuto) {
+          autoSpend += k.spend;
+          autoSales += k.sales;
+        } else {
+          manualSpend += k.spend;
+          manualSales += k.sales;
+        }
+      });
+      const hasTargeting = autoSpend + manualSpend > 0;
+      const lines = hasTargeting
+        ? [
+            `Auto — Spend: ${currency}${autoSpend.toFixed(0)}, Sales: ${currency}${autoSales.toFixed(0)}`,
+            `Manual — Spend: ${currency}${manualSpend.toFixed(0)}, Sales: ${currency}${manualSales.toFixed(0)}`,
+          ]
+        : ['Insufficient data — upload SP Targeting report.'];
+      slide.addText(
+        lines.map((t) => ({ text: t, options: { fontFace: 'Calibri', fontSize: 14, color: THEME.text, bullet: true } })),
+        { x: 0.9, y: 0.9, w: 8, h: 4 }
+      );
+    }
+
+    // Slide 4 — Keyword Intent
+    {
+      const slide = pres.addSlide();
+      slide.background = { color: 'FFFFFF' };
+      addHeader(slide, '4. Keyword Intent');
+      const brand = premiumState.brandAnalysis;
+      const hasBrand = brand && (brand.brandedSales > 0 || brand.genericSales > 0 || brand.competitorSales > 0);
+      const lines = hasBrand
+        ? [
+            `Branded: ${currency}${(brand?.brandedSales ?? 0).toFixed(0)}`,
+            `Generic: ${currency}${(brand?.genericSales ?? 0).toFixed(0)}`,
+            `Competitor: ${currency}${(brand?.competitorSales ?? 0).toFixed(0)}`,
+          ]
+        : ['Insufficient data — configure brand terms or upload Search Term report.'];
+      slide.addText(
+        lines.map((t) => ({ text: t, options: { fontFace: 'Calibri', fontSize: 14, color: THEME.text, bullet: true } })),
+        { x: 0.9, y: 0.9, w: 8, h: 4 }
+      );
+    }
+
+    const addSimpleSlide = (title: string, lines: string[], insuffMsg?: string) => {
       const slide = pres.addSlide();
       slide.background = { color: 'FFFFFF' };
       addHeader(slide, title);
-      const safeLines = lines.length
-        ? lines
-        : ['Insufficient data'];
+      const safeLines = lines.length ? lines : [insuffMsg ?? 'Insufficient data — upload the relevant report.'];
       slide.addText(
         safeLines.map((t) => ({ text: t, options: { fontFace: 'Calibri', fontSize: 14, color: THEME.text, bullet: true } })),
         { x: 0.9, y: 0.9, w: 8, h: 4 }
       );
     };
 
-    // Slide 4 — Campaign Performance (simple list placeholder for bar/pie)
-    {
-      const baseLines = premiumState.campaignAnalysis.slice(0, 8).map(
-        (c) =>
-          `${c.campaignName.slice(0, 40)} — ACOS ${c.acos.toFixed(
-            1
-          )}%, Spend ${currency}${c.spend.toFixed(0)}`
-      );
-      const campaignInsight = slideManifest?.slides.find(
-        (s) => s.id === 'campaign_intelligence'
-      )?.insight;
-      const lines =
-        campaignInsight && campaignInsight.trim().length > 0
-          ? [campaignInsight.slice(0, 180), ...baseLines]
-          : baseLines;
-      addSimpleSlide('Campaign Performance', lines);
-    }
-
-    // Slide 5 — Waste & Opportunity
-    {
-      const baseLines = premiumState.wasteAnalysis.slice(0, 5).map(
-        (w) =>
-          `${w.searchTerm.slice(0, 40)} — Spend ${currency}${w.spend.toFixed(
-            0
-          )}, Clicks ${w.clicks}`
-      );
-      const wasteInsight = slideManifest?.slides.find(
-        (s) => s.id === 'waste_analysis'
-      )?.insight;
-      const lines =
-        wasteInsight && wasteInsight.trim().length > 0
-          ? [wasteInsight.slice(0, 180), ...baseLines]
-          : baseLines;
-      addSimpleSlide('Waste & Opportunity', lines);
-    }
-
-    // Slide 6 — ASIN Intelligence
+    // Slide 5 — Top 5 ASINs
+    const asins = (body as { asins?: Array<{ asin: string; totalSales: number; adSales: number; adSpend: number }> }).asins ?? [];
+    const top5Asins = asins.slice(0, 5);
     addSimpleSlide(
-      'ASIN Intelligence',
-      premiumState.keywordAnalysis.slice(0, 6).map(
+      '5. Top 5 ASINs',
+      top5Asins.map((a) => `${a.asin} — Sales ${currency}${a.totalSales.toFixed(0)}, Ad Spend ${currency}${a.adSpend.toFixed(0)}`),
+      'Insufficient data — upload Business Report.'
+    );
+
+    // Slide 6 — Bottom 5 ASINs (with Reason)
+    const bottom5Asins = asins.slice(-5).reverse();
+    addSimpleSlide(
+      '6. Bottom 5 ASINs',
+      bottom5Asins.map((a) => {
+        const reason = a.adSpend > 0 && a.adSales === 0 ? 'Zero ad sales' : (a.adSpend > 0 && a.adSales > 0 && (a.adSpend / a.adSales) * 100 > 50 ? 'High ACOS' : 'Low volume');
+        return `${a.asin} — ${currency}${a.totalSales.toFixed(0)} (${reason})`;
+      }),
+      'Insufficient data — upload Business Report.'
+    );
+
+    // Slide 7 — Wasted Spend
+    {
+      const baseLines = premiumState.wasteAnalysis.slice(0, 10).map(
+        (w) => `${w.searchTerm.slice(0, 40)} — Spend ${currency}${w.spend.toFixed(0)}, Clicks ${w.clicks}`
+      );
+      const totalWaste = premiumState.wasteAnalysis.reduce((s, w) => s + w.spend, 0);
+      const lines = totalWaste > 0 ? [`Total wasted: ${currency}${totalWaste.toFixed(0)}`, ...baseLines] : ['Insufficient data — upload SP Search Term report.'];
+      addSimpleSlide('7. Wasted Spend', lines);
+    }
+
+    // Slide 8 — Top 10 Search Terms
+    addSimpleSlide(
+      '8. Top 10 Search Terms',
+      premiumState.keywordAnalysis.slice(0, 10).map(
         (k) => `${k.searchTerm.slice(0, 40)} — Spend ${currency}${k.spend.toFixed(0)}, Sales ${currency}${k.sales.toFixed(0)}`
-      )
+      ),
+      'Insufficient data — upload SP Search Term report.'
     );
 
-    // Slide 7 — Match Type Breakdown (simplified by keywordAnalysis)
-    addSimpleSlide(
-      'Match Type Breakdown',
-      premiumState.keywordAnalysis.slice(0, 6).map(
-        (k) => `${k.campaign.slice(0, 30)} — ROAS ${k.roas.toFixed(2)}×`
-      )
-    );
-
-    // Slide 8 — 3 Priority Actions
+    // Slide 9 — Key Insights & Action Plan
     {
-      const actions =
-        slideManifest?.slides.find((s) => s.id === 'priority_actions')?.actions;
+      const actions = slideManifest?.slides.find((s) => s.id === 'priority_actions')?.actions;
       let lines: string[];
       if (actions && actions.length > 0) {
-        lines = actions.slice(0, 3).map((a) => {
-          const main = `${a.number}. ${a.title}`;
-          const detail = `${a.detail}`;
-          const meta = `${a.impact} • Effort: ${a.effort} • ${a.timeframe}`;
-          return `${main} — ${detail} (${meta})`.slice(0, 180);
-        });
+        lines = actions.slice(0, 5).map((a) => `${a.number}. ${a.title} — ${a.detail}`.slice(0, 120));
       } else {
-        lines = premiumState.recommendations
-          .slice(0, 3)
-          .map((r, idx) => `${idx + 1}. ${r}`);
+        lines = premiumState.recommendations.slice(0, 5).map((r, idx) => `${idx + 1}. ${r}`);
       }
-      addSimpleSlide('3 Priority Actions', lines);
+      if (lines.length === 0) lines = ['Insufficient data — run full audit for insights.'];
+      addSimpleSlide('9. Key Insights & Action Plan', lines);
     }
-
-    // Slide 9 — Health Score Detail
-    addSimpleSlide(
-      'Health Score Detail',
-      [
-        `Health Score: ${healthScore}`,
-        `Audit Confidence: ${auditConfidence}%`,
-        `Critical Issues: ${criticalIssuesCount}`,
-      ]
-    );
-
-    // Slide 10 — Methodology & Confidence
-    addSimpleSlide(
-      'Methodology & Confidence',
-      [
-        `Generated at: ${premiumState.generatedAt}`,
-        premiumState.dataTrustReport
-          ? `Audit Confidence: ${Math.round(premiumState.dataTrustReport.trustScore * 100)}%`
-          : 'Audit Confidence: n/a',
-        'Generated by pousali.adsgupta.com/audit',
-      ]
-    );
 
     setExportStatus('verifying', 'Verifying export…');
     const consistency = checkExportConsistency(
@@ -722,7 +514,7 @@ export async function POST(request: NextRequest) {
     console.log('[Zenith export] Slides composed, buffer length:', buf.length);
 
     if (metricsForEngine) {
-      const verification = verifyPptxOutput(buf, metricsForEngine, 10);
+      const verification = verifyPptxOutput(buf, metricsForEngine, 9);
       if (!verification.passed) {
         // eslint-disable-next-line no-console
         console.warn('[Zenith export] PPTX verification warnings', verification.warnings);

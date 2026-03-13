@@ -13,6 +13,8 @@ import BudgetPacingGauges from '../charts/BudgetPacingGauges';
 import SpendByCampaignBar from '../charts/SpendByCampaignBar';
 import ROASByCampaignBar from '../charts/ROASByCampaignBar';
 import FunnelOverviewChart from '../charts/FunnelOverviewChart';
+import TargetingTypePieCharts from '../charts/TargetingTypePieCharts';
+import KeywordIntentPieCharts from '../charts/KeywordIntentPieCharts';
 import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, ZAxis, PieChart, Pie, Cell, Legend } from 'recharts';
 
@@ -29,6 +31,8 @@ const CHART_MAP: Record<string, React.ComponentType> = {
   'spend-by-campaign': SpendByCampaignBar,
   'roas-by-campaign': ROASByCampaignBar,
   'funnel-overview': FunnelOverviewChart,
+  'targeting-type-spend-sales': TargetingTypePieCharts,
+  'keyword-intent-spend-sales': KeywordIntentPieCharts,
 };
 
 export function ChartRegistry({ chartIds }: { chartIds: string[] }) {

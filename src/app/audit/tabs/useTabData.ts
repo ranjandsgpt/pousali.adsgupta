@@ -1685,8 +1685,33 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
       ];
     }
     if (tabId === 'asins-products') {
+      const asinRows = Object.values(store.asinMetrics).slice(0, 30).map((a) => {
+        const tacosPct = a.totalSales > 0 ? (a.adSpend / a.totalSales) * 100 : null;
+        const tacosStatus = tacosPct != null ? (tacosPct < 20 ? 'good' : tacosPct <= 35 ? 'warn' : 'bad') as 'good' | 'warn' | 'bad' : undefined;
+        return {
+          asin: a.asin,
+          adSales: a.adSales,
+          adSpend: a.adSpend,
+          acos: a.acos,
+          tacos: tacosPct,
+          tacosStatus,
+          roas: a.adSpend > 0 ? (a.adSales / a.adSpend).toFixed(2) : '—',
+        };
+      });
       tables = [
-        { title: 'ASIN performance', columns: [{ key: 'asin', label: 'ASIN' }, { key: 'adSales', label: 'Ad Sales', align: 'right', format: 'currency' }, { key: 'adSpend', label: 'Ad Spend', align: 'right', format: 'currency' }, { key: 'acos', label: 'ACOS', align: 'right', format: 'percent' }, { key: 'roas', label: 'ROAS', align: 'right' }], rows: Object.values(store.asinMetrics).slice(0, 30).map((a) => ({ asin: a.asin, adSales: a.adSales, adSpend: a.adSpend, acos: a.acos, roas: a.adSpend > 0 ? (a.adSales / a.adSpend).toFixed(2) : '—' })), actionColumn: { key: 'asin', label: 'Actions', type: 'view' } },
+        {
+          title: 'ASIN performance',
+          columns: [
+            { key: 'asin', label: 'ASIN' },
+            { key: 'adSales', label: 'Ad Sales', align: 'right', format: 'currency' },
+            { key: 'adSpend', label: 'Ad Spend', align: 'right', format: 'currency' },
+            { key: 'acos', label: 'ACOS', align: 'right', format: 'percent' },
+            { key: 'tacos', label: 'TACoS', align: 'right', format: 'percentWithStatus' },
+            { key: 'roas', label: 'ROAS', align: 'right' },
+          ],
+          rows: asinRows,
+          actionColumn: { key: 'asin', label: 'Actions', type: 'view' },
+        },
       ];
     }
     if (tabId === 'waste-bleed') {
@@ -1716,7 +1741,7 @@ export function useTabData(tabId: TabId): TabConfig & { currency: DetectedCurren
 
     const chartIds: string[] = [];
     if (tabId === 'overview') chartIds.push('funnel-overview', 'spend-by-campaign', 'roas-by-campaign', 'pareto-spend', 'spend-vs-conversion', 'wasted-spend');
-    if (tabId === 'keywords-search-terms') chartIds.push('match-type-spend', 'wasted-spend', 'spend-vs-conversion');
+    if (tabId === 'keywords-search-terms') chartIds.push('match-type-spend', 'targeting-type-spend-sales', 'keyword-intent-spend-sales', 'wasted-spend', 'spend-vs-conversion');
     if (tabId === 'campaigns-budget')
       chartIds.push('spend-by-campaign', 'roas-by-campaign', 'spend-vs-conversion', 'acos-heatmap', 'budget-pacing');
     if (tabId === 'asins-products') chartIds.push('ad-product-sales', 'organic-vs-ad');

@@ -57,8 +57,8 @@ Three actions are recommended in priority order: first, pause or negate zero-con
 
   return {
     narrative: result.text,
-    modelUsed: result.modelUsed,
-    confidence: result.confidence,
+    modelUsed: result.modelUsed ?? 'slm',
+    confidence: result.confidence ?? 0,
   };
 }
 

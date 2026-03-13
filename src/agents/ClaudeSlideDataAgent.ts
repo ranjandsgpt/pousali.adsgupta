@@ -218,10 +218,10 @@ RETURN THIS EXACT JSON STRUCTURE:
 
   const manifest = JSON.parse(result.text) as SlideManifest;
   manifest._engineMeta = {
-    modelUsed: result.modelUsed,
-    fallbackUsed: result.fallbackUsed,
-    confidence: result.confidence,
-    warnings: result.warnings,
+    modelUsed: result.modelUsed ?? 'slm',
+    fallbackUsed: result.fallbackUsed ?? false,
+    confidence: result.confidence ?? 0,
+    warnings: result.warnings ?? [],
   };
 
   return manifest;

@@ -62,6 +62,7 @@ export interface CampaignAnalysisItem {
 export interface KeywordAnalysisItem {
   searchTerm: string;
   campaign: string;
+  matchType?: string;
   spend: number;
   sales: number;
   clicks: number;

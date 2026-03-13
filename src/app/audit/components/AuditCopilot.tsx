@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
+import { usePendingCopilotQuestion } from '../context/PendingCopilotQuestionContext';
 import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
 import { useDualEngine } from '../dualEngine/dualEngineContext';
 import { useTabData } from '../tabs/useTabData';
@@ -65,6 +66,7 @@ function buildStoreSummarySnapshot(store: MemoryStore, overrides?: OverrideState
     .map((k) => ({
       searchTerm: k.searchTerm,
       campaign: k.campaign || '',
+      matchType: k.matchType,
       spend: k.spend,
       sales: k.sales,
       clicks: k.clicks,
@@ -176,12 +178,20 @@ export default function AuditCopilot() {
   const { state } = useAuditStore();
   const { validated } = useValidatedArtifacts();
   const dualEngine = useDualEngine();
+  const { pendingQuestion, setPendingQuestion } = usePendingCopilotQuestion();
   const { patterns, opportunities } = useTabData('gemini-insights');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationMemory, setConversationMemory] = useState<ConversationMemory>(createEmptyMemory());
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (pendingQuestion) {
+      setInput(pendingQuestion);
+      setPendingQuestion(null);
+    }
+  }, [pendingQuestion, setPendingQuestion]);
 
   const store = state.store;
   const hasData = store.totalAdSpend > 0 || store.totalStoreSales > 0;

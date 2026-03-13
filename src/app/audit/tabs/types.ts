@@ -73,7 +73,7 @@ export interface TableColumn {
   key: string;
   label: string;
   align?: 'left' | 'right';
-  format?: 'currency' | 'percent' | 'number';
+  format?: 'currency' | 'percent' | 'number' | 'percentWithStatus';
 }
 
 /** Action button per row: e.g. Add as Negative, Optimize, Deactivate (reference UX). */

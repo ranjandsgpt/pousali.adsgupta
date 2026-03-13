@@ -165,6 +165,70 @@ export async function POST(request: NextRequest) {
     conversationMemory: auditContextInput.conversationMemory,
   });
 
+  let summaryForPrompt = context.summary;
+  const qLower = question.toLowerCase();
+  const sign = sym(storeSummary?.metrics?.currency ?? null);
+
+  if (/\bwasted|waste|zero sales|no sales|negative keyword\b/.test(qLower) && storeSummary?.keywords?.length) {
+    const wasted = (storeSummary.keywords as Array<{ searchTerm: string; spend: number; sales: number }>)
+      .filter((k) => k.spend > 0 && k.sales === 0)
+      .sort((a, b) => b.spend - a.spend)
+      .slice(0, 5);
+    if (wasted.length) {
+      summaryForPrompt += '\n\n--- Top 5 wasted search terms (spend > 0, 0 sales) ---\n' +
+        wasted.map((k) => `- ${k.searchTerm}: ${sign}${k.spend.toFixed(2)}`).join('\n');
+    }
+  }
+
+  if (/\bmatch type|broad|phrase|exact|auto\s*manual|manual\s*targeting\b/.test(qLower) && storeSummary?.keywords?.length) {
+    const kws = storeSummary.keywords as Array<{ matchType?: string; spend: number; sales: number }>;
+    let autoSpend = 0, autoSales = 0, manualSpend = 0, manualSales = 0;
+    const byMatch: Record<string, { spend: number; sales: number }> = {};
+    kws.forEach((k) => {
+      const m = (k.matchType ?? 'other').toLowerCase();
+      if (m.includes('auto')) {
+        autoSpend += k.spend;
+        autoSales += k.sales;
+      } else {
+        manualSpend += k.spend;
+        manualSales += k.sales;
+        byMatch[m] = byMatch[m] || { spend: 0, sales: 0 };
+        byMatch[m].spend += k.spend;
+        byMatch[m].sales += k.sales;
+      }
+    });
+    const parts = [`Auto: spend ${sign}${autoSpend.toFixed(2)}, sales ${sign}${autoSales.toFixed(2)}`, `Manual: spend ${sign}${manualSpend.toFixed(2)}, sales ${sign}${manualSales.toFixed(2)}`];
+    Object.entries(byMatch).forEach(([mt, v]) => { parts.push(`${mt}: spend ${sign}${v.spend.toFixed(2)}, sales ${sign}${v.sales.toFixed(2)}`); });
+    if (parts.some((p) => p.includes(sign))) {
+      summaryForPrompt += '\n\n--- Match type / targeting ---\n' + parts.join('\n');
+    }
+  }
+
+  if (/\bbrand|competitor|generic|intent\b/.test(qLower) && auditContextInput.brandMetrics) {
+    const b = auditContextInput.brandMetrics;
+    summaryForPrompt += '\n\n--- Keyword intent (Brand Intelligence) ---\n' +
+      `Branded: ${sign}${b.brandedSales.toFixed(2)} | Generic: ${sign}${b.genericSales.toFixed(2)} | Competitor: ${sign}${b.competitorSales.toFixed(2)}`;
+  }
+
+  if (/\bsp\s|sb\s|sd\s|sponsored products|sponsored brands|sponsored display|campaign type\b/.test(qLower) && storeSummary?.campaigns?.length) {
+    const infer = (name: string) => {
+      const c = (name || '').toLowerCase();
+      if (c.includes('sponsored products') || c.includes('sp ')) return 'SP';
+      if (c.includes('sponsored brands') || c.includes('sb ') || c.includes('hsa') || c.includes('headline')) return 'SB';
+      if (c.includes('sponsored display') || c.includes('sd ')) return 'SD';
+      return null;
+    };
+    let spSpend = 0, sbSpend = 0, sdSpend = 0, spSales = 0, sbSales = 0, sdSales = 0;
+    storeSummary.campaigns.forEach((c) => {
+      const t = infer(c.campaignName);
+      if (t === 'SP') { spSpend += c.spend; spSales += c.sales; }
+      else if (t === 'SB') { sbSpend += c.spend; sbSales += c.sales; }
+      else if (t === 'SD') { sdSpend += c.spend; sdSales += c.sales; }
+    });
+    summaryForPrompt += '\n\n--- Campaign type (SP / SB / SD) ---\n' +
+      `SP: spend ${sign}${spSpend.toFixed(2)}, sales ${sign}${spSales.toFixed(2)} | SB: spend ${sign}${sbSpend.toFixed(2)}, sales ${sign}${sbSales.toFixed(2)} | SD: spend ${sign}${sdSpend.toFixed(2)}, sales ${sign}${sdSales.toFixed(2)}`;
+  }
+
   let feedbackContext = '';
   try {
     const { getFeedbackContextForEngines } = await import('@/app/audit/agents/humanFeedbackAgent');
@@ -180,7 +244,7 @@ export async function POST(request: NextRequest) {
     // optional
   }
 
-  const userMessage = buildCopilotUserMessage(context.summary, normalizedQuery, feedbackContext);
+  const userMessage = buildCopilotUserMessage(summaryForPrompt, normalizedQuery, feedbackContext);
   const safeMessage = sanitizeTextForGemini(userMessage);
 
   const summary = auditContextInput.storeSummary as StoreSummarySnapshot | undefined;

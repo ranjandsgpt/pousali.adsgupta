@@ -74,6 +74,22 @@ CREATE INDEX IF NOT EXISTS idx_audit_results_session
 CREATE INDEX IF NOT EXISTS idx_engine_logs_session 
   ON engine_logs(session_id);
 
+-- Product feedback (audit dashboard widget)
+CREATE TABLE IF NOT EXISTS feedback (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id        TEXT,
+  user_id           UUID REFERENCES users(user_id),
+  section           TEXT NOT NULL,
+  type              TEXT NOT NULL,
+  description       TEXT,
+  include_session   BOOLEAN DEFAULT FALSE,
+  metrics_snapshot  JSONB,
+  page_url          TEXT,
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_session ON feedback(session_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
+
 -- Safely increments visit_count without race conditions
 CREATE OR REPLACE FUNCTION increment_visit_count()
 RETURNS INTEGER AS $$

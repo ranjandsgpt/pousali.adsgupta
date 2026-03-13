@@ -75,6 +75,7 @@ export interface StoreSummarySnapshot {
   keywords: Array<{
     searchTerm: string;
     campaign: string;
+    matchType?: string;
     spend: number;
     sales: number;
     clicks: number;

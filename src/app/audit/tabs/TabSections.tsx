@@ -152,9 +152,11 @@ export function TabOpportunityDetection({ opportunities }: { opportunities: Oppo
 export function TabDataTablesSection({
   tables,
   currency,
+  onAction,
 }: {
   tables: TabTableConfig[];
   currency: DetectedCurrency;
+  onAction?: (tableTitle: string, row: Record<string, unknown>, actionType: RowActionType) => void;
 }) {
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
@@ -192,11 +194,16 @@ export function TabDataTablesSection({
                       <tr key={ri} className="border-b border-[#020617]">
                         {t.columns.map((c) => {
                           const raw = row[c.key];
+                          const statusKey = c.key + 'Status';
+                          const rowStatus = row[statusKey] as 'good' | 'warn' | 'bad' | undefined;
                           let cell: string | number = raw != null ? String(raw) : '—';
                           if (c.format === 'currency' && typeof raw === 'number')
                             cell = formatCurrency(raw, currency);
                           if (c.format === 'percent' && typeof raw === 'number')
                             cell = formatPercent(raw);
+                          if (c.format === 'percentWithStatus') {
+                            cell = raw != null && typeof raw === 'number' ? formatPercent(raw) : '—';
+                          }
                           if (c.format === 'number' && typeof raw === 'number') cell = raw.toFixed(2);
                           const isStatus = c.key === 'status' && typeof raw === 'string';
                           const statusClass = isStatus
@@ -207,11 +214,19 @@ export function TabDataTablesSection({
                                 : raw === 'Optimize'
                                   ? 'bg-amber-500/20 text-amber-400'
                                   : 'bg-sky-500/20 text-sky-400'
-                            : '';
+                            : c.format === 'percentWithStatus' && rowStatus
+                              ? rowStatus === 'good'
+                                ? 'text-emerald-400'
+                                : rowStatus === 'warn'
+                                  ? 'text-amber-400'
+                                  : 'text-red-400'
+                              : '';
+                          const titleAttr = c.format === 'percentWithStatus' && raw == null ? 'Upload Business Report for TACoS' : undefined;
                           return (
                             <td
                               key={c.key}
-                              className={`px-2 py-1.5 text-[var(--color-text)] ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}
+                              title={titleAttr}
+                              className={`px-2 py-1.5 text-[var(--color-text)] ${c.align === 'right' ? 'text-right tabular-nums' : ''} ${statusClass}`}
                             >
                               {isStatus ? (
                                 <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${statusClass}`}>{cell}</span>
@@ -225,6 +240,7 @@ export function TabDataTablesSection({
                           <td className="px-2 py-1.5 text-right">
                             <button
                               type="button"
+                              onClick={() => onAction?.(t.title, row, t.actionColumn!.type)}
                               className={`rounded border px-2 py-1 text-xs font-medium transition-colors ${actionButtonClass(t.actionColumn!.type)}`}
                             >
                               {actionLabels[t.actionColumn!.type]}

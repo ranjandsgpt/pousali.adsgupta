@@ -12,6 +12,9 @@ import LearningIntelligencePanel from '../components/LearningIntelligencePanel';
 import GeminiInsightsPanel from '../components/GeminiInsightsPanel';
 import AuditCopilot from '../components/AuditCopilot';
 import DiscoveredInsightsSection from '../components/DiscoveredInsightsSection';
+import WastedSearchTermsTable from '../components/WastedSearchTermsTable';
+import { usePendingCopilotQuestion } from '../context/PendingCopilotQuestionContext';
+import type { RowActionType } from './types';
 
 export interface TabContentProps {
   tabId: TabId;
@@ -20,6 +23,13 @@ export interface TabContentProps {
 
 export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
   const { patterns, opportunities, insightModules, tables, chartIds, currency } = useTabData(tabId);
+  const { setPendingQuestion } = usePendingCopilotQuestion();
+  const onTableAction = (tableTitle: string, row: Record<string, unknown>, actionType: RowActionType) => {
+    if (tableTitle === 'ASIN performance' && actionType === 'view' && row.asin) {
+      setPendingQuestion(`Tell me about ASIN ${row.asin} — what should I do with it?`);
+      onNavigateToTab?.('gemini-insights');
+    }
+  };
 
   if (tabId === 'gemini-insights') {
     return (
@@ -113,6 +123,12 @@ export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
         </section>
       )}
 
+      {tabId === 'keywords-search-terms' && (
+        <section>
+          <WastedSearchTermsTable />
+        </section>
+      )}
+
       {tabId === 'overview' && (patterns.length > 0 || opportunities.length > 0) && (
         <section>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -133,7 +149,7 @@ export function TabContent({ tabId, onNavigateToTab }: TabContentProps) {
         </TabVisualization>
       )}
 
-      <TabDataTablesSection tables={tables} currency={currency} />
+      <TabDataTablesSection tables={tables} currency={currency} onAction={onTableAction} />
     </div>
   );
 }

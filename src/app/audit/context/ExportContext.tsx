@@ -85,7 +85,10 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     const keywords = Object.values(store.keywordMetrics)
       .sort((a, b) => b.spend - a.spend)
       .slice(0, 200)
-      .map((k) => ({ searchTerm: k.searchTerm, campaign: k.campaign || '', spend: k.spend, sales: k.sales, roas: k.roas }));
+      .map((k) => ({ searchTerm: k.searchTerm, campaign: k.campaign || '', matchType: (k as { matchType?: string }).matchType ?? '', spend: k.spend, sales: k.sales, roas: k.roas }));
+    const asins = Object.values(store.asinMetrics)
+      .sort((a, b) => b.totalSales - a.totalSales)
+      .map((a) => ({ asin: a.asin, totalSales: a.totalSales, adSales: a.adSales, adSpend: a.adSpend }));
     const waste = Object.values(store.keywordMetrics)
       .filter((k) => k.clicks >= 10 && k.sales === 0)
       .sort((a, b) => b.spend - a.spend)
@@ -93,8 +96,8 @@ export function ExportProvider({ children }: { children: ReactNode }) {
       .map((k) => ({ searchTerm: k.searchTerm, campaign: k.campaign || '', spend: k.spend, clicks: k.clicks }));
     const insights = (validated?.insights ?? []).map((i) => ({ title: i.title, description: i.description, recommendedAction: i.recommendedAction }));
     const dataTrustReport = runDataTrustAgent(store);
-    return { executiveNarrative: report ?? '', insights, metrics, campaigns, keywords, waste, dataTrustReport };
-  }, [store, overrides, validated?.insights, report]);
+    return { executiveNarrative: report ?? '', insights, metrics, campaigns, keywords, waste, asins, dataTrustReport };
+  }, [store, validated?.insights, report]);
 
   const triggerDownload = useCallback((blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);

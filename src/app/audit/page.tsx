@@ -6,6 +6,7 @@ import AuditProcessingPanel from './components/AuditProcessingPanel';
 import AuditSummaryBlock from './components/AuditSummaryBlock';
 import AuditTabs from './components/AuditTabs';
 import ExportBar from './components/ExportBar';
+import { FeedbackWidget } from './components/FeedbackWidget';
 import ReconciliationDiagnosticsPanel from './components/ReconciliationDiagnosticsPanel';
 import PrivacyNote from './components/PrivacyNote';
 import { AuditStoreProvider, useAuditStore } from './context/AuditStoreContext';
@@ -19,6 +20,7 @@ import { parseReportsStreaming } from './utils/reportParser';
 import { normalizeToCsvFiles } from './utils/xlsxToCsv';
 import { runReportVerification } from './utils/reportVerification';
 import type { TabId } from './tabs/useTabData';
+import { PendingCopilotQuestionProvider } from './context/PendingCopilotQuestionContext';
 import { initUserSession, saveAuditResult } from '@/lib/userSession';
 import { aggregateReports } from '@/lib/aggregateReports';
 
@@ -61,6 +63,7 @@ function DashboardWithExport({
         exportStatusMessage={exportCtx?.exportStatusMessage ?? ''}
         exportError={exportCtx?.exportError ?? null}
       />
+      <FeedbackWidget />
     </>
   );
 }
@@ -204,11 +207,13 @@ function AuditPageContent() {
 
         {step === 'dashboard' && (
           <ExportProvider>
-            <DashboardWithExport
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              onRerunAnalysis={handleRerunAnalysis}
-            />
+            <PendingCopilotQuestionProvider>
+              <DashboardWithExport
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                onRerunAnalysis={handleRerunAnalysis}
+              />
+            </PendingCopilotQuestionProvider>
           </ExportProvider>
         )}
       </div>
