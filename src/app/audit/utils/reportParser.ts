@@ -32,6 +32,7 @@ import {
   type AsinMetrics,
   type CampaignMetrics,
 } from './aggregation';
+import { aggregateReports, type AggregatedMetrics } from '@/lib/aggregateReports';
 
 export type ReportType = 'business' | 'advertising' | 'unknown';
 
@@ -72,6 +73,13 @@ export interface MemoryStore {
       { spend: number; sales: number; clicks: number; impressions: number; orders: number }
     >
   >;
+  /** Raw rows for canonical aggregation (single source of truth). */
+  rawSpAdvertisedRows: Record<string, string>[];
+  rawSpTargetingRows: Record<string, string>[];
+  rawSpSearchTermRows: Record<string, string>[];
+  rawBusinessRows: Record<string, string>[];
+  /** Result of aggregateReports(); used by all metric tiles and agents. */
+  aggregatedMetrics?: AggregatedMetrics;
 }
 
 function createEmptyStore(): MemoryStore {
@@ -97,6 +105,10 @@ function createEmptyStore(): MemoryStore {
     attributedSales7d: 0,
     attributedSales14d: 0,
     attributedUnitsOrdered: 0,
+    rawSpAdvertisedRows: [],
+    rawSpTargetingRows: [],
+    rawSpSearchTermRows: [],
+    rawBusinessRows: [],
   };
 }
 
@@ -151,6 +163,16 @@ function getNumeric(row: Record<string, unknown>, rawKey: string | undefined): n
 function getStr(row: Record<string, unknown>, rawKey: string | undefined): string {
   if (!rawKey || row[rawKey] == null) return '';
   return String(row[rawKey]).trim();
+}
+
+/** Copy row to Record<string, string> for aggregateReports. */
+function rowToRecord(row: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of Object.keys(row)) {
+    if (k === '_sourceFile') continue;
+    out[k] = String(row[k] ?? '');
+  }
+  return out;
 }
 
 /** Parse business file from CSV string (first line = header). */
@@ -210,6 +232,10 @@ function parseBusinessFileFromContent(
         if (store.currencySample.length < 100) {
           const raw = row[headerMap!.orderedProductSales ?? ''] ?? row[headerMap!.sales ?? ''];
           if (raw != null) store.currencySample.push(raw);
+        }
+
+        if (store.rawBusinessRows.length < MAX_ROWS_PER_FILE) {
+          store.rawBusinessRows.push(rowToRecord(row));
         }
 
         if (onProgress && rowCount % 5000 === 0) onProgress(fileName, rowCount);
@@ -412,6 +438,14 @@ function parseAdvertisingFileFromContent(
         store.campaignMetrics[campKey].sales += sales;
         store.campaignMetrics[campKey].budget += getNumeric(row, headerMap!.budget);
 
+        if (subtype === 'advertised_product' && store.rawSpAdvertisedRows.length < MAX_ROWS_PER_FILE) {
+          store.rawSpAdvertisedRows.push(rowToRecord(row));
+        } else if (subtype === 'targeting' && store.rawSpTargetingRows.length < MAX_ROWS_PER_FILE) {
+          store.rawSpTargetingRows.push(rowToRecord(row));
+        } else if (subtype === 'search_term' && store.rawSpSearchTermRows.length < MAX_ROWS_PER_FILE) {
+          store.rawSpSearchTermRows.push(rowToRecord(row));
+        }
+
         if (onProgress && rowCount % 5000 === 0) onProgress(fileName, rowCount);
       },
       complete: () => {
@@ -565,6 +599,43 @@ export async function parseReportsStreaming(
       );
     }
   }
+
+  // Single source of truth: aggregateReports() produces all account-level metrics.
+  const result = aggregateReports(
+    store.rawSpAdvertisedRows,
+    store.rawSpTargetingRows,
+    store.rawSpSearchTermRows,
+    store.rawBusinessRows
+  );
+  store.aggregatedMetrics = result;
+  store.totalAdSpend = result.adSpend;
+  store.totalAdSales = result.adSales;
+  store.totalStoreSales = result.totalStoreSales;
+  store.totalOrders = result.adOrders;
+  store.totalClicks = result.adClicks;
+  store.totalImpressions = result.adImpressions;
+  store.totalSessions = result.sessions;
+  store.totalUnitsOrdered = result.unitsOrdered;
+  store.buyBoxPercent = result.buyBoxPct ?? 0;
+  store.attributedSales7d = result.adSales;
+  store.attributedUnitsOrdered = result.adOrders;
+
+  if (process.env.NEXT_PUBLIC_AUDIT_METRICS_DEBUG === 'true') {
+    // eslint-disable-next-line no-console
+    console.log('[AGGREGATION COMPLETE]', {
+      adSpend: result.adSpend,
+      adSales: result.adSales,
+      totalStoreSales: result.totalStoreSales,
+      organicSales: result.organicSales,
+      acos: result.acos,
+      tacos: result.tacos,
+      roas: result.roas,
+      adCvr: result.adCvr,
+      rows: result.rowCounts,
+      log: result._ingestionLog,
+    });
+  }
+
   onStageUpdate?.('report_parsing', 'completed');
   onStageUpdate?.('currency_normalization', 'running');
   store.currency = detectCurrencyFromValues(store.currencySample);

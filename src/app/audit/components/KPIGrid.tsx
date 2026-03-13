@@ -13,39 +13,48 @@ export default function KPIGrid() {
   const overrides = state.learnedOverrides?.overrides;
 
   const derived = useMemo(() => {
-    const totalAdClicks = store.totalClicks > 0 ? store.totalClicks : Object.values(store.keywordMetrics).reduce((s, m) => s + m.clicks, 0);
-    const totalSessions = store.totalSessions > 0 ? store.totalSessions : Object.values(store.asinMetrics).reduce((s, m) => s + m.sessions, 0);
-    const totalOrders = store.totalOrders ?? 0;
+    const agg = store.aggregatedMetrics;
+    const totalAdClicks = agg
+      ? agg.adClicks
+      : (store.totalClicks > 0 ? store.totalClicks : Object.values(store.keywordMetrics).reduce((s, m) => s + m.clicks, 0));
+    const totalSessions = agg
+      ? agg.sessions
+      : (store.totalSessions > 0 ? store.totalSessions : Object.values(store.asinMetrics).reduce((s, m) => s + m.sessions, 0));
+    const totalOrders = agg ? agg.adOrders : (store.totalOrders ?? 0);
     const buyBoxFromStore = store.buyBoxPercent;
     const buyBoxValues = Object.values(store.asinMetrics)
       .map((m) => m.buyBoxPercent)
       .filter((v): v is number => typeof v === 'number' && v >= 0);
     const buyBoxPct =
-      buyBoxFromStore != null && buyBoxFromStore > 0
-        ? buyBoxFromStore
-        : buyBoxValues.length > 0
-          ? buyBoxValues.reduce((a, b) => a + b, 0) / buyBoxValues.length
-          : null;
+      agg?.buyBoxPct != null && agg.buyBoxPct > 0
+        ? agg.buyBoxPct * 100
+        : (buyBoxFromStore != null && buyBoxFromStore > 0
+            ? buyBoxFromStore
+            : buyBoxValues.length > 0
+              ? buyBoxValues.reduce((a, b) => a + b, 0) / buyBoxValues.length
+              : null);
     const storeAcos =
-      store.totalAdSales > 0
-        ? (store.totalAdSpend / store.totalAdSales) * 100
-        : null;
+      agg?.acos != null
+        ? agg.acos * 100
+        : (store.totalAdSales > 0 ? (store.totalAdSpend / store.totalAdSales) * 100 : null);
     const m = store.storeMetrics;
     const conversionRate =
-      m.conversionRate != null && m.conversionRate > 0
-        ? m.conversionRate
-        : totalSessions > 0 && totalOrders > 0
-          ? (totalOrders / totalSessions) * 100
-          : null;
-    const canonical = executeMetricEngineForStore(store, overrides);
+      agg?.adCvr != null
+        ? agg.adCvr * 100
+        : (m.conversionRate != null && m.conversionRate > 0
+            ? m.conversionRate
+            : totalSessions > 0 && totalOrders > 0
+              ? (totalOrders / totalSessions) * 100
+              : null);
+    const canonical = !agg ? executeMetricEngineForStore(store, overrides) : null;
     return {
       totalAdClicks,
       totalSessions,
       totalOrders,
       buyBoxPct,
       storeAcos,
-      roas: canonical.roas,
-      tacosPct: canonical.tacos * 100,
+      roas: agg?.roas ?? canonical?.roas ?? 0,
+      tacosPct: agg?.tacos != null ? agg.tacos * 100 : (canonical ? canonical.tacos * 100 : 0),
       conversionRate,
       aov: totalOrders > 0 ? store.totalStoreSales / totalOrders : null,
       adSalesPercent: m.adSalesPercent,

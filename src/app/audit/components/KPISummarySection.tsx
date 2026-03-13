@@ -98,6 +98,36 @@ export default function KPISummarySection() {
   const overrides = state.learnedOverrides?.overrides;
 
   const { derived, canonical } = useMemo(() => {
+    const m = store.aggregatedMetrics;
+    if (m) {
+      const derivedFromAgg: DerivedMetrics = {
+        totalAdSpend: m.adSpend,
+        totalAdSales: m.adSales,
+        totalOrders: m.adOrders,
+        totalImpressions: m.adImpressions,
+        totalClicks: m.adClicks,
+        acos: m.acos != null ? m.acos * 100 : null,
+        roas: m.roas ?? 0,
+        tacos: m.tacos != null ? m.tacos * 100 : 0,
+        ctr: m.ctr != null ? m.ctr * 100 : null,
+        cvr: m.adCvr != null ? m.adCvr * 100 : null,
+        cpc: m.cpc ?? null,
+      };
+      const canonicalFromAgg = {
+        totalSales: m.totalStoreSales,
+        totalAdSpend: m.adSpend,
+        totalAdSales: m.adSales,
+        totalAdOrders: m.adOrders,
+        totalClicks: m.adClicks,
+        totalImpressions: m.adImpressions,
+        acos: m.acos ?? 0,
+        roas: m.roas ?? 0,
+        tacos: m.tacos ?? 0,
+        cvr: m.adCvr ?? 0,
+        totalOrders: m.adOrders,
+      };
+      return { derived: derivedFromAgg, canonical: canonicalFromAgg };
+    }
     const canonical = executeMetricEngineForStore(store, overrides);
     const totalClicks =
       canonical.totalClicks > 0

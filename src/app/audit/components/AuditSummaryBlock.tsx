@@ -69,31 +69,40 @@ export default function AuditSummaryBlock({
     const confidenceScore = verification.confidenceScore;
     const wastedSpendEstimate = health.wastedSpendEstimate;
 
+    const m = store.aggregatedMetrics;
     const overrides = state.learnedOverrides?.overrides;
-    const canonical = executeMetricEngineForStore(store, overrides);
-    const totalSales = store.totalStoreSales > 0 ? store.totalStoreSales : store.storeMetrics.totalSales;
-    const acos = canonical.acos * 100;
-    const roas = canonical.roas;
-    const tacos = canonical.tacos * 100;
+    const canonical = m
+      ? null
+      : executeMetricEngineForStore(store, overrides);
+    const totalSales = m
+      ? m.totalStoreSales
+      : (store.totalStoreSales > 0 ? store.totalStoreSales : store.storeMetrics.totalSales);
+    const acos = m != null && m.acos != null ? m.acos * 100 : (canonical ? canonical.acos * 100 : 0);
+    const roas = m?.roas ?? (canonical?.roas ?? 0);
+    const tacos = m != null && m.tacos != null ? m.tacos * 100 : (canonical ? canonical.tacos * 100 : 0);
 
-    const totalSessions =
-      store.totalSessions > 0
-        ? store.totalSessions
-        : Object.values(store.asinMetrics).reduce((s, m) => s + m.sessions, 0);
-    const totalOrders = canonical.totalAdOrders ?? store.totalOrders ?? 0;
+    const totalSessions = m
+      ? m.sessions
+      : (store.totalSessions > 0
+          ? store.totalSessions
+          : Object.values(store.asinMetrics).reduce((s, mm) => s + mm.sessions, 0));
+    const totalOrders = m ? m.adOrders : (canonical?.totalAdOrders ?? store.totalOrders ?? 0);
     const buyBoxFromStore = store.buyBoxPercent;
     const buyBoxValues = Object.values(store.asinMetrics)
-      .map((m) => m.buyBoxPercent)
+      .map((mm) => mm.buyBoxPercent)
       .filter((v): v is number => typeof v === 'number' && v >= 0);
     const buyBoxPct =
-      buyBoxFromStore != null && buyBoxFromStore > 0
-        ? buyBoxFromStore
-        : buyBoxValues.length > 0
-          ? buyBoxValues.reduce((a, b) => a + b, 0) / buyBoxValues.length
-          : null;
-    const conversionRate = canonical.cvr > 0 ? canonical.cvr * 100 : null;
-    const totalClicks = store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
-    const cpc = totalClicks > 0 ? store.totalAdSpend / totalClicks : 0;
+      m?.buyBoxPct != null && m.buyBoxPct > 0
+        ? m.buyBoxPct * 100
+        : (buyBoxFromStore != null && buyBoxFromStore > 0
+            ? buyBoxFromStore
+            : buyBoxValues.length > 0
+              ? buyBoxValues.reduce((a, b) => a + b, 0) / buyBoxValues.length
+              : null);
+    const conversionRate =
+      m?.adCvr != null ? m.adCvr * 100 : (canonical && canonical.cvr > 0 ? canonical.cvr * 100 : null);
+    const totalClicks = m ? m.adClicks : (store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0));
+    const cpc = m?.cpc ?? (totalClicks > 0 ? store.totalAdSpend / totalClicks : 0);
     const cvrPct = totalClicks > 0 && totalOrders > 0 ? (totalOrders / totalClicks) * 100 : undefined;
     const statisticalValidation = validateMetrics({
       acos: store.totalAdSales > 0 ? (store.totalAdSpend / store.totalAdSales) * 100 : undefined,
