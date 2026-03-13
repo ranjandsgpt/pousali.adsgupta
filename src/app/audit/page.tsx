@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Header from './components/Header';
 import UploadPanel from './components/UploadPanel';
 import AuditProcessingPanel from './components/AuditProcessingPanel';
@@ -19,6 +19,8 @@ import { parseReportsStreaming } from './utils/reportParser';
 import { normalizeToCsvFiles } from './utils/xlsxToCsv';
 import { runReportVerification } from './utils/reportVerification';
 import type { TabId } from './tabs/useTabData';
+import { initUserSession, saveAuditResult } from '@/lib/userSession';
+import { aggregateReports } from '@/lib/aggregateReports';
 
 export type AuditStep = 'upload' | 'processing' | 'dashboard';
 
@@ -69,12 +71,25 @@ function AuditPageContent() {
   const [step, setStep] = useState<AuditStep>('upload');
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
-  const { setStore } = useAuditStore();
+  const { state, setStore } = useAuditStore();
   const { runLearning } = useLearning();
   const { runGemini } = useGeminiReport();
   const { runDualEngine } = useDualEngine();
   const { setStage, resetPipeline } = usePipeline();
   const lastFilesRef = useRef<File[]>([]);
+  const sessionRef = useRef<{ userId: string; sessionId: string } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const session = await initUserSession();
+        sessionRef.current = { userId: session.userId, sessionId: session.sessionId };
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[AuditPage] initUserSession failed:', e);
+      }
+    })();
+  }, []);
 
   const handleUploadComplete = (files: File[]) => {
     if (files.length === 0) return;
@@ -124,6 +139,18 @@ function AuditPageContent() {
         setStage('cross_report_validation', verification.crossReport.passed ? 'completed' : 'failed', verification.crossReport.errors[0]);
 
         setStore(store);
+        try {
+          if (sessionRef.current && store.aggregatedMetrics) {
+            await saveAuditResult(
+              sessionRef.current.sessionId,
+              sessionRef.current.userId,
+              store.aggregatedMetrics
+            );
+          }
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn('[AuditPage] saveAuditResult failed:', e);
+        }
         await runLearning(store);
         setStep('dashboard');
 
