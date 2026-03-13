@@ -4,6 +4,7 @@ import {
   INSIGHT_NARRATIVE_PROMPT,
   INSIGHT_NARRATIVE_USER_PREFIX,
 } from '@/lib/geminiPromptRegistry';
+import { MAX_TOKENS_NARRATIVE } from '@/lib/geminiPromptRules';
 import { validateNarrativeResponse } from '@/lib/geminiResponseValidation';
 import { logGeminiResponse } from '@/lib/geminiResponseLogger';
 import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
@@ -45,7 +46,7 @@ async function callGeminiNarrative(
   assertNoFileReferences(contents);
   const result = await ai.models.generateContent({
     model,
-    config: { systemInstruction },
+    config: { systemInstruction, maxOutputTokens: MAX_TOKENS_NARRATIVE },
     contents,
   });
   return extractTextFromGenerateContentResponse(result);

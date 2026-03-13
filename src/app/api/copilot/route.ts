@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import { COPILOT_SYSTEM, buildCopilotUserMessage } from '@/lib/geminiPromptRegistry';
+import { MAX_TOKENS_NARRATIVE } from '@/lib/geminiPromptRules';
 import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
 import { buildAuditContext, type AuditContextInput, type StoreSummarySnapshot } from '@/lib/copilot/contextBuilder';
 import { validateCopilotResponse } from '@/lib/copilot/validateResponse';
@@ -201,7 +202,7 @@ export async function POST(request: NextRequest) {
   try {
     const result = await ai.models.generateContent({
       model,
-      config: { systemInstruction: COPILOT_SYSTEM },
+      config: { systemInstruction: COPILOT_SYSTEM, maxOutputTokens: MAX_TOKENS_NARRATIVE },
       contents,
     });
     rawText = extractTextFromGenerateContentResponse(result);

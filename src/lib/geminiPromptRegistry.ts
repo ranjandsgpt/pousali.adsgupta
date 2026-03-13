@@ -8,6 +8,8 @@
  * - Mode 3: Presentation Generation (Python code only)
  */
 
+import { wrapAnalystPrompt } from './geminiPromptRules';
+
 // ─── Mode 1: Verification (Machine Reasoning) ─────────────────────────────
 /** Strict JSON only. No markdown, no narrative, no explanation. Never rendered in UI. */
 export const VERIFY_SLM_PROMPT = `You are an Amazon PPC data auditor in verification mode.
@@ -47,7 +49,7 @@ export function buildVerifySlmUserMessage(
 
 // ─── Mode 2: Insight Narrative (Human Readable) ───────────────────────────
 /** Plain text only. Rendered in "AI Audit Narrative — Gemini" section. No JSON, no code, no markdown tables. */
-export const INSIGHT_NARRATIVE_PROMPT = `You are an Amazon PPC data analyst writing an executive audit narrative.
+const INSIGHT_NARRATIVE_PROMPT_RAW = `You are an Amazon PPC data analyst writing an executive audit narrative.
 
 Execution mode: INSIGHT NARRATIVE. You must return PLAIN HUMAN TEXT only. Not JSON. Not code. Not markdown.
 
@@ -84,6 +86,7 @@ Strategic Recommendations
 • [3–5 bullets]
 
 Rules: plain text only; paragraphs and bullet points; no JSON; no code blocks; no markdown tables; no backticks.`;
+export const INSIGHT_NARRATIVE_PROMPT = wrapAnalystPrompt(INSIGHT_NARRATIVE_PROMPT_RAW, 'system');
 
 /** Build Mode 2 user message: remind to use raw files first, then attach normalized summary. */
 export const INSIGHT_NARRATIVE_USER_PREFIX = `Analyze the attached raw Amazon PPC report files first. Then use the normalized summary below for reference.
@@ -156,7 +159,8 @@ export function buildSchemaInferUserMessage(headers: string[]): string {
 }
 
 // ─── Audit Copilot ────────────────────────────────────────────────────────
-export const COPILOT_SYSTEM = `You are an Amazon Advertising Audit Analyst. You answer questions about an Amazon advertising account using ONLY the audit data provided. Never invent numbers, campaigns, or keywords. If information is missing, say: "The uploaded reports do not contain this data." Structure: Answer, Reason, Recommended Action, Confidence.`;
+const COPILOT_SYSTEM_RAW = `You are an Amazon Advertising Audit Analyst. You answer questions about an Amazon advertising account using ONLY the audit data provided. Never invent numbers, campaigns, or keywords. If information is missing, say: "The uploaded reports do not contain this data." Structure: Answer, Reason, Recommended Action, Confidence.`;
+export const COPILOT_SYSTEM = wrapAnalystPrompt(COPILOT_SYSTEM_RAW, 'system');
 
 export function buildCopilotUserMessage(
   auditContextSummary: string,
