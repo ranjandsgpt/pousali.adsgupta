@@ -105,170 +105,134 @@ export function exportAgencyActionPlanCsv(store: MemoryStore): void {
   URL.revokeObjectURL(url);
 }
 
+/** Board-quality 10-slide deck (Phase 5): Minto pyramid, conclusion first, data from AggregatedMetrics. */
+const SLIDE_BG = { color: '0F1117' } as const;
+const SLIDE_TEXT = { color: 'FFFFFF', fontSize: 14 };
+const SLIDE_TITLE = { color: 'FFFFFF', fontSize: 18, bold: true };
+
 /**
- * Generate and download Amazon_Performance_Report.pptx with 10-section slides and 3 charts.
- * Uses corrected canonical metrics when overrides are provided (e.g. learned from Dislike feedback).
+ * Generate and download Amazon_Performance_Report.pptx — 10-slide board deck.
+ * Uses store.aggregatedMetrics when available; fallback to executeMetricEngineForStore.
  */
 export async function exportAmazonPerformancePptx(store: MemoryStore, overrides?: OverrideState): Promise<void> {
   const sanity = runSanityChecks(store);
-  const diagnostics = runDiagnosticEngines(store);
   const pptxgen = (await import('pptxgenjs')).default;
   const pres = new pptxgen();
 
-  const canonical = executeMetricEngineForStore(store, overrides);
-  const totalStoreSales = canonical.totalSales;
-  const totalAdSales = canonical.totalAdSales;
-  const totalAdSpend = canonical.totalAdSpend;
-  const organicSales = canonical.organicSales;
-  const acos = canonical.acos * 100;
-  const roas = canonical.roas;
+  const agg = store.aggregatedMetrics;
+  const canonical = agg ?? executeMetricEngineForStore(store, overrides);
+  const totalStoreSales = agg ? agg.totalStoreSales : (canonical as { totalSales: number }).totalSales;
+  const totalAdSales = agg ? agg.adSales : (canonical as { totalAdSales: number }).totalAdSales;
+  const totalAdSpend = agg ? agg.adSpend : (canonical as { totalAdSpend: number }).totalAdSpend;
+  const organicSales = agg ? agg.organicSales : (canonical as { organicSales: number }).organicSales;
+  const acos = (agg ? agg.acos ?? 0 : (canonical as { acos: number }).acos) * 100;
+  const roas = agg ? (agg.roas ?? 0) : (canonical as { roas: number }).roas;
+  const tacos = (agg ? agg.tacos ?? 0 : (canonical as { tacos: number }).tacos) * 100;
 
-  // Title slide
-  const titleSlide = pres.addSlide();
-  titleSlide.addText('Amazon Performance Report', { x: 0.5, y: 1.5, w: 9, h: 1, fontSize: 24, bold: true });
-  titleSlide.addText('Executive audit – 10 sections', { x: 0.5, y: 2.5, w: 9, h: 0.5, fontSize: 14 });
-
-  // 1. Executive Summary
+  // Slide 1 — Title
   const s1 = pres.addSlide();
-  s1.addText(SECTION_TITLES[0], { x: 0.5, y: 0.3, w: 9, h: 0.5, fontSize: 18, bold: true });
-  s1.addText(
-    [
-          { text: `Total store sales: ${totalStoreSales.toFixed(2)}`, options: {} },
-          { text: `Ad sales: ${totalAdSales.toFixed(2)} | Ad spend: ${totalAdSpend.toFixed(2)}`, options: {} },
-          { text: `ACOS: ${acos.toFixed(1)}% | ROAS: ${roas.toFixed(2)}×`, options: {} },
-          { text: `Organic sales: ${organicSales.toFixed(2)}`, options: {} },
-    ],
-    { x: 0.5, y: 1, w: 9, h: 1.5, fontSize: 12 }
-  );
+  (s1 as { background: unknown }).background = SLIDE_BG;
+  s1.addText('Amazon Advertising Performance Audit', { x: 0.5, y: 1.5, w: 9, h: 1, ...SLIDE_TITLE, fontSize: 24 });
+  s1.addText(`${store.files.map((f) => f.name).join(' | ') || 'Report'}`, { x: 0.5, y: 2.4, w: 9, h: 0.4, ...SLIDE_TEXT, fontSize: 12 });
+  s1.addText(`ROAS ${roas.toFixed(2)}×  |  ACOS ${Number.isFinite(acos) ? acos.toFixed(1) : '—'}%  |  TACOS ${Number.isFinite(tacos) ? tacos.toFixed(1) : '—'}%`, {
+    x: 0.5,
+    y: 2.9,
+    w: 9,
+    h: 0.5,
+    ...SLIDE_TEXT,
+  });
 
-  // 2. Top Performing ASINs
-  const topAsins = Object.values(store.asinMetrics)
-    .sort((a, b) => b.totalSales - a.totalSales)
-    .slice(0, 10);
+  // Slide 2 — The Situation
   const s2 = pres.addSlide();
-  s2.addText(SECTION_TITLES[1], { x: 0.5, y: 0.3, w: 9, h: 0.5, fontSize: 18, bold: true });
-  s2.addText(
-    topAsins.map((a) => ({ text: `${a.asin}: ${a.totalSales.toFixed(2)} sales`, options: {} })),
-    { x: 0.5, y: 1, w: 9, h: 5, fontSize: 11 }
-  );
+  (s2 as { background: unknown }).background = SLIDE_BG;
+  s2.addText('The Situation', { x: 0.5, y: 0.3, w: 9, h: 0.5, ...SLIDE_TITLE });
+  const situationText =
+    totalAdSpend > 0 && totalAdSales > 0
+      ? `Spend of ${totalAdSpend.toLocaleString('en-US', { minimumFractionDigits: 2 })} generated ${totalAdSales.toLocaleString('en-US', { minimumFractionDigits: 2 })} in ad revenue. ${sanity.highACOSCampaigns.length} campaigns above 50% ACOS.`
+      : 'Upload advertising and business reports to see the situation.';
+  s2.addText(situationText, { x: 0.5, y: 1, w: 9, h: 1.5, ...SLIDE_TEXT });
 
-  // 3. Campaign Efficiency
-  const campaigns = Object.values(store.campaignMetrics)
-    .filter((c) => c.campaignName)
-    .sort((a, b) => b.sales - a.sales)
-    .slice(0, 10);
+  // Slide 3 — Financial Scorecard
   const s3 = pres.addSlide();
-  s3.addText(SECTION_TITLES[2], { x: 0.5, y: 0.3, w: 9, h: 0.5, fontSize: 18, bold: true });
+  (s3 as { background: unknown }).background = SLIDE_BG;
+  s3.addText('Financial Scorecard', { x: 0.5, y: 0.3, w: 9, h: 0.5, ...SLIDE_TITLE });
   s3.addText(
-    campaigns.map((c) => ({
-      text: `${c.campaignName}: Spend ${c.spend.toFixed(2)}, Sales ${c.sales.toFixed(2)}, ACOS ${c.acos.toFixed(1)}%`,
-      options: {},
-    })),
-    { x: 0.5, y: 1, w: 9, h: 5, fontSize: 11 }
+    [
+      { text: `Total Store Sales: ${totalStoreSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, options: SLIDE_TEXT },
+      { text: `Ad Spend: ${totalAdSpend.toLocaleString('en-US', { minimumFractionDigits: 2 })}  |  Ad Sales: ${totalAdSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, options: SLIDE_TEXT },
+      { text: `ROAS: ${roas.toFixed(2)}×  |  ACOS: ${Number.isFinite(acos) ? acos.toFixed(1) : '—'}%  |  TACOS: ${Number.isFinite(tacos) ? tacos.toFixed(1) : '—'}%`, options: SLIDE_TEXT },
+      { text: `Organic Sales: ${organicSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, options: SLIDE_TEXT },
+    ],
+    { x: 0.5, y: 1, w: 9, h: 2, fontSize: 12, color: 'FFFFFF' }
   );
 
-  // 4. Targeting Strategy
+  // Slide 4 — Where Your Money Goes (donut)
   const s4 = pres.addSlide();
-  s4.addText(SECTION_TITLES[3], { x: 0.5, y: 0.3, w: 9, h: 0.5, fontSize: 18, bold: true });
-  s4.addText('See ROAS by Match Type chart in this deck.', { x: 0.5, y: 1, w: 9, h: 0.5, fontSize: 12 });
+  (s4 as { background: unknown }).background = SLIDE_BG;
+  s4.addText('Where Your Money Goes', { x: 0.5, y: 0.2, w: 9, h: 0.4, ...SLIDE_TITLE });
+  const pieData = [{ name: 'Sales', labels: ['Ad Sales', 'Organic Sales'], values: [totalAdSales, Math.max(0, organicSales)] }];
+  s4.addChart(pres.ChartType.pie, pieData, { x: 1.5, y: 0.8, w: 7, h: 5 });
 
-  // 5. Search Term Winners
-  const winners = Object.values(store.keywordMetrics)
-    .filter((k) => k.sales > 0)
-    .sort((a, b) => b.sales - a.sales)
-    .slice(0, 10);
+  // Slide 5 — The Problem (ACOS by campaign)
+  const campaigns = Object.values(store.campaignMetrics).filter((c) => c.campaignName).sort((a, b) => b.spend - a.spend).slice(0, 10);
   const s5 = pres.addSlide();
-  s5.addText(SECTION_TITLES[4], { x: 0.5, y: 0.3, w: 9, h: 0.5, fontSize: 18, bold: true });
+  (s5 as { background: unknown }).background = SLIDE_BG;
+  const above40 = campaigns.filter((c) => c.acos > 40).length;
+  s5.addText(above40 > 0 ? `${above40} campaigns above sustainable ACOS` : 'The Problem', { x: 0.5, y: 0.3, w: 9, h: 0.5, ...SLIDE_TITLE });
   s5.addText(
-    winners.map((k) => ({ text: `${k.searchTerm}: ${k.sales.toFixed(2)} sales, ROAS ${k.roas.toFixed(2)}`, options: {} })),
-    { x: 0.5, y: 1, w: 9, h: 5, fontSize: 11 }
+    campaigns.map((c) => ({ text: `${(c.campaignName || '').slice(0, 25)}: ACOS ${c.acos.toFixed(1)}%, Spend ${c.spend.toFixed(2)}`, options: SLIDE_TEXT })),
+    { x: 0.5, y: 1, w: 9, h: 5, fontSize: 11, color: 'FFFFFF' }
   );
 
-  // 6. Search Term Graveyard
-  const graveyard = sanity.wastedKeywords.slice(0, 10);
+  // Slide 6 — The Opportunity (waste)
+  const totalWaste = sanity.wastedKeywords.reduce((s, k) => s + k.spend, 0);
   const s6 = pres.addSlide();
-  s6.addText(SECTION_TITLES[5], { x: 0.5, y: 0.3, w: 9, h: 0.5, fontSize: 18, bold: true });
+  (s6 as { background: unknown }).background = SLIDE_BG;
+  s6.addText(`Recoverable: ${totalWaste.toLocaleString('en-US', { minimumFractionDigits: 2 })} on zero-conversion terms`, { x: 0.5, y: 0.3, w: 9, h: 0.5, ...SLIDE_TITLE });
+  const topWaste = sanity.wastedKeywords.slice(0, 5);
   s6.addText(
-    graveyard.length
-      ? graveyard.map((k) => ({ text: `${k.searchTerm}: ${k.spend.toFixed(2)} spend, 0 sales`, options: {} }))
-      : [{ text: 'No high-spend zero-sales keywords in top list.', options: {} }],
-    { x: 0.5, y: 1, w: 9, h: 5, fontSize: 11 }
+    topWaste.length ? topWaste.map((k) => ({ text: `${k.searchTerm.slice(0, 40)} — ${k.spend.toFixed(2)}`, options: SLIDE_TEXT })) : [{ text: 'No waste in top list.', options: SLIDE_TEXT }],
+    { x: 0.5, y: 1.2, w: 9, h: 4, fontSize: 12, color: 'FFFFFF' }
   );
 
-  // 7. B2B Opportunity
+  // Slide 7 — Top 3 Actions
   const s7 = pres.addSlide();
-  s7.addText(SECTION_TITLES[6], { x: 0.5, y: 0.3, w: 9, h: 0.5, fontSize: 18, bold: true });
-  s7.addText('B2B vs B2C breakdown from Business Report when available.', { x: 0.5, y: 1, w: 9, h: 0.5, fontSize: 12 });
+  (s7 as { background: unknown }).background = SLIDE_BG;
+  s7.addText('Top 3 Actions', { x: 0.5, y: 0.3, w: 9, h: 0.5, ...SLIDE_TITLE });
+  const actions = [
+    sanity.wastedKeywords.length > 0 ? { action: 'Negate or pause wasted keywords', impact: `${sanity.wastedKeywords.length} terms`, effort: 'Low' } : null,
+    sanity.scalingKeywords.length > 0 ? { action: 'Scale high-ROAS keywords', impact: `${sanity.scalingKeywords.length} terms`, effort: 'Medium' } : null,
+    sanity.highACOSCampaigns.length > 0 ? { action: 'Review high-ACOS campaigns', impact: `${sanity.highACOSCampaigns.length} campaigns`, effort: 'Medium' } : null,
+  ].filter(Boolean) as { action: string; impact: string; effort: string }[];
+  s7.addText(
+    actions.slice(0, 3).map((a) => ({ text: `${a.action} — ${a.impact} (${a.effort})`, options: SLIDE_TEXT })),
+    { x: 0.5, y: 1, w: 9, h: 3, fontSize: 12, color: 'FFFFFF' }
+  );
 
-  // 8. Low Conversion Risk
+  // Slide 8 — ASIN Highlights
+  const topAsins = Object.values(store.asinMetrics).sort((a, b) => b.totalSales - a.totalSales).slice(0, 6);
   const s8 = pres.addSlide();
-  s8.addText(SECTION_TITLES[7], { x: 0.5, y: 0.3, w: 9, h: 0.5, fontSize: 18, bold: true });
+  (s8 as { background: unknown }).background = SLIDE_BG;
+  s8.addText('ASIN Highlights', { x: 0.5, y: 0.3, w: 9, h: 0.5, ...SLIDE_TITLE });
   s8.addText(
-    diagnostics.waste.bleedingKeywords.length > 0
-      ? `Keywords with traffic but no sales: ${diagnostics.waste.bleedingKeywords.length}. Review Search Term Graveyard.`
-      : 'No high-risk low-conversion keywords flagged.',
-    { x: 0.5, y: 1, w: 9, h: 1, fontSize: 12 }
+    topAsins.length ? topAsins.map((a) => ({ text: `${a.asin}: ${a.totalSales.toFixed(2)} sales, ACOS ${a.adSales > 0 ? ((a.adSpend / a.adSales) * 100).toFixed(1) : '—'}%`, options: SLIDE_TEXT })) : [{ text: 'No ASIN data.', options: SLIDE_TEXT }],
+    { x: 0.5, y: 1, w: 9, h: 4, fontSize: 11, color: 'FFFFFF' }
   );
 
-  // 9. Competitor Benchmarking
+  // Slide 9 — This Week's Focus
   const s9 = pres.addSlide();
-  s9.addText(SECTION_TITLES[8], { x: 0.5, y: 0.3, w: 9, h: 0.5, fontSize: 18, bold: true });
-  s9.addText('Competitor and match-type overlap from targeting data. See Targeting Strategy.', { x: 0.5, y: 1, w: 9, h: 0.5, fontSize: 12 });
-
-  // 10. Prioritized Action Roadmap
-  const s10 = pres.addSlide();
-  s10.addText(SECTION_TITLES[9], { x: 0.5, y: 0.3, w: 9, h: 0.5, fontSize: 18, bold: true });
-  const roadmapBullets = [
-    sanity.wastedKeywords.length > 0 && `Negate or pause ${Math.min(sanity.wastedKeywords.length, 50)} wasted keywords`,
-    sanity.scalingKeywords.length > 0 && `Scale ${sanity.scalingKeywords.length} high-ROAS keywords`,
-    sanity.highACOSCampaigns.length > 0 && `Review ${sanity.highACOSCampaigns.length} high-ACOS campaigns`,
-    sanity.budgetCappedCampaigns.length > 0 && `Increase budget on ${sanity.budgetCappedCampaigns.length} capped campaigns`,
-  ].filter(Boolean) as string[];
-  s10.addText(
-    roadmapBullets.length ? roadmapBullets.map((t) => ({ text: t, options: {} })) : [{ text: 'No actions generated from current data.', options: {} }],
-    { x: 0.5, y: 1, w: 9, h: 4, fontSize: 12 }
+  (s9 as { background: unknown }).background = SLIDE_BG;
+  s9.addText("This Week's Focus", { x: 0.5, y: 0.3, w: 9, h: 0.5, ...SLIDE_TITLE });
+  s9.addText(
+    ['1. Review and act on wasted keywords.', '2. Scale winners where ROAS > 3×.', '3. Owner: ______________'].map((t) => ({ text: t, options: SLIDE_TEXT })),
+    { x: 0.5, y: 1, w: 9, h: 2, fontSize: 12, color: 'FFFFFF' }
   );
 
-  // Chart: Sales Breakdown Pie
-  const pieSlide = pres.addSlide();
-  pieSlide.addText('Sales Breakdown', { x: 0.5, y: 0.2, w: 9, h: 0.4, fontSize: 16, bold: true });
-  const pieData = [
-    {
-      name: 'Sales',
-      labels: ['Ad Sales', 'Organic Sales'],
-      values: [totalAdSales, Math.max(0, organicSales)],
-    },
-  ];
-  pieSlide.addChart(pres.ChartType.pie, pieData, { x: 1, y: 0.8, w: 8, h: 5 });
-
-  // Chart: ROAS by Match Type Bar
-  const byMatchType = new Map<string, { spend: number; sales: number }>();
-  Object.values(store.keywordMetrics).forEach((k) => {
-    const mt = (k.matchType || 'other').toLowerCase();
-    const cur = byMatchType.get(mt) || { spend: 0, sales: 0 };
-    cur.spend += k.spend;
-    cur.sales += k.sales;
-    byMatchType.set(mt, cur);
-  });
-  const matchTypeLabels = Array.from(byMatchType.keys()).slice(0, 8);
-  const matchTypeRoas = matchTypeLabels.map((mt) => {
-    const d = byMatchType.get(mt)!;
-    return d.spend > 0 ? d.sales / d.spend : 0;
-  });
-  const barSlide = pres.addSlide();
-  barSlide.addText('ROAS by Match Type', { x: 0.5, y: 0.2, w: 9, h: 0.4, fontSize: 16, bold: true });
-  const barData = [
-    { name: 'ROAS', labels: matchTypeLabels.length ? matchTypeLabels : ['N/A'], values: matchTypeRoas.length ? matchTypeRoas : [0] },
-  ];
-  barSlide.addChart(pres.ChartType.bar, barData, { x: 1, y: 0.8, w: 8, h: 5 });
-
-  // Chart: Top ASIN Sales Bar
-  const asinSlide = pres.addSlide();
-  asinSlide.addText('Top ASIN Sales', { x: 0.5, y: 0.2, w: 9, h: 0.4, fontSize: 16, bold: true });
-  const asinLabels = topAsins.map((a) => a.asin);
-  const asinValues = topAsins.map((a) => a.totalSales);
-  const asinBarData = [{ name: 'Sales', labels: asinLabels, values: asinValues }];
-  asinSlide.addChart(pres.ChartType.bar, asinBarData, { x: 1, y: 0.8, w: 8, h: 5 });
+  // Slide 10 — Appendix
+  const s10 = pres.addSlide();
+  (s10 as { background: unknown }).background = SLIDE_BG;
+  s10.addText('Appendix', { x: 0.5, y: 0.3, w: 9, h: 0.5, ...SLIDE_TITLE });
+  s10.addText('Full data available on request. Metrics from aggregated report data. pousali.adsgupta.com', { x: 0.5, y: 1, w: 9, h: 1, ...SLIDE_TEXT });
 
   pres.writeFile({ fileName: 'Amazon_Performance_Report.pptx' });
 }

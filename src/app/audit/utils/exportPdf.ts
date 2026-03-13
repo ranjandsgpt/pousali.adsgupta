@@ -1,25 +1,18 @@
 /**
- * PDF export – CFO-grade structure (Phase 7).
- * Sections: Executive Summary, Account Health, Advertising Efficiency, Campaign Performance,
- * Keyword Strategy, Waste & Bleed, ASIN Performance, Profitability, Strategic Opportunities, Action Plan.
+ * PDF export – Board-quality 8-page structure (Phase 5).
+ * Page 1: Executive Summary | 2: Financial Grid | 3: Campaign Analysis | 4: Waste Report
+ * Page 5: ASIN Intelligence | 6: Opportunities | 7: Methodology | 8: Appendix
  */
 import { jsPDF } from 'jspdf';
 import type { MemoryStore } from './reportParser';
 import { buildFullExportData } from './exportDataBuilder';
 import type { OverrideState } from '@/services/overrideEngine';
+import { getCurrencySymbol } from './currencyDetector';
+import { runSanityChecks } from './sanityChecks';
 
-const CFO_SECTIONS = [
-  'Executive Summary',
-  'Account Health Overview',
-  'Advertising Efficiency',
-  'Campaign Performance',
-  'Keyword Strategy',
-  'Waste & Bleed Analysis',
-  'ASIN Performance',
-  'Profitability Analysis',
-  'Strategic Opportunities',
-  'Action Plan',
-] as const;
+const MARGIN = 14;
+const PAGE_HEIGHT = 297;
+const PAGE_WIDTH = 210;
 
 function drawTable(
   doc: jsPDF,
@@ -33,7 +26,6 @@ function drawTable(
   const lineHeight = 6;
   const cellPadding = 2;
   let y = startY;
-
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   let x = margin;
@@ -45,10 +37,9 @@ function drawTable(
   doc.setDrawColor(200, 200, 200);
   doc.line(margin, y, pageWidth - margin, y);
   y += 2;
-
   doc.setFont('helvetica', 'normal');
   for (const row of rows) {
-    if (y > doc.internal.pageSize.getHeight() - 24) {
+    if (y > PAGE_HEIGHT - 24) {
       doc.addPage();
       y = margin + 10;
     }
@@ -62,8 +53,8 @@ function drawTable(
   return y + 6;
 }
 
-function sectionHeading(doc: jsPDF, y: number, text: string, margin: number, pageBreakBefore = false): number {
-  if (pageBreakBefore || y > doc.internal.pageSize.getHeight() - 36) {
+function heading(doc: jsPDF, y: number, text: string, margin: number, pageBreak = false): number {
+  if (pageBreak || y > PAGE_HEIGHT - 36) {
     doc.addPage();
     y = margin + 10;
   }
@@ -71,119 +62,152 @@ function sectionHeading(doc: jsPDF, y: number, text: string, margin: number, pag
   doc.setFont('helvetica', 'bold');
   doc.text(text, margin, y);
   doc.setDrawColor(200, 200, 200);
-  doc.line(margin, y + 2, doc.internal.pageSize.getWidth() - margin, y + 2);
+  doc.line(margin, y + 2, PAGE_WIDTH - margin, y + 2);
   return y + 14;
 }
 
 export function exportAuditPdf(store: MemoryStore, overrides?: OverrideState): void {
   const data = buildFullExportData(store, overrides);
+  const agg = store.aggregatedMetrics;
+  const sanity = runSanityChecks(store);
+  const sym = getCurrencySymbol(store.currency) || '$';
   const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 14;
+  let y = MARGIN + 10;
 
+  // Page 1 — Executive Summary
   doc.setFontSize(18);
-  doc.text(data.title, margin, 20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Amazon Advertising Performance Audit', MARGIN, 20);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Generated ${data.generatedAt}. All data processed client-side.`, margin, 28);
-  let y = 36;
-
-  y = sectionHeading(doc, y, CFO_SECTIONS[0], margin);
+  doc.text(`Generated ${data.generatedAt}.`, MARGIN, 28);
+  y = heading(doc, 34, 'Executive Summary', MARGIN);
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('This audit summarizes advertising performance, key risks, and recommended actions. Key metrics and diagnostics follow.', margin, y);
-  y += 12;
+  const verdict =
+    agg != null
+      ? `Ad spend ${sym}${agg.adSpend.toLocaleString('en-US', { minimumFractionDigits: 2 })} generated ${sym}${agg.adSales.toLocaleString('en-US', { minimumFractionDigits: 2 })} in ad sales. ROAS ${agg.roas?.toFixed(2) ?? '—'}×; ACOS ${agg.acos != null ? (agg.acos * 100).toFixed(1) : '—'}%.`
+      : 'Key metrics and diagnostics follow.';
+  doc.text(verdict, MARGIN, y, { maxWidth: PAGE_WIDTH - 2 * MARGIN });
+  y += 14;
+  doc.text('1. Review high-ACOS campaigns and reduce waste.', MARGIN, y);
+  y += 6;
+  doc.text('2. Scale high-ROAS keywords and campaigns.', MARGIN, y);
+  y += 6;
+  doc.text('3. Add negatives for zero-sales search terms.', MARGIN, y);
+  y += 16;
+  doc.setFontSize(9);
+  doc.text('Prepared by Pousali Dasgupta | pousali.adsgupta.com', MARGIN, y);
 
-  y = sectionHeading(doc, y, CFO_SECTIONS[1], margin, true);
+  // Page 2 — Financial Performance Grid
+  y = heading(doc, PAGE_HEIGHT - 10, 'Financial Performance', MARGIN, true);
   if (data.kpis.length > 0) {
-    const kpiHeaders = ['Metric', 'Value'];
     const kpiRows = data.kpis.map((k) => [k.label, k.value]);
-    const kpiWidths = [80, 70];
-    y = drawTable(doc, y, kpiHeaders, kpiRows, kpiWidths, pageWidth, margin);
+    y = drawTable(doc, y, ['Metric', 'Value'], kpiRows.slice(0, 8), [100, 70], PAGE_WIDTH, MARGIN);
+  }
+  if (agg && agg.totalStoreSales > 0 && y < PAGE_HEIGHT - 30) {
+    const adPct = (agg.adSales / agg.totalStoreSales) * 100;
+    doc.setFontSize(10);
+    doc.text(
+      `${sym}${agg.adSales.toLocaleString('en-US', { minimumFractionDigits: 2 })} of your ${sym}${agg.totalStoreSales.toLocaleString('en-US', { minimumFractionDigits: 2 })} revenue came from advertising (${adPct.toFixed(0)}%).`,
+      MARGIN,
+      y + 4,
+      { maxWidth: PAGE_WIDTH - 2 * MARGIN }
+    );
   }
 
-  y = sectionHeading(doc, y, CFO_SECTIONS[2], margin, true);
-  if (data.kpis.length > 0) {
-    const effRows = data.kpis.filter((k) => ['ACOS', 'ROAS', 'TACOS'].includes(k.label)).map((k) => [k.label, k.value]);
-    if (effRows.length > 0) {
-      y = drawTable(doc, y, ['Metric', 'Value'], effRows, [80, 70], pageWidth, margin);
-    }
-  }
-
-  if (data.patterns.length > 0) {
-    y = sectionHeading(doc, y, CFO_SECTIONS[5], margin, true);
-    const patternRows = data.patterns.map((p) => [
-      p.problemTitle,
-      String(p.entityName).slice(0, 25),
-      String(p.recommendedAction).slice(0, 35),
-      (p.metricValues || '').slice(0, 20),
+  // Page 3 — Campaign Analysis
+  y = heading(doc, PAGE_HEIGHT - 10, 'Campaign Analysis', MARGIN, true);
+  const campaigns = Object.values(store.campaignMetrics).filter((c) => c.campaignName).sort((a, b) => b.spend - a.spend).slice(0, 15);
+  if (campaigns.length > 0) {
+    const campRows = campaigns.map((c) => [
+      String(c.campaignName).slice(0, 22),
+      c.spend.toFixed(2),
+      c.sales.toFixed(2),
+      c.acos.toFixed(1),
+      c.spend > 0 ? (c.sales / c.spend).toFixed(2) : '—',
     ]);
-    y = drawTable(doc, y, ['Issue', 'Entity', 'Action', 'Metrics'], patternRows, [40, 35, 45, 35], pageWidth, margin);
+    y = drawTable(doc, y, ['Campaign', 'Spend', 'Sales', 'ACOS%', 'ROAS'], campRows, [45, 28, 28, 28, 28], PAGE_WIDTH, MARGIN);
   }
 
-  if (data.opportunities.length > 0) {
-    y = sectionHeading(doc, y, CFO_SECTIONS[8], margin, true);
-    const oppRows = data.opportunities.map((o) => [
-      o.title,
-      String(o.entityName).slice(0, 28),
-      String(o.recommendedAction).slice(0, 30),
-      (o.metricValues || '').slice(0, 18),
+  // Page 4 — Waste Report
+  y = heading(doc, PAGE_HEIGHT - 10, 'Waste Report', MARGIN, true);
+  const waste = sanity.wastedKeywords.slice(0, 10);
+  const totalWaste = waste.reduce((s, k) => s + k.spend, 0);
+  if (totalWaste > 0) {
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total zero-sales spend: ${sym}${totalWaste.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, MARGIN, y);
+    y += 10;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+  }
+  if (waste.length > 0) {
+    const wasteRows = waste.map((k) => [String(k.searchTerm).slice(0, 30), k.spend.toFixed(2), String(k.clicks), '0']);
+    y = drawTable(doc, y, ['Search Term', 'Spend', 'Clicks', 'Sales'], wasteRows, [70, 35, 30, 30], PAGE_WIDTH, MARGIN);
+  }
+
+  // Page 5 — ASIN Intelligence
+  y = heading(doc, PAGE_HEIGHT - 10, 'ASIN Intelligence', MARGIN, true);
+  const asins = Object.values(store.asinMetrics).sort((a, b) => b.totalSales - a.totalSales).slice(0, 15);
+  if (asins.length > 0) {
+    const asinRows = asins.map((a) => [
+      a.asin,
+      a.totalSales.toFixed(2),
+      a.adSales.toFixed(2),
+      a.adSpend > 0 && a.adSales > 0 ? ((a.adSpend / a.adSales) * 100).toFixed(1) : '—',
     ]);
-    y = drawTable(doc, y, ['Type', 'Entity', 'Action', 'Metrics'], oppRows, [35, 38, 42, 40], pageWidth, margin);
+    y = drawTable(doc, y, ['ASIN', 'Store Sales', 'Ad Sales', 'ACOS%'], asinRows, [35, 40, 40, 35], PAGE_WIDTH, MARGIN);
   }
 
+  // Page 6 — Opportunities
+  y = heading(doc, PAGE_HEIGHT - 10, 'Opportunities', MARGIN, true);
+  const opps = data.opportunities.slice(0, 5);
+  if (opps.length > 0) {
+    opps.forEach((o) => {
+      if (y > PAGE_HEIGHT - 24) {
+        doc.addPage();
+        y = MARGIN + 10;
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.text(o.title, MARGIN, y);
+      y += 6;
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${o.entityName}: ${o.recommendedAction}`, MARGIN, y, { maxWidth: PAGE_WIDTH - 2 * MARGIN });
+      y += 10;
+    });
+  }
+
+  // Page 7 — Methodology
+  y = heading(doc, PAGE_HEIGHT - 10, 'Methodology', MARGIN, true);
+  doc.setFontSize(10);
+  doc.text(`Report types: ${store.files.map((f) => `${f.name} (${f.rows} rows)`).join('; ') || 'None.'}`, MARGIN, y, { maxWidth: PAGE_WIDTH - 2 * MARGIN });
+  y += 10;
+  doc.text('Metrics: ACOS = Ad Spend / Ad Sales; ROAS = Ad Sales / Ad Spend; TACOS = Ad Spend / Total Store Sales. All from aggregated report data.', MARGIN, y, { maxWidth: PAGE_WIDTH - 2 * MARGIN });
+  y += 12;
+  const invOk = (store.invariantResults ?? []).filter((r) => !r.passed).length === 0;
+  doc.text(`Data integrity: ${invOk ? 'All checks passed.' : 'Some invariant checks failed — review metrics.'}`, MARGIN, y);
+
+  // Page 8 — Full Data Tables (appendix)
+  y = heading(doc, PAGE_HEIGHT - 10, 'Appendix — Full Data Tables', MARGIN, true);
   let lastSection = '';
-  for (const tbl of data.tables) {
+  for (const tbl of data.tables.slice(0, 3)) {
     if (tbl.section !== lastSection) {
-      y = sectionHeading(doc, y, tbl.section, margin, lastSection !== '');
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(tbl.section, MARGIN, y);
+      y += 6;
       lastSection = tbl.section;
     }
-    if (y > doc.internal.pageSize.getHeight() - 30) {
-      doc.addPage();
-      y = margin + 10;
-    }
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text(tbl.title, margin, y);
-    y += 6;
     const headers = tbl.columns.map((c) => c.label);
-    const rows = tbl.rows.map((r) => tbl.columns.map((col) => {
-      const v = r[col.key];
-      return typeof v === 'number' ? (col.key.toLowerCase().includes('acos') || col.key.toLowerCase().includes('roas') ? v.toFixed(2) : v.toLocaleString('en-US', { maximumFractionDigits: 2 })) : String(v);
-    }));
-    const colWidth = (pageWidth - 2 * margin) / headers.length;
-    const colWidths = headers.map(() => colWidth);
-    y = drawTable(doc, y, headers, rows, colWidths, pageWidth, margin);
+    const rows = tbl.rows.slice(0, 20).map((r) =>
+      tbl.columns.map((col) => {
+        const v = r[col.key];
+        return typeof v === 'number' ? v.toLocaleString('en-US', { maximumFractionDigits: 2 }) : String(v).slice(0, 20);
+      })
+    );
+    const colWidth = (PAGE_WIDTH - 2 * MARGIN) / headers.length;
+    y = drawTable(doc, y, headers, rows, headers.map(() => colWidth), PAGE_WIDTH, MARGIN);
   }
-
-  for (const chart of data.chartDatasets) {
-    y = sectionHeading(doc, y, `Chart: ${chart.title}`, margin);
-    if (chart.labels && chart.values) {
-      const rows = chart.labels.map((l, i) => [l.slice(0, 30), chart.values![i] ?? 0]);
-      y = drawTable(doc, y, ['Category', 'Value'], rows, [100, 60], pageWidth, margin);
-    } else if (chart.data && chart.data.length > 0) {
-      const rows = chart.data.map((d) => [d.name, d.value]);
-      y = drawTable(doc, y, ['Category', 'Value'], rows, [80, 80], pageWidth, margin);
-    }
-  }
-
-  y = sectionHeading(doc, y, CFO_SECTIONS[9], margin, true);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  const actions = [
-    'Review and act on high-ACOS campaigns and bleeding keywords.',
-    'Scale winners (high ROAS, low spend) with increased budget.',
-    'Add negative keywords where waste is identified.',
-    'Monitor profitability and break-even ACOS.',
-  ];
-  actions.forEach((line) => {
-    if (y > doc.internal.pageSize.getHeight() - 20) {
-      doc.addPage();
-      y = margin + 10;
-    }
-    doc.text(`• ${line}`, margin, y);
-    y += 6;
-  });
 
   doc.save('Amazon-Advertising-Performance-Audit.pdf');
 }
