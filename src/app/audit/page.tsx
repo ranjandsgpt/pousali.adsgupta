@@ -1,5 +1,4 @@
 'use client';
-
 import { useRef, useState } from 'react';
 import Header from './components/Header';
 import UploadPanel from './components/UploadPanel';

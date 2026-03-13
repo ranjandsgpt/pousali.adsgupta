@@ -11,20 +11,20 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Pousali Dasgupta | Ecommerce Growth Consultant',
+  title: 'Pousali Dasgupta | Amazon & Marketplace Growth Specialist | 10x ROI',
   description:
-    'Pousali Dasgupta is an ecommerce growth consultant specializing in marketplace advertising across Amazon, Walmart and Google Ads.',
+    'Pousali Dasgupta helps brands achieve 10x marketplace ROI across Amazon, Walmart, and Retail Media. Amazon PPC strategy, advertising audit automation, and marketplace growth architecture.',
   metadataBase: new URL('https://pousali.adsgupta.com'),
   openGraph: {
-    title: 'Pousali Dasgupta | Ecommerce Growth Consultant',
+    title: 'Pousali Dasgupta | Amazon & Marketplace Growth Specialist | 10x ROI',
     description:
-      'Ecommerce growth consultant helping brands scale through Amazon advertising, Walmart marketplace optimization, and Google Ads strategies.',
+      'Pousali Dasgupta helps brands achieve 10x marketplace ROI across Amazon, Walmart, and Retail Media. Amazon PPC strategy, advertising audit automation, and marketplace growth architecture.',
     url: 'https://pousali.adsgupta.com',
     siteName: 'Pousali Dasgupta',
     type: 'website',
     images: [
       {
-        url: '/og/default.png',
+        url: '/og-default.jpg',
         width: 1200,
         height: 630,
       },
@@ -32,10 +32,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Pousali Dasgupta | Ecommerce Growth Consultant',
+    title: 'Pousali Dasgupta | Amazon & Marketplace Growth Specialist | 10x ROI',
     description:
-      'Ecommerce growth consultant specializing in Amazon PPC, Walmart marketplace growth, and Google Ads optimization.',
-    images: ['/og/default.png'],
+      'Pousali Dasgupta helps brands achieve 10x marketplace ROI across Amazon, Walmart, and Retail Media. Amazon PPC strategy, advertising audit automation, and marketplace growth architecture.',
+    images: ['/og-default.jpg'],
   },
   alternates: {
     canonical: 'https://pousali.adsgupta.com',
@@ -56,23 +56,71 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',
-              '@type': 'Person',
-              name: 'Pousali Dasgupta',
-              jobTitle: 'Ecommerce Growth Consultant',
-              url: 'https://pousali.adsgupta.com',
-              sameAs: ['https://www.linkedin.com/in/pousali-dasgupta/'],
-            }),
-          }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'Organization',
-              name: 'AdsGupta',
-              url: 'https://adsgupta.com',
-              sameAs: ['https://www.linkedin.com/in/pousali-dasgupta/'],
+              '@graph': [
+                {
+                  '@type': 'Person',
+                  '@id': 'https://pousali.adsgupta.com/#person',
+                  name: 'Pousali Dasgupta',
+                  jobTitle: 'Amazon & Marketplace Growth Specialist',
+                  url: 'https://pousali.adsgupta.com',
+                  sameAs: ['https://www.linkedin.com/in/pousali-dasgupta/'],
+                  description:
+                    'Marketplace growth architect specialising in Amazon, Walmart, and Retail Media with a 10x ROI track record and an AI-powered advertising audit platform.',
+                },
+                {
+                  '@type': 'WebSite',
+                  '@id': 'https://pousali.adsgupta.com/#website',
+                  url: 'https://pousali.adsgupta.com',
+                  name: 'Pousali Dasgupta | Amazon & Marketplace Growth',
+                  description:
+                    'Amazon PPC strategy, advertising audit automation, and marketplace growth architecture across Amazon, Walmart, and Retail Media.',
+                  publisher: {
+                    '@id': 'https://pousali.adsgupta.com/#person',
+                  },
+                },
+                {
+                  '@type': 'SoftwareApplication',
+                  '@id': 'https://pousali.adsgupta.com/#audit-software',
+                  name: 'Amazon Advertising Audit Tool',
+                  applicationCategory: 'BusinessApplication',
+                  operatingSystem: 'Web',
+                  url: 'https://pousali.adsgupta.com/audit',
+                  description:
+                    'Free Amazon advertising audit tool that ingests SP, SB, SD, and Business Report data to surface ACOS, ROAS, TACoS diagnostics and profit leakage in seconds.',
+                  offers: {
+                    '@type': 'Offer',
+                    price: '0',
+                    priceCurrency: 'USD',
+                  },
+                  creator: {
+                    '@id': 'https://pousali.adsgupta.com/#person',
+                  },
+                },
+                {
+                  '@type': 'FAQPage',
+                  '@id': 'https://pousali.adsgupta.com/#faq',
+                  mainEntity: [
+                    {
+                      '@type': 'Question',
+                      name: 'Who is Pousali Dasgupta?',
+                      acceptedAnswer: {
+                        '@type': 'Answer',
+                        text:
+                          'Pousali Dasgupta is a marketplace growth specialist focused on helping brands and agencies scale profitably across Amazon, Walmart, Google Shopping, and Retail Media.',
+                      },
+                    },
+                    {
+                      '@type': 'Question',
+                      name: 'What does the Amazon advertising audit tool do?',
+                      acceptedAnswer: {
+                        '@type': 'Answer',
+                        text:
+                          'The audit tool ingests Amazon SP, SB, SD, and Business Report data to detect ACOS, ROAS, and TACoS issues, wasted ad spend, and profit leakages, generating board-ready PDF and PPTX exports in under a minute.',
+                      },
+                    },
+                  ],
+                },
+              ],
             }),
           }}
         />

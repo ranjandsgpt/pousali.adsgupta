@@ -2,9 +2,12 @@ import type { Metadata } from 'next';
 import WorkPageContent from '@/components/work-page-content';
 
 export const metadata: Metadata = {
-  title: 'Work & Case Studies',
+  title: 'Work & Case Studies | Pousali Dasgupta | Amazon Marketplace Growth',
   description:
-    'Amazon Ads case studies: Omega 3 growth, Maca Root launch, supplement category scaling. ACOS improvement, revenue growth, TACoS reduction.',
+    'Real results: 10x marketplace ROI, Amazon PPC turnarounds, Walmart advertising launches. See the numbers behind the strategy.',
+  alternates: {
+    canonical: 'https://pousali.adsgupta.com/work',
+  },
 };
 
 export default function WorkPage() {

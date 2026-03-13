@@ -2,9 +2,12 @@ import type { Metadata } from 'next';
 import InsightsPageContent from '@/components/insights-page-content';
 
 export const metadata: Metadata = {
-  title: 'Insights',
+  title: 'Amazon & Marketplace Insights | Pousali Dasgupta',
   description:
-    'Amazon marketing insights: PPC mistakes, TACoS reduction, keyword strategy, product launch ad framework.',
+    'Deep insights on Amazon PPC strategy, retail media trends, marketplace growth tactics, and advertising audit methodology.',
+  alternates: {
+    canonical: 'https://pousali.adsgupta.com/insights',
+  },
 };
 
 export default function InsightsPage() {

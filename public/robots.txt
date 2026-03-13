@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /audit/system
+Disallow: /api/
 
 Sitemap: https://pousali.adsgupta.com/sitemap.xml

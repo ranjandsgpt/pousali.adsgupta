@@ -12,7 +12,7 @@ import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
 import { useGeminiReport } from './GeminiReportContext';
 import { exportAuditPdf } from '../utils/exportPdf';
 import { runDataTrustAgent } from '@/agents/dataTrustAgent';
-import { executeMetricEngineForStore } from '@/services/metricExecutionEngine';
+import { aggregateReports } from '@/lib/aggregateReports';
 
 export type ExportProgressStatus = 'idle' | 'queued' | 'rendering' | 'verifying' | 'retrying' | 'ready' | 'error';
 
@@ -48,15 +48,23 @@ export function ExportProvider({ children }: { children: ReactNode }) {
   const overrides = state.learnedOverrides?.overrides;
 
   const buildExportPayload = useCallback(() => {
-    const canonical = executeMetricEngineForStore(store, overrides);
-    const totalAdSpend = canonical.totalAdSpend;
-    const totalAdSales = canonical.totalAdSales;
-    const totalStoreSales = canonical.totalSales;
-    const acos = canonical.acos * 100;
-    const roas = canonical.roas;
-    const tacos = canonical.tacos * 100;
-    const totalClicks = canonical.totalClicks > 0 ? canonical.totalClicks : store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
-    const cpc = canonical.cpc > 0 ? canonical.cpc : totalClicks > 0 ? totalAdSpend / totalClicks : 0;
+    const agg =
+      store.aggregatedMetrics ??
+      aggregateReports(
+        store.rawSpAdvertisedRows,
+        store.rawSpTargetingRows,
+        store.rawSpSearchTermRows,
+        store.rawBusinessRows
+      );
+
+    const totalAdSpend = agg.adSpend;
+    const totalAdSales = agg.adSales;
+    const totalStoreSales = agg.totalStoreSales;
+    const acos = (agg.acos ?? 0) * 100;
+    const roas = agg.roas ?? 0;
+    const tacos = (agg.tacos ?? 0) * 100;
+    const totalClicks = agg.adClicks > 0 ? agg.adClicks : store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
+    const cpc = agg.cpc && agg.cpc > 0 ? agg.cpc : totalClicks > 0 ? totalAdSpend / totalClicks : 0;
     const metrics = [
       { label: 'Ad Spend', value: totalAdSpend },
       { label: 'Ad Sales', value: totalAdSales },
@@ -64,9 +72,9 @@ export function ExportProvider({ children }: { children: ReactNode }) {
       { label: 'ACOS', value: `${acos.toFixed(1)}%` },
       { label: 'ROAS', value: roas.toFixed(2) },
       { label: 'TACOS', value: `${tacos.toFixed(1)}%` },
-      { label: 'Sessions', value: store.totalSessions },
+      { label: 'Sessions', value: agg.sessions },
       { label: 'Clicks', value: totalClicks },
-      { label: 'Orders', value: canonical.totalOrders ?? store.totalOrders ?? 0 },
+      { label: 'Orders', value: agg.storeOrders },
       { label: 'CPC', value: cpc.toFixed(2) },
     ];
     const campaigns = Object.values(store.campaignMetrics)
@@ -162,10 +170,7 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     setExportStatusState('rendering');
     setExportStatusMessage('Generating PPTX…');
     try {
-      const insights = (validated?.insights ?? []).map((i) => ({ title: i.title, description: i.description }));
-      const narrative = await fetchBoardroomNarrative(insights, report ?? '');
       const payload = buildExportPayload();
-      payload.executiveNarrative = narrative;
       const res = await fetch('/api/zenith-export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -188,7 +193,7 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     } finally {
       setExportGenerating(false);
     }
-  }, [buildExportPayload, hasData, triggerDownload, validated?.insights, report, fetchBoardroomNarrative]);
+  }, [buildExportPayload, hasData, triggerDownload]);
 
   const onRefreshExports = useCallback(async () => {
     if (exportGenerating) return;

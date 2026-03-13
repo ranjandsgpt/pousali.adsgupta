@@ -6,6 +6,7 @@
 import type { PremiumState, VerifiedMetric, VerifiedInsight, ChartSpec, TableSpec } from './zenithTypes';
 import type { MemoryStore } from '@/app/audit/utils/reportParser';
 import { runBrandIntelligence } from './brandIntelligenceAgent';
+import { aggregateReports } from '@/lib/aggregateReports';
 
 export interface ZenithOrchestratorInput {
   store: MemoryStore;
@@ -31,27 +32,79 @@ const DEFAULT_CURRENCY = 'EUR';
  */
 export function runZenithExportOrchestrator(input: ZenithOrchestratorInput): PremiumState {
   const { store, executiveNarrative = '', insights = [], charts = [], tables = [], brandNames = [], competitorBrands = [] } = input;
-  const m = store.storeMetrics;
-  const totalAdSpend = store.totalAdSpend;
-  const totalAdSales = store.totalAdSales;
-  const totalStoreSales = store.totalStoreSales ?? m.totalSales;
-  const acos = totalAdSales > 0 ? (totalAdSpend / totalAdSales) * 100 : 0;
-  const roas = totalAdSpend > 0 ? totalAdSales / totalAdSpend : 0;
-  const tacos = totalStoreSales > 0 ? (totalAdSpend / totalStoreSales) * 100 : 0;
-  const totalClicks = store.totalClicks || Object.values(store.keywordMetrics).reduce((s, k) => s + k.clicks, 0);
-  const cpc = totalClicks > 0 ? totalAdSpend / totalClicks : 0;
+  const agg =
+    store.aggregatedMetrics ??
+    aggregateReports(
+      store.rawSpAdvertisedRows,
+      store.rawSpTargetingRows,
+      store.rawSpSearchTermRows,
+      store.rawBusinessRows
+    );
+
+  const totalAdSpend = agg.adSpend;
+  const totalAdSales = agg.adSales;
+  const totalStoreSales = agg.totalStoreSales;
+  const acosPct = agg.acos != null ? agg.acos * 100 : 0;
+  const roasVal = agg.roas ?? 0;
+  const tacosPct = agg.tacos != null ? agg.tacos * 100 : 0;
+  const totalClicks = agg.adClicks;
+  const cpcVal = agg.cpc ?? (agg.adClicks > 0 ? agg.adSpend / agg.adClicks : 0);
 
   const verifiedMetrics: VerifiedMetric[] = [
-    { label: 'Ad Spend', value: totalAdSpend, unit: store.currency ?? DEFAULT_CURRENCY, source: 'slm' },
-    { label: 'Ad Sales', value: totalAdSales, unit: store.currency ?? DEFAULT_CURRENCY, source: 'slm' },
-    { label: 'Store Sales', value: totalStoreSales, unit: store.currency ?? DEFAULT_CURRENCY, source: 'slm' },
-    { label: 'ACOS', value: `${acos.toFixed(1)}%`, source: 'slm' },
-    { label: 'ROAS', value: roas.toFixed(2), source: 'slm' },
-    { label: 'TACOS', value: `${tacos.toFixed(1)}%`, source: 'slm' },
-    { label: 'Sessions', value: store.totalSessions, source: 'slm' },
-    { label: 'Clicks', value: totalClicks, source: 'slm' },
-    { label: 'Orders', value: store.totalOrders ?? 0, source: 'slm' },
-    { label: 'CPC', value: cpc.toFixed(2), unit: store.currency ?? DEFAULT_CURRENCY, source: 'slm' },
+    {
+      label: 'Ad Spend',
+      value: totalAdSpend,
+      unit: agg.currency || store.currency || DEFAULT_CURRENCY,
+      source: 'slm',
+    },
+    {
+      label: 'Ad Sales',
+      value: totalAdSales,
+      unit: agg.currency || store.currency || DEFAULT_CURRENCY,
+      source: 'slm',
+    },
+    {
+      label: 'Store Sales',
+      value: totalStoreSales,
+      unit: agg.currency || store.currency || DEFAULT_CURRENCY,
+      source: 'slm',
+    },
+    {
+      label: 'ACOS',
+      value: `${acosPct.toFixed(1)}%`,
+      source: 'slm',
+    },
+    {
+      label: 'ROAS',
+      value: roasVal.toFixed(2),
+      source: 'slm',
+    },
+    {
+      label: 'TACOS',
+      value: `${tacosPct.toFixed(1)}%`,
+      source: 'slm',
+    },
+    {
+      label: 'Sessions',
+      value: agg.sessions,
+      source: 'slm',
+    },
+    {
+      label: 'Clicks',
+      value: totalClicks,
+      source: 'slm',
+    },
+    {
+      label: 'Orders',
+      value: agg.storeOrders,
+      source: 'slm',
+    },
+    {
+      label: 'CPC',
+      value: cpcVal.toFixed(2),
+      unit: agg.currency || store.currency || DEFAULT_CURRENCY,
+      source: 'slm',
+    },
   ];
 
   const verifiedInsights: VerifiedInsight[] = insights.map((i, idx) => ({

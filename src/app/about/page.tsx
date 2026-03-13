@@ -1,107 +1,83 @@
-'use client';
-
-import { motion } from 'framer-motion';
-import { experience } from '@/data/experience';
-
-const skills = [
-  'Amazon Ads',
-  'PPC strategy',
-  'Search term mining',
-  'Product launch strategy',
-  'Marketplace analytics',
+const expertiseItems = [
+  'Amazon Sponsored Products, Brands & Display',
+  'TACoS & ACOS Optimisation',
+  'Walmart Connect PPC',
+  'Google Shopping & Retail Media',
+  'Bing Shopping Ads',
+  'SP-API Integration & Automated Data Normalisation',
+  'Cross-Marketplace Campaign Architecture',
+  'Advertising Audit Automation',
+  'FBA Fee Analysis & Profit Recovery',
+  'Search Term Mining & Negative Keyword Management',
 ];
 
 export default function AboutPage() {
   return (
     <div className="min-h-screen pt-28 pb-20">
-      <div className="max-w-[1200px] mx-auto px-6 md:px-12">
-        <motion.header
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-16"
-        >
-          <h1 className="text-4xl md:text-5xl font-bold text-[var(--color-text)] mb-6">
-            About
+      <div className="max-w-[1200px] mx-auto px-6 md:px-12 space-y-16">
+        <header className="space-y-6">
+          <h1 className="text-4xl md:text-5xl font-bold text-[var(--color-text)]">
+            Marketplace Growth Architect | Amazon, Walmart & Retail Media
           </h1>
-          <p className="text-lg text-[var(--color-text-muted)] max-w-2xl leading-relaxed">
-            Professional bio focused on Amazon advertising and brand growth. I help
-            brands scale on Amazon through data-driven advertising, listing
-            optimization, and marketplace growth strategies across US and UAE.
-          </p>
-        </motion.header>
+          <div className="space-y-4 text-lg text-[var(--color-text-muted)] leading-relaxed max-w-3xl">
+            <p>
+              Pousali Dasgupta is a marketplace growth specialist with a track record of 10x ROI across Amazon,
+              Walmart, Google Shopping, and Retail Media. With experience managing multi-marketplace accounts
+              across the UK, US, and UAE, she specialises in building scalable advertising frameworks that
+              improve TACoS, drive organic ranking, and create durable marketplace moats.
+            </p>
+            <p>
+              Beyond advertising management, Pousali built and shipped an AI-powered Amazon advertising audit tool
+              — a multi-agent platform that ingests SP, SB, SD, and Business Report data to produce instant ACOS,
+              ROAS, and TACoS diagnostics, waste analysis, and CXO-grade PDF/PPTX exports.
+            </p>
+          </div>
+        </header>
 
-        <section aria-labelledby="skills-heading" className="mb-20">
+        <section aria-labelledby="expertise-heading" className="space-y-6">
           <h2
-            id="skills-heading"
-            className="text-2xl font-bold text-[var(--color-text)] mb-8"
+            id="expertise-heading"
+            className="text-2xl md:text-3xl font-semibold text-[var(--color-text)]"
           >
-            Skills
+            Expertise
           </h2>
-          <ul className="flex flex-wrap gap-3" role="list">
-            {skills.map((skill, i) => (
-              <motion.li
-                key={skill}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.04, duration: 0.3 }}
-                className="px-4 py-2 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-sm font-medium"
+          <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {expertiseItems.map((item) => (
+              <div
+                key={item}
+                className="rounded-xl border border-white/10 bg-[var(--color-surface-elevated)] px-4 py-3 text-sm font-medium text-[var(--color-text)]"
               >
-                {skill}
-              </motion.li>
+                {item}
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
 
-        <section aria-labelledby="experience-heading">
+        <section aria-labelledby="built-with-heading" className="space-y-4">
           <h2
-            id="experience-heading"
-            className="text-2xl font-bold text-[var(--color-text)] mb-8"
+            id="built-with-heading"
+            className="text-2xl md:text-3xl font-semibold text-[var(--color-text)]"
           >
-            Experience
+            Built With
           </h2>
-          <ul className="space-y-0" role="list">
-            {experience.map((item, i) => (
-              <motion.li
-                key={item.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.1, duration: 0.4 }}
-                className="relative pl-8 pb-12 last:pb-0"
-              >
-                <span
-                  className="absolute left-0 top-1.5 w-3 h-3 rounded-full bg-cyan-500"
-                  aria-hidden
-                />
-                <span
-                  className="absolute left-[5px] top-6 bottom-0 w-px bg-white/10"
-                  aria-hidden
-                />
-                <div className="rounded-2xl border border-white/10 bg-[var(--color-surface-elevated)] p-6">
-                  <p className="text-xs font-medium uppercase tracking-wider text-cyan-500 mb-1">
-                    {item.period}
-                  </p>
-                  <h3 className="text-lg font-bold text-[var(--color-text)] mb-2">
-                    {item.title}
-                  </h3>
-                  <p className="text-[var(--color-text-muted)] text-sm mb-4">
-                    {item.description}
-                  </p>
-                  <ul className="space-y-1">
-                    {item.highlights.map((h) => (
-                      <li
-                        key={h}
-                        className="text-sm text-[var(--color-text-muted)] flex items-start gap-2"
-                      >
-                        <span className="text-cyan-500 mt-1.5 shrink-0">•</span>
-                        {h}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </motion.li>
-            ))}
-          </ul>
+          <p className="text-sm md:text-base text-[var(--color-text-muted)]">
+            Next.js 14 (App Router) | TypeScript | React | Gemini API | Python (NumPy/Pandas) | Amazon SP-API
+            compatible | pptxgenjs | pdfkit | IndexedDB | Vercel
+          </p>
+          <p className="text-sm md:text-base text-[var(--color-text-muted)] max-w-3xl">
+            The audit engine uses a canonical aggregation pipeline with mathematical invariant verification. All
+            metrics are computed from raw SP Advertised Product Report rows — never deduplicated, never
+            estimated. Cross-report reconciliation validates SP, Targeting, and Search Term totals before any
+            metric is surfaced.
+          </p>
+          <div className="pt-2">
+            <a
+              href="/sample-audit.pdf"
+              className="inline-flex items-center justify-center rounded-full bg-cyan-500 text-black text-sm font-semibold px-5 py-2.5 hover:bg-cyan-400 transition-colors"
+            >
+              Download Sample Audit PDF →
+            </a>
+          </div>
         </section>
       </div>
     </div>
