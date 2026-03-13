@@ -119,6 +119,7 @@ export async function buildDocsNavTree(): Promise<DocNavNode[]> {
     if (codeIntel.length > 25) nodes.push({ label: `… and ${codeIntel.length - 25} more`, slug: codeIntel[25].slug });
   }
   nodes.push({ label: 'Telemetry & Diagnostics', slug: 'diagnostics' });
+  nodes.push({ label: 'Links', slug: 'links' });
   return nodes;
 }
 
