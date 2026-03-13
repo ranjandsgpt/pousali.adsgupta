@@ -63,6 +63,7 @@ function DashboardWithExport({
         exportStatusMessage={exportCtx?.exportStatusMessage ?? ''}
         exportError={exportCtx?.exportError ?? null}
       />
+      <PrivacyNote />
       <FeedbackWidget />
     </>
   );
@@ -199,8 +200,6 @@ function AuditPageContent() {
           disabled={step === 'processing'}
           collapsed={step === 'dashboard'}
         />
-        <PrivacyNote />
-
         {step === 'processing' && (
           <AuditProcessingPanel />
         )}
