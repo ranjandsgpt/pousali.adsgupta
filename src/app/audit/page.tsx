@@ -30,16 +30,19 @@ function DashboardWithExport({
   activeTab,
   setActiveTab,
   onRerunAnalysis,
+  onContinueAnyway,
 }: {
   activeTab: TabId;
   setActiveTab: (t: TabId) => void;
   onRerunAnalysis: () => void;
+  onContinueAnyway?: () => void;
 }) {
   const exportCtx = useExport();
   return (
     <>
       <AuditSummaryBlock
         onRerunAnalysis={onRerunAnalysis}
+        onContinueAnyway={onContinueAnyway}
         onFocusCriticalIssues={() => {
           setActiveTab('overview');
           if (typeof window !== 'undefined') {
@@ -62,6 +65,7 @@ function DashboardWithExport({
         exportStatus={exportCtx?.exportStatus ?? 'idle'}
         exportStatusMessage={exportCtx?.exportStatusMessage ?? ''}
         exportError={exportCtx?.exportError ?? null}
+        chartsFallbackUsed={exportCtx?.chartsFallbackUsed ?? false}
       />
       <PrivacyNote />
       <FeedbackWidget />
@@ -191,6 +195,21 @@ function AuditPageContent() {
     }
   };
 
+  const handleContinueAnyway = () => {
+    const { store } = state;
+    runDualEngine(store, {
+      forceComplete: true,
+      rawFiles: lastFilesRef.current,
+      deferGemini: true,
+      onGeminiComplete: (merged) => {
+        if (merged) setStore(merged);
+        setStage('gemini_analysis', 'completed');
+        setStage('gemini_verification', 'completed');
+        setStage('insight_rendering', 'completed');
+      },
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[var(--color-surface)] text-[var(--color-text)]">
       <Header rightSlot={null} />
@@ -211,6 +230,7 @@ function AuditPageContent() {
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 onRerunAnalysis={handleRerunAnalysis}
+                onContinueAnyway={handleContinueAnyway}
               />
             </PendingCopilotQuestionProvider>
           </ExportProvider>

@@ -106,9 +106,12 @@ export async function POST(request: NextRequest) {
 
     setExportStatus('rendering', 'Generating PDF…');
     let pdfBuffer: Buffer | null = null;
+    let chartsFallbackUsed = false;
+    let pdfFallbackUsed = false;
 
     try {
       const renderResult = await renderPremiumAssets(premiumState, outputDir, { mode: 'pdf' });
+      chartsFallbackUsed = Boolean(renderResult.usedNodeFallback);
       if (renderResult.pdfPath) {
         try {
           pdfBuffer = await readFile(renderResult.pdfPath);
@@ -122,6 +125,8 @@ export async function POST(request: NextRequest) {
 
     if (!pdfBuffer || pdfBuffer.length === 0) {
       console.warn('Python PDF failed — fallback to Node PDF');
+      pdfFallbackUsed = true;
+      chartsFallbackUsed = true;
       setExportStatus('rendering', 'Generating PDF (Node fallback)…');
       try {
         const metricsForEngine: AggregatedMetrics = {
@@ -211,13 +216,13 @@ export async function POST(request: NextRequest) {
     setExportStatus('ready', 'Export ready');
     await writeCache(auditId, null, new Uint8Array(pdfBuffer));
     console.log('[Zenith export-pdf] Export ready, returning PDF length:', pdfBuffer.length);
-    return new Response(new Uint8Array(pdfBuffer), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename="audit-report.pdf"',
-      },
-    });
+    const resHeaders: Record<string, string> = {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="audit-report.pdf"',
+    };
+    if (chartsFallbackUsed) resHeaders['X-Charts-Fallback-Used'] = 'true';
+    if (pdfFallbackUsed) resHeaders['X-PDF-Fallback-Used'] = 'true';
+    return new Response(new Uint8Array(pdfBuffer), { status: 200, headers: resHeaders });
   } catch (e) {
     console.error('[Zenith export-pdf] Error', e);
     setExportStatus('error', e instanceof Error ? e.message : 'PDF export failed');

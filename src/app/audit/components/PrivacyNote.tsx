@@ -11,7 +11,7 @@ export default function PrivacyNote() {
     >
       <Shield size={18} className="shrink-0 mt-0.5 text-cyan-500/80" aria-hidden />
       <p>
-        Your files are processed in your browser and never uploaded to any server. AI models are used only to generate insights and narrative copy — your raw data never leaves your device. Metric calculations are fully deterministic and run locally. If any AI-generated insight looks incorrect, please{' '}
+        Your files are processed in your browser and never uploaded to any server. When AI is used, only aggregated metrics and structure are sent; data is sanitized (e.g. emails and phone numbers redacted) before use. Metric calculations are fully deterministic and run locally. If any AI-generated insight looks incorrect, please{' '}
         <a
           href="https://pousali.adsgupta.com/audit-feedback"
           target="_blank"

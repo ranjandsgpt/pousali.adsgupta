@@ -20,6 +20,8 @@ export interface CxoJudgeResult {
   storylineFlow?: boolean;
   metricExplanation?: boolean;
   businessImpact?: boolean;
+  /** Phase 1 Prompt 5: semantic accuracy — narrative numbers vs source metrics */
+  semanticMismatches?: Array<{ metric: string; narrativeValue: number; sourceValue: number }>;
 }
 
 export interface CxoJudgeOptions {
@@ -149,6 +151,44 @@ function businessImpactCheck(narrative: string): boolean {
   return /\b(budget|revenue|profit|loss|waste|efficiency|growth|risk|opportunity|margin|acos|roas|tacos)\b/.test(lower);
 }
 
+/** Phase 1 Prompt 5 — Semantic accuracy: numbers cited in narrative must match source metrics within tolerance. */
+const SEMANTIC_DEVIATION_PCT = 0.05; // 5%
+
+function checkSemanticAccuracy(
+  narrative: string,
+  verifiedMetrics: Array<{ label: string; value: number | string }>
+): { passed: boolean; mismatches: Array<{ metric: string; narrativeValue: number; sourceValue: number }> } {
+  const mismatches: Array<{ metric: string; narrativeValue: number; sourceValue: number }> = [];
+  const sourceByLabel: Record<string, number> = {};
+  for (const m of verifiedMetrics) {
+    const v = m.value;
+    const num = typeof v === 'number' ? v : typeof v === 'string' && /^[\d.]+%?$/.test(v) ? parseFloat(String(v).replace('%', '')) : NaN;
+    if (!Number.isNaN(num)) sourceByLabel[m.label] = num;
+  }
+
+  const metricLabels = ['ACOS', 'ROAS', 'TACOS', 'Spend', 'Sales', 'Revenue', 'CVR', 'CTR', 'CPC'];
+  for (const label of metricLabels) {
+    const sourceValue = sourceByLabel[label];
+    if (sourceValue == null) continue;
+    const re = new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(?:is|at|:|=)?\\s*([\\d.]+)\\s*%?`, 'gi');
+    const match = narrative.match(re);
+    if (!match) continue;
+    for (const m of match) {
+      const numMatch = m.match(/([\d.]+)/);
+      if (!numMatch) continue;
+      const narrativeValue = parseFloat(numMatch[1]);
+      if (Number.isNaN(narrativeValue)) continue;
+      const denom = sourceValue === 0 ? 1 : sourceValue;
+      const pct = Math.abs(narrativeValue - sourceValue) / denom;
+      if (pct > SEMANTIC_DEVIATION_PCT) {
+        mismatches.push({ metric: label, narrativeValue, sourceValue });
+      }
+    }
+  }
+
+  return { passed: mismatches.length === 0, mismatches };
+}
+
 /** Phase 38 — Approximate slide word count from PremiumState content. */
 function totalSlideWords(premiumState: PremiumState): number {
   let words = 0;
@@ -205,6 +245,16 @@ export function runCxoJudgeAgent(
   const storylineOk = storylineFlowCheck(narrative);
   const metricExplanationOk = metricExplanationCheck(narrative, premiumState.verifiedMetrics);
   const businessImpactOk = businessImpactCheck(narrative);
+
+  const semanticResult = checkSemanticAccuracy(narrative, premiumState.verifiedMetrics);
+  if (!semanticResult.passed && semanticResult.mismatches.length > 0) {
+    return {
+      status: 'FAILED_ACCURACY',
+      message: `Narrative cites metrics that don't match source data (semantic accuracy): ${semanticResult.mismatches.map((m) => `${m.metric} narrative=${m.narrativeValue} vs ${m.sourceValue}`).join('; ')}`,
+      metricDeviations: semanticResult.mismatches.map((m) => ({ metric: m.metric, expected: m.sourceValue, actual: m.narrativeValue })),
+      semanticMismatches: semanticResult.mismatches,
+    };
+  }
 
   const templateNarrative = isTemplateNarrative(premiumState);
 

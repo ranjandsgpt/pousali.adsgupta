@@ -1,10 +1,12 @@
 /**
  * Phase 39 — Asset cache activation.
  * Phase: Export asset versioning — audit_1_v1.pptx, audit_1_v2.pptx for export history.
+ * Phase 1 Prompt 7: Persistent cache via Supabase Storage when configured.
  */
 
 import { writeFile, readFile, mkdir, readdir, unlink } from 'fs/promises';
 import path from 'path';
+import { writeCacheSupabase, readCacheSupabase, invalidateCacheSupabase } from './supabaseExportCache';
 
 const META_FILE = 'cache-meta.json';
 
@@ -76,6 +78,8 @@ export async function writeCache(
   if (pdfBuffer) {
     await writeFile(path.join(dir, 'latest.pdf'), Buffer.from(pdfBuffer));
   }
+
+  await writeCacheSupabase(auditId, meta, pptxBuffer, pdfBuffer);
 }
 
 export async function readCache(): Promise<{
@@ -83,6 +87,10 @@ export async function readCache(): Promise<{
   pptx: Buffer | null;
   pdf: Buffer | null;
 }> {
+  const fromSupabase = await readCacheSupabase();
+  if (fromSupabase.meta && (fromSupabase.pptx != null || fromSupabase.pdf != null)) {
+    return fromSupabase;
+  }
   const dir = getCacheDir();
   let meta: CacheMeta | null = null;
   try {
@@ -119,6 +127,7 @@ export async function readCache(): Promise<{
 }
 
 export async function invalidateCache(): Promise<void> {
+  await invalidateCacheSupabase();
   const dir = getCacheDir();
   try {
     const files = await readdir(dir);

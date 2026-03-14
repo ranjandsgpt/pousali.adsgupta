@@ -13,6 +13,13 @@ import { logGeminiResponse } from '@/lib/geminiResponseLogger';
 import { extractTextFromGenerateContentResponse } from '@/lib/geminiResponse';
 import { assertNoFileReferences, sanitizeTextForGemini } from '@/lib/geminiRequestGuard';
 import { logGeminiRequest } from '@/lib/geminiRequestLogger';
+import {
+  enforceGeminiLimits,
+  getCachedResponse,
+  setCachedResponse,
+  consumeBudget,
+} from '@/lib/geminiRateLimitCache';
+import { sanitizeStructuredPayloadForGemini, sanitizeHeadersForPrivacy } from '@/lib/privacySanitizer';
 
 /**
  * Dual Engine API:
@@ -90,6 +97,9 @@ function parseVerificationResult(
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimitResponse = enforceGeminiLimits(request);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 503 });
@@ -121,15 +131,26 @@ export async function POST(request: NextRequest) {
   }
 
   const ai = new GoogleGenAI({ apiKey });
-  const { mode, payload } = body;
+  const { mode, payload: rawPayload } = body;
+
+  if (mode === 'infer_schema') {
+    const rawHeaders = (rawPayload as InferSchemaPayload).headers;
+    if (!Array.isArray(rawHeaders) || rawHeaders.length === 0) {
+      return NextResponse.json({ error: 'Missing or empty headers' }, { status: 400 });
+    }
+  }
+
+  const payload = mode === 'infer_schema'
+    ? { headers: sanitizeHeadersForPrivacy((rawPayload as InferSchemaPayload).headers || []) }
+    : (sanitizeStructuredPayloadForGemini((rawPayload as unknown) as Record<string, unknown>) as unknown as StructuredPayload | VerifySlmPayload);
 
   if (mode === 'infer_schema') {
     const { headers } = payload as InferSchemaPayload;
-    if (!Array.isArray(headers) || headers.length === 0) {
-      return NextResponse.json({ error: 'Missing or empty headers' }, { status: 400 });
-    }
+    const cached = getCachedResponse(mode, payload);
+    if (cached != null) return NextResponse.json(cached as Record<string, unknown>);
     const prompt = sanitizeTextForGemini(buildSchemaInferUserMessage(headers));
     try {
+      consumeBudget();
       const result = await ai.models.generateContent({
         model,
         config: { systemInstruction: SCHEMA_INFER_SYSTEM },
@@ -140,7 +161,9 @@ export async function POST(request: NextRequest) {
       const raw = jsonMatch ? jsonMatch[0] : text;
       const parsed = JSON.parse(raw) as { mappings?: { rawHeader: string; inferred_metric: string; confidence_score: number }[] };
       const mappings = Array.isArray(parsed.mappings) ? parsed.mappings : [];
-      return NextResponse.json({ mappings });
+      const response = { mappings };
+      setCachedResponse(mode, payload, response);
+      return NextResponse.json(response);
     } catch (e) {
       console.error('dual-engine infer_schema', e);
       return NextResponse.json({ mappings: [] });
@@ -149,6 +172,8 @@ export async function POST(request: NextRequest) {
 
   if (mode === 'verify_slm') {
     const { datasetSummary, slmArtifacts } = payload as VerifySlmPayload;
+    const cached = getCachedResponse(mode, payload);
+    if (cached != null) return NextResponse.json(cached as Record<string, unknown>);
     let feedbackContext = '';
     try {
       const { getFeedbackContextForEngines } = await import('@/app/audit/agents/humanFeedbackAgent');
@@ -158,6 +183,7 @@ export async function POST(request: NextRequest) {
     }
     const prompt = sanitizeTextForGemini(buildVerifySlmUserMessage(datasetSummary, slmArtifacts, feedbackContext));
     try {
+      consumeBudget();
       const result = await ai.models.generateContent({
         model,
         config: { systemInstruction: VERIFY_SLM_PROMPT },
@@ -172,7 +198,7 @@ export async function POST(request: NextRequest) {
       const obj = parseVerificationResult(text);
       const confidence = obj?.confidence_score ?? 0.9;
       const score = Math.max(0, Math.min(1, typeof confidence === 'number' ? confidence : 0.9));
-      return NextResponse.json({
+      const response = {
         verification_result: obj?.verification_result ?? 'agree',
         confidence_score: score,
         disagreements: Array.isArray(obj?.disagreements) ? obj.disagreements : [],
@@ -181,7 +207,9 @@ export async function POST(request: NextRequest) {
         tables_score: score,
         charts_score: score,
         insights_score: score,
-      });
+      };
+      setCachedResponse(mode, payload, response);
+      return NextResponse.json(response);
     } catch (e) {
       console.error('dual-engine verify_slm', e);
       return NextResponse.json({
@@ -199,6 +227,8 @@ export async function POST(request: NextRequest) {
 
   if (mode === 'structured') {
     const p = payload as StructuredPayload;
+    const cached = getCachedResponse(mode, payload);
+    if (cached != null) return NextResponse.json(cached as Record<string, unknown>);
     const datasetJson = JSON.stringify(p, null, 2);
     const userText = sanitizeTextForGemini(STRUCTURED_FROM_JSON_USER_PREFIX + datasetJson);
     const contents = [{ role: 'user' as const, parts: [{ text: userText }] }];
@@ -206,6 +236,7 @@ export async function POST(request: NextRequest) {
 
     const startMs = Date.now();
     try {
+      consumeBudget();
       const result = await ai.models.generateContent({
         model,
         config: { systemInstruction: STRUCTURED_FROM_RAW_SYSTEM },
@@ -234,14 +265,16 @@ export async function POST(request: NextRequest) {
         recovered_fields?: Record<string, number>;
         schema_inferences?: Record<string, { canonical: string; confidence: number }>;
       };
-      return NextResponse.json({
+      const response = {
         metrics_gemini: Array.isArray(parsed.metrics) ? parsed.metrics : [],
         tables_gemini: Array.isArray(parsed.tables) ? parsed.tables : [],
         charts_gemini: Array.isArray(parsed.charts) ? parsed.charts : [],
         insights_gemini: Array.isArray(parsed.insights) ? parsed.insights : [],
         recovered_fields: parsed.recovered_fields || {},
         schema_inferences: parsed.schema_inferences || {},
-      });
+      };
+      setCachedResponse(mode, payload, response);
+      return NextResponse.json(response);
     } catch (e) {
       console.error('dual-engine structured', e);
       return NextResponse.json(

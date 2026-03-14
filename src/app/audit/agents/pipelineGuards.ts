@@ -155,12 +155,28 @@ function checkReconciliationAndProfitabilityGate(store: MemoryStore, warnings: P
   }
 }
 
-export function runPipelineGuards(store: MemoryStore): PipelineWarning[] {
+export interface PipelineGuardsResult {
+  warnings: PipelineWarning[];
+  abort: PipelineAbortError | null;
+}
+
+export function runPipelineGuards(
+  store: MemoryStore,
+  options?: { noThrow?: boolean }
+): PipelineWarning[] | PipelineGuardsResult {
   const warnings: PipelineWarning[] = [];
-  checkSchemaGate(store);
-  checkMathematicalGate(store, warnings);
-  checkStatisticalGate(store, warnings);
-  checkReconciliationAndProfitabilityGate(store, warnings);
-  return warnings;
+  const noThrow = options?.noThrow === true;
+  try {
+    checkSchemaGate(store);
+    checkMathematicalGate(store, warnings);
+    checkStatisticalGate(store, warnings);
+    checkReconciliationAndProfitabilityGate(store, warnings);
+    return noThrow ? { warnings, abort: null } : warnings;
+  } catch (e) {
+    if (noThrow && e instanceof PipelineAbortError) {
+      return { warnings, abort: e };
+    }
+    throw e;
+  }
 }
 

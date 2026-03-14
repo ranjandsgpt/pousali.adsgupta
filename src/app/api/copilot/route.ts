@@ -4,6 +4,7 @@ import { COPILOT_SYSTEM, buildCopilotUserMessage } from '@/lib/geminiPromptRegis
 import { MAX_TOKENS_NARRATIVE } from '@/lib/geminiPromptRules';
 import { buildAuditContext, type AuditContextInput, type StoreSummarySnapshot } from '@/lib/copilot/contextBuilder';
 import { validateCopilotResponse } from '@/lib/copilot/validateResponse';
+import { detectQueryAmbiguity } from '@/lib/copilot/queryAmbiguity';
 import { assertNoFileReferences, sanitizeTextForGemini } from '@/lib/geminiRequestGuard';
 import { logGeminiRequest } from '@/lib/geminiRequestLogger';
 import { runQueryIntelligenceAgent } from '@/agents/queryIntelligenceAgent';
@@ -92,6 +93,15 @@ export async function POST(request: NextRequest) {
   const hasData =
     (auditContextInput.metrics?.length ?? 0) > 0 ||
     (auditContextInput.storeSummary?.metrics != null);
+
+  const ambiguity = detectQueryAmbiguity(question);
+  if (ambiguity.ambiguous && ambiguity.suggestion) {
+    return NextResponse.json({
+      answer: ambiguity.suggestion,
+      validated: true,
+      suggestedFollowUps: [],
+    } as CopilotResponseBody);
+  }
 
   // Only return definitions when there is no audit data, or when the question explicitly asks for a formula/definition.
   // When we have data, always use the insight pipeline (QI → SLM/Gemini) so users get real metrics and insights.

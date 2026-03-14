@@ -23,6 +23,8 @@ interface ExportContextValue {
   exportStatusMessage: string;
   /** User-visible error when PDF/PPTX export fails */
   exportError: string | null;
+  /** Phase 1 Prompt 6: true when last PDF used Node/chart fallback (transparency) */
+  chartsFallbackUsed: boolean;
   onDownloadPdf: () => void | Promise<void>;
   onDownloadPptx: () => void | Promise<void>;
   onRefreshExports: () => void;
@@ -41,6 +43,7 @@ export function ExportProvider({ children }: { children: ReactNode }) {
   const [exportStatus, setExportStatusState] = useState<ExportProgressStatus>('idle');
   const [exportStatusMessage, setExportStatusMessage] = useState('');
   const [exportError, setExportError] = useState<string | null>(null);
+  const [chartsFallbackUsed, setChartsFallbackUsed] = useState(false);
   const { state } = useAuditStore();
   const { validated } = useValidatedArtifacts();
   const { report } = useGeminiReport();
@@ -152,6 +155,8 @@ export function ExportProvider({ children }: { children: ReactNode }) {
         throw new Error((err as { error?: string }).error || 'PDF export failed');
       }
       const blob = await res.blob();
+      const chartsFallback = res.headers.get('X-Charts-Fallback-Used') === 'true';
+      setChartsFallbackUsed(chartsFallback);
       triggerDownload(blob, 'audit-report.pdf');
       setExportStatusState('ready');
       setExportStatusMessage('Export ready');
@@ -227,6 +232,7 @@ export function ExportProvider({ children }: { children: ReactNode }) {
     exportStatus,
     exportStatusMessage,
     exportError,
+    chartsFallbackUsed,
     onDownloadPdf,
     onDownloadPptx,
     onRefreshExports,

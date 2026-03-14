@@ -15,6 +15,8 @@ interface ExportBarProps {
   exportStatus?: 'idle' | 'queued' | 'rendering' | 'verifying' | 'retrying' | 'ready' | 'error';
   exportStatusMessage?: string;
   exportError?: string | null;
+  /** When true, show note that charts/PDF used deterministic fallback */
+  chartsFallbackUsed?: boolean;
 }
 
 const STATUS_PCT: Record<string, number> = {
@@ -35,6 +37,7 @@ export default function ExportBar({
   exportStatus = 'idle',
   exportStatusMessage = '',
   exportError = null,
+  chartsFallbackUsed = false,
 }: ExportBarProps) {
   const { state } = useAuditStore();
   const store = state.store;
@@ -51,6 +54,11 @@ export default function ExportBar({
       <div className="flex flex-wrap items-center justify-between gap-4">
       <span className="text-sm font-medium text-[var(--color-text)]">
         {lock ? (exportStatusMessage || 'Generating premium report…') : 'Export Report (PDF & PPTX)'}
+        {chartsFallbackUsed && !lock && (
+          <span className="ml-2 text-xs font-normal text-amber-400/90" title="Charts or PDF were generated using deterministic fallback (Python engine unavailable)">
+            (Charts/PDF: deterministic fallback)
+          </span>
+        )}
         {dataTrust != null && (
           <span className="ml-2 text-xs font-normal text-[var(--color-text-muted)]" title="Data trust score">
             Audit Confidence: {Math.round(dataTrust.trustScore * 100)}%

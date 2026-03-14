@@ -22,6 +22,8 @@ export interface ConversationMemory {
 
 const MAX_TURNS = 20;
 const MAX_REFERENCED = 50;
+/** Phase 1 Prompt 8: hard cap on characters sent to the model for conversation context */
+const MAX_MEMORY_CHARS = 2500;
 
 export function createEmptyMemory(): ConversationMemory {
   return {
@@ -62,11 +64,11 @@ export function appendTurn(
   };
 }
 
-/** Build a short summary string for the Gemini prompt. */
+/** Build a short summary string for the Gemini prompt. Truncated to MAX_MEMORY_CHARS. */
 export function formatMemoryForPrompt(memory: ConversationMemory): string {
   if (memory.turns.length === 0) return '';
   const lines: string[] = ['--- Conversation context ---'];
-  memory.turns.slice(-5).forEach((t, i) => {
+  memory.turns.slice(-5).forEach((t) => {
     lines.push(`Q: ${t.question.slice(0, 150)}`);
     lines.push(`A: ${t.response.slice(0, 200)}...`);
   });
@@ -76,5 +78,6 @@ export function formatMemoryForPrompt(memory: ConversationMemory): string {
   if (memory.referencedKeywords.length > 0) {
     lines.push(`Recently referenced keywords: ${memory.referencedKeywords.slice(-10).join(', ')}`);
   }
-  return lines.join('\n');
+  const out = lines.join('\n');
+  return out.length > MAX_MEMORY_CHARS ? out.slice(0, MAX_MEMORY_CHARS - 20) + '\n...[truncated]' : out;
 }

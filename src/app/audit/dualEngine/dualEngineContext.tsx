@@ -29,7 +29,7 @@ import type {
 import { runMultiAgentPipeline } from '../agents/multiAgentPipeline';
 import { buildBlackboardRunVerification } from '../blackboard';
 import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
-import { runPipelineGuards, PipelineAbortError } from '../agents/pipelineGuards';
+import { runPipelineGuards, PipelineAbortError, type PipelineWarning } from '../agents/pipelineGuards';
 
 /** Merge recovered fields into store for display (e.g. sessions, buyBox from Gemini when SLM missed). */
 export function mergeRecoveredIntoStore(store: MemoryStore, recovered: RecoveredFields): MemoryStore {
@@ -67,6 +67,8 @@ export interface RunDualEngineOptions {
   deferGemini?: boolean;
   /** Called when Gemini verification completes (with merged store if recovered fields applied). */
   onGeminiComplete?: (mergedStore: MemoryStore | null) => void;
+  /** If true, skip pipeline guard hard gates and run with warnings only (results may be inaccurate). */
+  forceComplete?: boolean;
 }
 
 interface DualEngineContextValue extends DualEngineResult {
@@ -74,6 +76,12 @@ interface DualEngineContextValue extends DualEngineResult {
   /** True when SLM result is shown and Gemini verification is still running (progressive rendering). */
   geminiVerificationPending: boolean;
   error: string | null;
+  /** Set when pipeline aborted due to validation gates. */
+  pipelineAbort: PipelineAbortError | null;
+  /** Warnings collected during guard run (or when bypassing with forceComplete). */
+  pipelineWarnings: PipelineWarning[];
+  /** True when the current result was produced with forceComplete (bypassed validation). */
+  forceCompleteUsed: boolean;
   runDualEngine: (store: MemoryStore, options?: RunDualEngineOptions) => Promise<DualEngineResult>;
   reset: () => void;
 }
@@ -232,42 +240,64 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [geminiVerificationPending, setGeminiVerificationPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pipelineAbort, setPipelineAbort] = useState<PipelineAbortError | null>(null);
+  const [pipelineWarnings, setPipelineWarnings] = useState<PipelineWarning[]>([]);
+  const [forceCompleteUsed, setForceCompleteUsed] = useState(false);
   const { setValidated, reset: resetValidated } = useValidatedArtifacts();
 
   const reset = useCallback(() => {
     setResult(EMPTY_RESULT);
     setError(null);
+    setPipelineAbort(null);
+    setPipelineWarnings([]);
+    setForceCompleteUsed(false);
     setGeminiVerificationPending(false);
     resetValidated();
   }, [resetValidated]);
 
   const runDualEngine = useCallback(
     async (store: MemoryStore, options?: RunDualEngineOptions): Promise<DualEngineResult> => {
-      const { rawFiles, deferGemini, onGeminiComplete } = options ?? {};
+      const { rawFiles, deferGemini, onGeminiComplete, forceComplete } = options ?? {};
       setLoading(true);
       setError(null);
       setGeminiVerificationPending(false);
 
-      try {
-        const warnings = runPipelineGuards(store);
-        if (warnings.length > 0) {
+      if (forceComplete) {
+        const guardResult = runPipelineGuards(store, { noThrow: true });
+        const resultWithAbort = guardResult as { warnings: PipelineWarning[]; abort: PipelineAbortError | null };
+        setPipelineWarnings(resultWithAbort.warnings);
+        setPipelineAbort(null);
+        if (resultWithAbort.warnings.length > 0) {
           // eslint-disable-next-line no-console
-          console.warn('[PipelineWarnings]', warnings);
+          console.warn('[PipelineWarnings]', resultWithAbort.warnings);
         }
-      } catch (e) {
-        if (e instanceof PipelineAbortError) {
-          // eslint-disable-next-line no-console
-          console.error('[PipelineAbort]', e);
-          setLoading(false);
-          setError(e.message);
-          const aborted: DualEngineResult = {
-            ...EMPTY_RESULT,
-            ready: false,
-          };
-          setResult(aborted);
-          return aborted;
+      } else {
+        setForceCompleteUsed(false);
+        try {
+          const warnings = runPipelineGuards(store) as PipelineWarning[];
+          setPipelineWarnings(warnings);
+          setPipelineAbort(null);
+          if (warnings.length > 0) {
+            // eslint-disable-next-line no-console
+            console.warn('[PipelineWarnings]', warnings);
+          }
+        } catch (e) {
+          if (e instanceof PipelineAbortError) {
+            // eslint-disable-next-line no-console
+            console.error('[PipelineAbort]', e);
+            setLoading(false);
+            setError(e.message);
+            setPipelineAbort(e);
+            setPipelineWarnings([]);
+            const aborted: DualEngineResult = {
+              ...EMPTY_RESULT,
+              ready: false,
+            };
+            setResult(aborted);
+            return aborted;
+          }
+          throw e;
         }
-        throw e;
       }
 
       const slmArtifacts = buildSlmArtifacts(store);
@@ -293,6 +323,7 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
           ready: true,
         };
         setResult(slmOnly);
+        if (forceComplete) setForceCompleteUsed(true);
         if (slmOnly.auditConfidenceScore >= 80) {
           setValidated({
             metrics: slmOnly.validated.metrics,
@@ -379,6 +410,7 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
               ready: true,
             };
             setResult(next);
+            if (forceComplete) setForceCompleteUsed(true);
             if (next.auditConfidenceScore >= 80) {
               setValidated({
                 metrics: next.validated.metrics,
@@ -466,6 +498,7 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
           ready: true,
         };
         setResult(next);
+        if (forceComplete) setForceCompleteUsed(true);
         if (next.auditConfidenceScore >= 80) {
           setValidated({
             metrics: next.validated.metrics,
@@ -498,6 +531,9 @@ export function DualEngineProvider({ children }: { children: ReactNode }) {
         loading,
         geminiVerificationPending,
         error,
+        pipelineAbort,
+        pipelineWarnings,
+        forceCompleteUsed,
         runDualEngine,
         reset,
       }}

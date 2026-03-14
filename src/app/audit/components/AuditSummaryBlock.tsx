@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuditStore } from '../context/AuditStoreContext';
 import { useDualEngine } from '../dualEngine/dualEngineContext';
 import { useValidatedArtifacts } from '../store/ValidatedArtifactsContext';
 import { formatCurrency, formatPercent } from '../utils/formatNumber';
-import { FileDown, Presentation, RotateCcw, ThumbsUp, ThumbsDown, RefreshCw } from 'lucide-react';
+import { FileDown, Presentation, RotateCcw, ThumbsUp, ThumbsDown, RefreshCw, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { recordAuditEvent } from '@/lib/behavioralObserver';
 import { exportAuditPdf } from '../utils/exportPdf';
 import { computeHealthScore } from '../utils/healthScoreEngine';
@@ -23,6 +23,8 @@ const DISPLAY_NAMES: Record<string, string> = {
 
 interface AuditSummaryBlockProps {
   onRerunAnalysis: () => void;
+  /** When provided, "Continue anyway" runs dual engine with forceComplete using current store (e.g. from page). */
+  onContinueAnyway?: () => void;
   onFocusCriticalIssues?: () => void;
   onDownloadPdf?: () => void;
   onDownloadPptx?: () => void;
@@ -42,6 +44,7 @@ interface SummaryCard {
 /** Single block under page: title, health score, summary cards, detected (and missing) metrics. */
 export default function AuditSummaryBlock({
   onRerunAnalysis,
+  onContinueAnyway,
   onFocusCriticalIssues,
   onDownloadPdf,
   onDownloadPptx,
@@ -52,6 +55,7 @@ export default function AuditSummaryBlock({
   const { store } = state;
   const dualEngine = useDualEngine();
   const { validated } = useValidatedArtifacts();
+  const [warningsOpen, setWarningsOpen] = useState(false);
 
   const { healthScore, healthLabel, criticalCount, summaryCards, confidenceScore, wastedSpendEstimate, statisticalValidation } = useMemo<{
       healthScore: number;
@@ -197,12 +201,98 @@ export default function AuditSummaryBlock({
   }
 
   const failedInvariants = (store.invariantResults ?? []).filter((r) => !r.passed && r.severity === 'error');
+  const { pipelineAbort, pipelineWarnings, forceCompleteUsed, reset } = dualEngine;
+  const hasWarnings = pipelineWarnings.length > 0;
 
   return (
     <section
       aria-label="Audit summary and detected metrics"
       className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 sm:p-4 space-y-3"
     >
+      {pipelineAbort && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-500/60 bg-red-500/15 px-3 py-3 text-sm text-red-200 space-y-2"
+        >
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" aria-hidden />
+            <div>
+              <p className="font-semibold">Audit could not complete: {pipelineAbort.reason}</p>
+              <p className="text-xs opacity-90 mt-1">
+                Phase: {pipelineAbort.phase} · Agent: {pipelineAbort.agent}
+                {Object.keys(pipelineAbort.failedMetrics).length > 0 && (
+                  <> · Failed metrics: {Object.keys(pipelineAbort.failedMetrics).join(', ')}</>
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    reset();
+                    onRerunAnalysis?.();
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/40 text-white font-medium text-sm hover:bg-red-600/50"
+                >
+                  <RotateCcw size={14} aria-hidden />
+                  Retry with different files
+                </button>
+                {onContinueAnyway && (
+                  <button
+                    type="button"
+                    onClick={onContinueAnyway}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600/40 text-amber-100 font-medium text-sm hover:bg-amber-600/50"
+                  >
+                    Continue anyway (results may be inaccurate)
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {forceCompleteUsed && (
+        <div
+          role="status"
+          className="rounded-lg border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-sm text-amber-200"
+        >
+          These results bypassed validation checks and may contain errors.
+        </div>
+      )}
+
+      {hasWarnings && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5">
+          <button
+            type="button"
+            onClick={() => setWarningsOpen((o) => !o)}
+            className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium text-amber-200 hover:bg-amber-500/10 rounded-lg"
+            aria-expanded={warningsOpen}
+          >
+            <span className="inline-flex items-center gap-2">
+              Warnings
+              <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-amber-500/30 text-amber-200 text-xs">
+                {pipelineWarnings.length}
+              </span>
+            </span>
+            {warningsOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
+          {warningsOpen && (
+            <ul className="px-3 pb-3 pt-0 space-y-1.5 text-xs text-amber-200/90 border-t border-amber-500/20 pt-2">
+              {pipelineWarnings.map((w, i) => (
+                <li key={i} className="flex flex-col gap-0.5">
+                  <span>
+                    [{w.phase}] {w.agent}: {w.message}
+                  </span>
+                  {w.affectedMetrics.length > 0 && (
+                    <span className="opacity-80">Affected: {w.affectedMetrics.join(', ')} · {w.severity}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {failedInvariants.length > 0 && (
         <div
           role="alert"
